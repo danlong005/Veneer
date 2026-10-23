@@ -9,7 +9,8 @@ changing host code. It runs on the IBM i (PASE) or on any other machine with Nod
 | --- | --- | --- |
 | `packages/tn5250` | Milestone 1 | Pure TypeScript TN5250 client: Telnet/TLS, 5250 data stream, screen model |
 | `packages/server` | Milestone 2 | Session server: one host session per browser tab over WebSocket |
-| `packages/client` | Milestone 3 | Browser client: React UI with auto-transform rules |
+| `packages/client` | Milestone 3 | Browser client: React UI with auto-transform rules and the designer |
+| `packages/screens` | Milestone 4 | Screen definitions: identification, customizations, validation |
 
 ## Development
 
@@ -94,3 +95,45 @@ The browser applies the same field rules as a 5250 terminal:
 - **Mandatory entry** and **mandatory fill** fields are checked before Enter. A notice
   explains the problem, and the cursor goes back to the field.
 - Upper-case (monocase) fields convert as you type. A full field advances to the next one.
+
+## Screen customizations and the designer
+
+Auto-transform handles every screen. For the screens people use most, a **screen
+definition** goes further. Each definition is one JSON file in `screens/` (or
+`VENEER_SCREENS_DIR`), so customizations are reviewed and versioned in git like code.
+
+```json
+{
+  "id": "order-entry",
+  "name": "Order entry",
+  "match": { "text": [{ "row": 1, "col": 2, "text": "ORD100" }, { "row": 1, "col": 34, "text": "Order Entry" }] },
+  "title": "New Order",
+  "changes": [
+    { "op": "text", "at": { "row": 6, "col": 4 }, "text": "Customer number" },
+    { "op": "hide", "at": { "row": 7, "col": 30 } },
+    { "op": "widget", "field": "7:22", "widget": { "type": "select", "options": [{ "value": "TX", "label": "Texas" }] } },
+    { "op": "widget", "field": "10:22", "widget": { "type": "date", "format": "YYYYMMDD" } },
+    { "op": "widget", "field": "11:22", "widget": { "type": "checkbox", "on": "Y", "off": "N" } },
+    { "op": "button", "label": "Back to menu", "action": { "aid": "F12" } }
+  ]
+}
+```
+
+- **Matching:** a definition applies when all of its `match.text` entries appear at their
+  positions. If several match, the one with the most conditions wins. Match on stable
+  text such as the title and the program name, never on data.
+- **Changes:**
+  - `hide` hides the item at a position.
+  - `text` replaces an item's text.
+  - `role` restyles text (`emphasis`, `muted`, `danger`, …).
+  - `widget` turns a field into a dropdown, checkbox or date picker. Values are
+    converted to and from the host's format.
+  - `button` adds an action button that presses a key, optionally filling fields first.
+  - `title` replaces the page title.
+- **Designer:** set `VENEER_DESIGNER_TOKEN` and a **Design** button appears. Click any
+  text, field or table to change it, and see the result immediately. The panel suggests
+  match rules and shows whether the definition still matches the current screen. **Save**
+  writes the JSON file, and every connected browser picks up the change at once. Without
+  a token, definitions are read-only.
+- **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2).
+  Its designer token is `veneer-demo-designer`.

@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { matchScreen, type ScreenDefinition } from '@veneer/screens';
+import { customize, itemAt } from '../src/transform/customize.ts';
+import { transform, type FieldItem, type TextItem } from '../src/transform/index.ts';
+import { orderEntry, promptWindow } from './screens.ts';
+
+const def: ScreenDefinition = {
+  id: 'order-entry',
+  name: 'Order Entry',
+  match: { text: [{ row: 1, col: 33, text: 'Order Entry' }] },
+  title: 'New order',
+  changes: [
+    { op: 'text', at: { row: 4, col: 3 }, text: 'Customer number' },
+    { op: 'role', at: { row: 4, col: 3 }, role: 'emphasis' },
+    { op: 'hide', at: { row: 7, col: 5 } },
+    { op: 'widget', field: '5:20', widget: { type: 'select', options: [{ value: 'TX', label: 'Texas' }] } },
+    { op: 'button', label: 'Exit', action: { aid: 'F3' } },
+  ],
+};
+
+test('applies title, text, role, widget, hide and buttons', () => {
+  const snap = orderEntry();
+  assert.equal(matchScreen(snap, [def])?.id, 'order-entry');
+  const v = customize(transform(snap), def);
+  assert.equal(v.title, 'New order');
+  assert.deepEqual(v.definition, { id: 'order-entry', name: 'Order Entry' });
+  const label = itemAt(v.items, { row: 4, col: 3 }) as TextItem;
+  assert.equal(label.text, 'Customer number');
+  assert.equal(label.role, 'emphasis');
+  assert.equal(itemAt(v.items, { row: 7, col: 3 }), undefined, 'item code label hidden (any cell of it)');
+  const state = v.items.find((i): i is FieldItem => i.kind === 'field' && i.field.id === '5:20')!;
+  assert.equal(state.widget?.type, 'select');
+  assert.deepEqual(v.buttons, [{ label: 'Exit', action: { aid: 'F3' } }]);
+});
+
+test('design mode keeps hidden items, marked', () => {
+  const v = customize(transform(orderEntry()), def, { design: true });
+  assert.equal(itemAt(v.items, { row: 7, col: 3 })?.hidden, true);
+});
+
+test('changes reach items inside a pop-up window', () => {
+  const v = customize(transform(promptWindow()), {
+    id: 'w', name: 'W', match: { text: [{ row: 8, col: 30, text: 'Select Printer' }] },
+    changes: [{ op: 'text', at: { row: 12, col: 22 }, text: 'Printer name' }],
+  });
+  assert.ok(v.window!.items.some((i) => i.kind === 'text' && i.text === 'Printer name'));
+});
+
+test('no definition leaves the view untouched', () => {
+  const view = transform(orderEntry());
+  assert.equal(customize(view, undefined), view);
+});

@@ -17,9 +17,10 @@
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
+    "@veneer/screens": "^0.1.0",
     "@veneer/server": "^0.1.0",
     "@veneer/tn5250": "^0.1.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "vite": "^8.3.5"
   }
 }

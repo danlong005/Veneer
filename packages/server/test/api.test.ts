@@ -1,0 +1,106 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { after, before, test } from 'node:test';
+import WebSocket from 'ws';
+import { createServer, type VeneerServer } from '../src/server.ts';
+import { FakeHost } from './fakeHost.ts';
+
+const TOKEN = 'test-designer-token';
+let host: FakeHost;
+let server: VeneerServer;
+let base: string;
+let dir: string;
+
+const definition = {
+  id: 'order-entry',
+  name: 'Order Entry',
+  match: { text: [{ row: 1, col: 34, text: 'Order Entry' }] },
+  title: 'New order',
+  changes: [{ op: 'hide', at: { row: 3, col: 2 } }],
+};
+
+before(async () => {
+  host = new FakeHost();
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veneer-api-'));
+  fs.writeFileSync(path.join(dir, 'broken.json'), '{"id": "broken"');
+  server = createServer({
+    listenHost: '127.0.0.1', listenPort: 0,
+    host: { host: '127.0.0.1', port: await host.start(), tls: false },
+    idleTimeoutMs: 0, resumeGraceMs: 0, maxSessions: 5, allowedOrigins: [],
+    screensDir: dir, designerToken: TOKEN,
+  });
+  base = `127.0.0.1:${(await server.listen()).port}`;
+});
+
+after(async () => {
+  await server.close();
+  await host.stop();
+});
+
+const put = (id: string, body: unknown, token: string | null = TOKEN) => fetch(`http://${base}/api/screens/${id}`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  body: typeof body === 'string' ? body : JSON.stringify(body),
+});
+
+test('reports whether the designer is enabled; invalid files are skipped', async () => {
+  assert.deepEqual(await (await fetch(`http://${base}/api/config`)).json(), { designer: true });
+  const list = await (await fetch(`http://${base}/api/screens`)).json();
+  assert.deepEqual(list.screens, []);
+});
+
+test('saving requires the designer token', async () => {
+  assert.equal((await put('order-entry', definition, null)).status, 401);
+  assert.equal((await put('order-entry', definition, 'wrong-token-value')).status, 401);
+});
+
+test('saves, lists and deletes definitions, notifying connected browsers', async () => {
+  const ws = new WebSocket(`ws://${base}/ws`);
+  await new Promise((r) => ws.once('open', r));
+  ws.send(JSON.stringify({ type: 'hello' }));
+  const notified = new Promise<{ type: string; version: number }>((resolve) => {
+    ws.on('message', (d) => { const m = JSON.parse(d.toString()); if (m.type === 'screens') resolve(m); });
+  });
+  await new Promise((r) => setTimeout(r, 100));
+
+  const res = await put('order-entry', definition);
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).title, 'New order');
+  assert.ok(fs.existsSync(path.join(dir, 'order-entry.json')), 'written to disk');
+  assert.equal((await notified).version, 1);
+
+  const list = await (await fetch(`http://${base}/api/screens`)).json();
+  assert.deepEqual(list.screens.map((s: { id: string }) => s.id), ['order-entry']);
+
+  const del = await fetch(`http://${base}/api/screens/order-entry`, { method: 'DELETE', headers: { Authorization: `Bearer ${TOKEN}` } });
+  assert.equal(del.status, 204);
+  assert.ok(!fs.existsSync(path.join(dir, 'order-entry.json')));
+  ws.close();
+});
+
+test('rejects invalid definitions with the reason', async () => {
+  const bad = await put('order-entry', { ...definition, changes: [{ op: 'hide', at: { row: 0, col: 1 } }] });
+  assert.equal(bad.status, 400);
+  assert.match((await bad.json()).error, /changes\[0\]\.at\.row/);
+  assert.equal((await put('other-id', definition)).status, 400, 'id must match the URL');
+  assert.equal((await put('order-entry', 'not json')).status, 400);
+  assert.equal((await put('..%2Fetc', definition)).status, 400);
+});
+
+test('definitions on disk are loaded at startup', async () => {
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'veneer-api-'));
+  fs.writeFileSync(path.join(dir2, 'order-entry.json'), JSON.stringify(definition));
+  const other = createServer({
+    listenHost: '127.0.0.1', listenPort: 0, host: { host: '127.0.0.1', port: 1, tls: false },
+    idleTimeoutMs: 0, resumeGraceMs: 0, maxSessions: 1, allowedOrigins: [], screensDir: dir2,
+  });
+  const port = (await other.listen()).port;
+  const list = await (await fetch(`http://127.0.0.1:${port}/api/screens`)).json();
+  assert.equal(list.screens[0].id, 'order-entry');
+  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/api/config`)).json(), { designer: false });
+  const res = await fetch(`http://127.0.0.1:${port}/api/screens/order-entry`, { method: 'DELETE', headers: { Authorization: 'Bearer x' } });
+  assert.equal(res.status, 403, 'designer disabled without a token');
+  await other.close();
+});

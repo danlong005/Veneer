@@ -1,7 +1,8 @@
 // Renders the auto-transformed view. Items keep their 5250 row/column, so
 // layouts stay faithful while widgets replace recognised patterns.
 
-import type { CSSProperties, WheelEvent } from 'react';
+import type { Target } from '@veneer/screens';
+import type { CSSProperties, MouseEvent, WheelEvent } from 'react';
 import { useRef } from 'react';
 import type { Action, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
@@ -12,6 +13,28 @@ interface Props {
   locked: boolean;
   onAction: (action: Action) => void;
   onCursor: (row: number, col: number) => void;
+  /** Designer mode: clicks select items instead of acting on them. */
+  design?: { selected: Target | null; onSelect: (at: Target) => void } | undefined;
+}
+
+/** Classes for an item in design mode. */
+function designClass(design: Props['design'], row: number, col: number, hidden?: boolean): string {
+  if (!design) return '';
+  const selected = design.selected?.row === row && design.selected.col === col;
+  return `${hidden ? ' ghost' : ''}${selected ? ' selected' : ''}`;
+}
+
+/** In design mode, swallow the click and report the item's position instead. */
+function selectInDesign(design: Props['design']) {
+  return (e: MouseEvent) => {
+    if (!design) return;
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-at]');
+    e.preventDefault();
+    e.stopPropagation();
+    if (!el) return;
+    const [row, col] = el.dataset.at!.split(':').map(Number) as [number, number];
+    design.onSelect({ row, col });
+  };
 }
 
 /** The screen cell drawn at the top-left of a container. */
@@ -37,14 +60,17 @@ export function ModernScreen(props: Props) {
   const { view } = props;
   const { top, bottom } = extent(view);
   const origin = { row: top, col: 1 };
+  const select = selectInDesign(props.design);
   return (
     <div
-      className="canvas"
+      className={`canvas${props.design ? ' designing' : ''}`}
       style={{ '--cols': view.cols, height: `calc(${bottom - top + 1} * var(--rh))` } as CSSProperties}
+      onClickCapture={props.design ? select : undefined}
+      onMouseDownCapture={props.design ? (e) => e.preventDefault() : undefined}
     >
       {view.window ? (
         <>
-          <div className="background" aria-hidden inert>
+          <div className="background" aria-hidden inert={!props.design}>
             <Items {...props} items={view.items} origin={origin} />
           </div>
           <Window {...props} win={view.window} origin={origin} />
@@ -77,7 +103,7 @@ function Window(props: Props & { win: WindowView; origin: Origin }) {
   );
 }
 
-function Items({ items, origin, binding, locked, onAction, onCursor, view }: Props & { items: Item[]; origin: Origin }) {
+function Items({ items, origin, binding, locked, onAction, onCursor, view, design }: Props & { items: Item[]; origin: Origin }) {
   const top = origin;
   const cols = view.cols;
   return (
@@ -89,8 +115,9 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view }: Pro
             return (
               <span
                 key={key}
-                className={`text role-${item.role}${item.reverse ? ' reverse' : ''}${item.underline ? ' underline' : ''}`}
+                className={`text role-${item.role}${item.reverse ? ' reverse' : ''}${item.underline ? ' underline' : ''}${designClass(design, item.row, item.col, item.hidden)}`}
                 style={at(item.row, item.col, top)}
+                data-at={`${item.row}:${item.col}`}
                 onClick={() => onCursor(item.row, item.col)}
               >
                 {item.text}
@@ -104,7 +131,10 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view }: Pro
                 field={item.field}
                 binding={binding}
                 label={item.label}
-                className={item.command ? 'command' : undefined}
+                widget={item.widget}
+                readOnly={Boolean(design)}
+                dataAt={`${item.row}:${item.col}`}
+                className={`${item.command ? 'command' : ''}${designClass(design, item.row, item.col, item.hidden)}`}
                 style={at(item.row, item.col, top, width)}
               />
             );
@@ -114,8 +144,9 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view }: Pro
               <button
                 key={key}
                 type="button"
-                className={item.key ? 'menu-link' : 'more-link'}
+                className={`${item.key ? 'menu-link' : 'more-link'}${designClass(design, item.row, item.col, item.hidden)}`}
                 style={at(item.row, item.col, top)}
+                data-at={`${item.row}:${item.col}`}
                 disabled={locked}
                 onClick={() => onAction(item.action)}
               >
@@ -125,15 +156,15 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view }: Pro
               </button>
             );
           case 'table':
-            return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} />;
+            return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} design={design} />;
         }
       })}
     </>
   );
 }
 
-function Table({ table, origin, binding, locked, onAction }: {
-  table: TableItem; origin: Origin; binding: FieldBinding; locked: boolean; onAction: (a: Action) => void;
+function Table({ table, origin, binding, locked, onAction, design }: {
+  table: TableItem; origin: Origin; binding: FieldBinding; locked: boolean; onAction: (a: Action) => void; design: Props['design'];
 }) {
   const lastWheel = useRef(0);
   const onWheel = (e: WheelEvent) => {
@@ -149,8 +180,9 @@ function Table({ table, origin, binding, locked, onAction }: {
   });
   return (
     <div
-      className="table"
+      className={`table${designClass(design, table.row, table.col, table.hidden)}`}
       role="table"
+      data-at={`${table.row}:${table.col}`}
       style={{ ...at(table.row, table.col, origin, table.width), height: `calc(${table.height} * var(--rh))` }}
       onWheel={onWheel}
     >
@@ -179,6 +211,10 @@ function Table({ table, origin, binding, locked, onAction }: {
                   field={c.field}
                   binding={binding}
                   options={c.options}
+                  widget={c.widget}
+                  readOnly={Boolean(design)}
+                  dataAt={`${c.field.row}:${c.field.col}`}
+                  className={designClass(design, c.field.row, c.field.col)}
                   label={table.columns.find((col) => col.col === c.col)?.header}
                   style={c.options ? undefined : { width: `calc(${Math.max(c.field.length, 1)} * var(--cw) + 1.2em)` }}
                 />

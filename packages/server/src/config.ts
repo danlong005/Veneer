@@ -22,6 +22,10 @@ export interface ServerConfig {
   allowedOrigins: string[];
   /** Directory of client files to serve, if any. */
   staticDir?: string;
+  /** Directory of screen definition JSON files. */
+  screensDir: string;
+  /** Bearer token for saving definitions from the designer; unset disables it. */
+  designerToken?: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -31,6 +35,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
 
   // Validate the device name prefix now rather than on the first connection.
   if (env.VENEER_DEVNAME_PREFIX) new DeviceNamePool(env.VENEER_DEVNAME_PREFIX);
+
+  if (env.VENEER_DESIGNER_TOKEN !== undefined && env.VENEER_DESIGNER_TOKEN !== '' && env.VENEER_DESIGNER_TOKEN.length < 12) {
+    throw new Error('VENEER_DESIGNER_TOKEN must be at least 12 characters');
+  }
 
   const cert = env.VENEER_HTTPS_CERT, key = env.VENEER_HTTPS_KEY;
   if (Boolean(cert) !== Boolean(key)) throw new Error('Set both VENEER_HTTPS_CERT and VENEER_HTTPS_KEY, or neither');
@@ -46,6 +54,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     ...(env.VENEER_DEVNAME_PREFIX ? { deviceNamePrefix: env.VENEER_DEVNAME_PREFIX } : {}),
     allowedOrigins: (env.VENEER_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     ...(staticDir(env) ? { staticDir: staticDir(env)! } : {}),
+    screensDir: env.VENEER_SCREENS_DIR || fileURLToPath(new URL('../../../screens', import.meta.url)),
+    ...(env.VENEER_DESIGNER_TOKEN ? { designerToken: env.VENEER_DESIGNER_TOKEN } : {}),
   };
 }
 

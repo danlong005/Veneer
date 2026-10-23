@@ -87,8 +87,10 @@ export class DemoHost {
       if (s.screen === 'order') {
         if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
         const qty = decodeSigned(fields.get('8:22'));
-        const summary = `Order accepted: customer ${(fields.get('6:22') ?? '').trim()}, ` +
-          `state ${(fields.get('7:22') ?? '').trim()}, quantity ${qty}, item ${(fields.get('9:22') ?? '').trim()}.`;
+        const value = (id: string) => (fields.get(id) ?? '').trim();
+        // Keep it within one 80-column row.
+        const summary = `Accepted: ${value('6:22')} ${value('7:22')} qty ${qty} item ${value('9:22')} ` +
+          `ship ${value('10:22') || '-'} rush ${value('11:22') || 'N'}`.slice(0, 78);
         return show(orderEntry(summary));
       }
       if (s.screen === 'menuWindow') {
@@ -154,6 +156,8 @@ function orderEntry(message?: string): number[] {
     .text(7, 4, 'State  . . . . .').field(7, 22, 2, { ffw: 0x4027 }).text(7, 30, 'Two letters', BLUE)
     .text(8, 4, 'Quantity . . . .').field(8, 22, 6, { ffw: 0x4706 }).text(8, 30, 'Negative for a return', BLUE)
     .text(9, 4, 'Item code  . . .').field(9, 22, 3, { ffw: 0x4580 }).text(9, 30, '3 digits, submits when full', BLUE)
+    .text(10, 4, 'Ship date  . . .').field(10, 22, 8, { ffw: 0x4500 }).text(10, 32, 'YYYYMMDD', BLUE)
+    .text(11, 4, 'Rush order . . .').field(11, 22, 1, { ffw: 0x4020 }).text(11, 30, 'Y=Yes, N=No', BLUE)
     .text(22, 2, 'F3=Exit   F12=Cancel', BLUE);
   if (message) s.text(24, 2, message);
   return s.cursor(6, 22).readMdt().build();

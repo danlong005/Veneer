@@ -1,5 +1,6 @@
 // An input bound to a 5250 field, shared by the modern and classic views.
 
+import { hostToIso, isoToHost, type Widget } from '@veneer/screens';
 import type { FieldSnapshot } from '@veneer/tn5250';
 import type { CSSProperties } from 'react';
 import type { Option } from '../transform/types.ts';
@@ -20,28 +21,72 @@ export function FieldInput(props: {
   style?: CSSProperties;
   className?: string;
   label?: string | undefined;
+  /** Subfile option codes: a compact dropdown that shows only the code once chosen. */
   options?: Option[] | undefined;
+  /** A widget set by a screen customization. */
+  widget?: Widget | undefined;
+  /** Designer mode: not editable. (The designer canvas also swallows clicks.) */
+  readOnly?: boolean | undefined;
+  /** Position tag the designer uses to identify the item ("row:col"). */
+  dataAt?: string | undefined;
 }) {
-  const { field, binding, style, label, options } = props;
+  const { field, binding, style, label, widget } = props;
+  const options = widget?.type === 'select' ? widget.options : props.options;
+  const compact = widget?.type !== 'select';
+  const readOnly = props.readOnly ?? false;
   const className = ['field', props.className, field.mandatoryEnter ? 'required' : '', isNumeric(field) ? 'numeric' : '']
     .filter(Boolean).join(' ');
   const value = binding.value(field);
+
+  if (widget?.type === 'checkbox') {
+    return (
+      <span className="checkbox-field" style={style}>
+        <input
+          type="checkbox"
+          data-field={field.id}
+          data-at={props.dataAt}
+          aria-label={label}
+          checked={value.trim() === widget.on}
+          onChange={(e) => binding.onChange(field, e.target.checked ? widget.on : widget.off)}
+        />
+      </span>
+    );
+  }
+
+  if (widget?.type === 'date') {
+    return (
+      <input
+        className={`${className} date-field`}
+        style={style}
+        type="date"
+        data-field={field.id}
+          data-at={props.dataAt}
+        readOnly={readOnly}
+        aria-label={label}
+        value={hostToIso(value, widget.format)}
+        onChange={(e) => binding.onChange(field, isoToHost(e.target.value, widget.format))}
+      />
+    );
+  }
 
   if (options && options.length > 0) {
     const current = options.some((o) => o.value === value.trim()) ? value.trim() : '';
     return (
       <select
-        className={`${className} option-select`}
+        className={`${className}${compact ? ' option-select' : ' widget-select'}`}
         style={style}
         data-field={field.id}
+          data-at={props.dataAt}
         aria-label={label ?? 'Option'}
         value={current}
         onChange={(e) => binding.onChange(field, e.target.value)}
       >
         <option value="" />
         {options.map((o) => (
-          // The closed select shows only the code so it fits the column.
-          <option key={o.value} value={o.value}>{o.value === current ? o.value : `${o.value} = ${o.label}`}</option>
+          // A compact select shows only the code once chosen, so it fits the column.
+          <option key={o.value} value={o.value}>
+            {!compact ? o.label : o.value === current ? o.value : `${o.value} = ${o.label}`}
+          </option>
         ))}
       </select>
     );
@@ -52,12 +97,14 @@ export function FieldInput(props: {
       className={className}
       style={style}
       data-field={field.id}
+          data-at={props.dataAt}
       aria-label={label}
       type={field.attr.nonDisplay ? 'password' : 'text'}
       inputMode={NUMERIC_KEYBOARD.has(field.shift) ? 'decimal' : undefined}
       autoComplete={field.attr.nonDisplay ? 'current-password' : 'off'}
       spellCheck={false}
       maxLength={field.length}
+      readOnly={readOnly}
       value={value}
       onChange={(e) => {
         const raw = field.monocase ? e.target.value.toUpperCase() : e.target.value;

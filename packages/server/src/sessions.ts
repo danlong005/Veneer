@@ -226,6 +226,11 @@ export class SessionManager {
     log.info('session closed', { session: bs.id, reason });
   }
 
+  /** Send a message to every attached browser. */
+  broadcast(msg: ServerMessage): void {
+    for (const bs of this.sessions.values()) bs.send(msg);
+  }
+
   /** End every session, e.g. on server shutdown, so the IBM i releases the devices. */
   closeAll(reason = 'Server shutting down'): void {
     clearInterval(this.idleSweep);

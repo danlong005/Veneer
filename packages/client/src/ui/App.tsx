@@ -1,5 +1,9 @@
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { matchScreen, type ScreenDefinition, type Target } from '@veneer/screens';
+import { DesignPanel } from '../designer/DesignPanel.tsx';
+import { newDefinition, resolveSelection } from '../designer/edit.ts';
+import { customize } from '../transform/customize.ts';
 import { transform } from '../transform/index.ts';
 import type { Action, FunctionKey } from '../transform/types.ts';
 import { ClassicScreen } from './ClassicScreen.tsx';
@@ -8,6 +12,7 @@ import { keyAction, keyHint, typedKey } from './keys.ts';
 import { checkFields } from './fieldRules.ts';
 import { ModernScreen } from './ModernScreen.tsx';
 import { MAX_TYPEAHEAD, caretAtCursor, caretPosition, replay, type Caret, type ReplayResult, type TypedKey } from './typeahead.ts';
+import { useScreens } from './useScreens.ts';
 import { useSession } from './useSession.ts';
 
 type Mode = 'modern' | 'classic';
@@ -22,7 +27,41 @@ export function App() {
   const snap = session.screen?.snap ?? null;
   const seq = session.screen?.seq ?? 0;
   const [mode, setMode] = useState<Mode>(loadMode);
-  const view = useMemo(() => (snap ? transform(snap) : null), [snap]);
+  const screens = useScreens(session.screensVersion);
+  const definition = useMemo(() => (snap ? matchScreen(snap, screens.screens) : undefined), [snap, screens.screens]);
+
+  // Designer: a draft definition previewed live in place of the matched one.
+  const [draft, setDraft] = useState<ScreenDefinition | null>(null);
+  const [draftExisting, setDraftExisting] = useState(false);
+  const [selectedAt, setSelectedAt] = useState<Target | null>(null);
+  const designing = draft !== null;
+  const designingNow = useRef(false);
+  designingNow.current = designing;
+
+  const baseView = useMemo(() => (snap ? transform(snap) : null), [snap]);
+  const view = useMemo(
+    () => (baseView ? customize(baseView, designing ? draft : definition, { design: designing }) : null),
+    [baseView, definition, draft, designing],
+  );
+  const selection = useMemo(
+    () => (designing && view && snap && selectedAt ? resolveSelection(view, snap, selectedAt) : null),
+    [designing, view, snap, selectedAt],
+  );
+  const savedDraft = draft ? screens.screens.find((d) => d.id === draft.id) : undefined;
+
+  const startDesign = () => {
+    if (!snap || !baseView) return;
+    setDraft(definition ? structuredClone(definition) : newDefinition(snap, baseView));
+    setDraftExisting(Boolean(definition));
+    setSelectedAt(null);
+    setMode('modern');
+  };
+  const stopDesign = () => {
+    const unsaved = draft && (savedDraft ? JSON.stringify(savedDraft) !== JSON.stringify(draft) : draft.changes.length > 0 || Boolean(draft.title));
+    if (unsaved && !window.confirm('Discard unsaved design changes?')) return;
+    setDraft(null);
+    setSelectedAt(null);
+  };
 
   // Edits made on the current screen, by field id.
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -128,7 +167,7 @@ export function App() {
   // Apply a pending focus after rendering.
   useEffect(() => {
     const target = focusTarget.current;
-    if (!target) return;
+    if (!target || designingNow.current) return;
     focusTarget.current = null;
     const el = document.querySelector<HTMLElement>(`[data-field="${target.id}"]`)
       ?? document.querySelector<HTMLElement>('[data-field]');
@@ -141,6 +180,8 @@ export function App() {
   // Keyboard: Enter, F1-F24, PageUp/PageDown, Esc = Reset; queued while the host is busy.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // While designing, keys belong to the design panel, not the host.
+      if (designingNow.current) return;
       if (typingAheadNow.current || awaitingNow.current) {
         const key = typedKey(e);
         if (!key) return;
@@ -189,7 +230,7 @@ export function App() {
   const busy = typingAhead;
 
   return (
-    <div className="app">
+    <div className={`app${designing ? ' designing' : ''}`}>
       <div className={`busy-bar${busy ? ' on' : ''}`} aria-hidden />
       <header className="topbar">
         <div className="brand" aria-label="Veneer">V</div>
@@ -200,13 +241,21 @@ export function App() {
           )}
         </div>
         <div className="top-actions">
+          {view?.definition && mode === 'modern' && (
+            <span className="custom-badge" title={`Customized: ${view.definition.name}`}>Customized</span>
+          )}
           <span className={`status status-${session.state}`}>
             {statusText(session.state, busy)}
             {queued > 0 && <span className="typeahead" title="Keys typed ahead">{queued} typed ahead</span>}
           </span>
-          <button type="button" className="ghost mode-toggle" onClick={toggleMode}>
-            {mode === 'modern' ? 'Classic view' : 'Modern view'}
-          </button>
+          {screens.designer && snap && !designing && (
+            <button type="button" className="ghost mode-toggle" onClick={startDesign}>Design</button>
+          )}
+          {!designing && (
+            <button type="button" className="ghost mode-toggle" onClick={toggleMode}>
+              {mode === 'modern' ? 'Classic view' : 'Modern view'}
+            </button>
+          )}
           {session.state !== 'closed' && (
             <button type="button" className="ghost" onClick={session.disconnect}>Disconnect</button>
           )}
@@ -226,9 +275,17 @@ export function App() {
 
         {snap && view ? (
           <form className="sheet" onSubmit={(e) => e.preventDefault()} autoComplete="off">
+            {mode === 'modern' && view.buttons.length > 0 && (
+              <div className="screen-actions">
+                {view.buttons.map((b, i) => (
+                  <button key={i} type="button" disabled={!canSubmit} onClick={() => onAction(b.action)}>{b.label}</button>
+                ))}
+              </div>
+            )}
             {mode === 'modern'
               ? <ModernScreen view={view} binding={binding} locked={!canSubmit} onAction={onAction}
-                  onCursor={(row, col) => { clickedCursor.current = { row, col }; }} />
+                  onCursor={(row, col) => { clickedCursor.current = { row, col }; }}
+                  design={designing ? { selected: selection?.at ?? null, onSelect: setSelectedAt } : undefined} />
               : <ClassicScreen snap={snap} binding={binding} />}
           </form>
         ) : (
@@ -253,6 +310,20 @@ export function App() {
             </>
           )}
         </footer>
+      )}
+
+      {designing && draft && snap && view && (
+        <DesignPanel
+          snap={snap}
+          view={view}
+          draft={draft}
+          setDraft={setDraft}
+          saved={savedDraft}
+          existing={draftExisting}
+          selection={selection}
+          onSaved={screens.reload}
+          onClose={stopDesign}
+        />
       )}
 
       {session.state === 'closed' && (

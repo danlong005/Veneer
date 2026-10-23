@@ -47,7 +47,7 @@ export class TransformContext {
   constructor(snap: ScreenSnapshot, region?: Region) {
     this.snap = snap;
     this.region = region ?? { top: 1, left: 1, bottom: snap.rows, right: snap.cols };
-    this.view = { rows: snap.rows, cols: snap.cols, meta: [], items: [], functionKeys: [], snapshot: snap };
+    this.view = { rows: snap.rows, cols: snap.cols, meta: [], items: [], functionKeys: [], buttons: [], snapshot: snap };
     this.inputs = snap.fields.filter((f) => !f.bypass && this.inRegion(f.row, f.col));
     this.claimed = new Uint8Array(snap.rows * snap.cols);
     const inField = new Uint8Array(snap.rows * snap.cols);

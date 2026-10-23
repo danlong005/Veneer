@@ -4,10 +4,12 @@ import http from 'node:http';
 import https from 'node:https';
 import type { AddressInfo } from 'node:net';
 import { WebSocketServer, type WebSocket } from 'ws';
+import { handleApi } from './api.ts';
 import type { ServerConfig } from './config.ts';
 import { log } from './log.ts';
 import { SessionManager } from './sessions.ts';
 import { serveStatic } from './static.ts';
+import { ScreenStore } from './store.ts';
 
 const HEARTBEAT_MS = 30_000;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -15,6 +17,8 @@ const MAX_MESSAGE_BYTES = 64 * 1024;
 export interface VeneerServer {
   readonly http: http.Server;
   readonly sessions: SessionManager;
+  readonly screens: ScreenStore;
+  /** Load screen definitions, then start listening. */
   listen(): Promise<AddressInfo>;
   close(): Promise<void>;
 }
@@ -27,6 +31,8 @@ export function createServer(config: ServerConfig): VeneerServer {
     maxSessions: config.maxSessions,
     deviceNamePrefix: config.deviceNamePrefix,
   });
+  const screens = new ScreenStore(config.screensDir);
+  screens.on('changed', (version) => sessions.broadcast({ type: 'screens', version }));
 
   const onRequest: http.RequestListener = (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -36,6 +42,8 @@ export function createServer(config: ServerConfig): VeneerServer {
     if (pathname === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', sessions: sessions.size }));
+    } else if (handleApi(req, res, pathname, { store: screens, designerToken: config.designerToken })) {
+      // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405).end();
     } else if (config.staticDir) {
@@ -80,14 +88,13 @@ export function createServer(config: ServerConfig): VeneerServer {
   return {
     http: server,
     sessions,
-    listen: () => new Promise((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(config.listenPort, config.listenHost, () => {
-        server.off('error', reject);
-        resolve(server.address() as AddressInfo);
-      });
-    }),
+    screens,
+    listen: async () => {
+      await screens.load();
+      return listenOn();
+    },
     close: () => new Promise((resolve) => {
+
       clearInterval(heartbeat);
       sessions.closeAll();
       for (const ws of wss.clients) ws.terminate();
@@ -96,6 +103,16 @@ export function createServer(config: ServerConfig): VeneerServer {
       server.closeAllConnections?.();
     }),
   };
+
+  function listenOn(): Promise<AddressInfo> {
+    return new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(config.listenPort, config.listenHost, () => {
+        server.off('error', reject);
+        resolve(server.address() as AddressInfo);
+      });
+    });
+  }
 }
 
 /** Browsers always send Origin on WebSocket upgrades; require it to match. */

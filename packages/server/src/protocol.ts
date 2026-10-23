@@ -8,7 +8,9 @@ export type ServerMessage =
   | { type: 'status'; state: 'connecting' | 'connected' | 'closed'; message?: string }
   /** `seq` increases with every screen sent for this session. */
   | { type: 'screen'; seq: number; screen: ScreenSnapshot }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  /** Screen definitions changed; refetch /api/screens. */
+  | { type: 'screens'; version: number };
 
 export type ClientMessage =
   /** Must be the first message. Pass the last resumeToken to reattach to a live session. */

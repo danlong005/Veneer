@@ -14,6 +14,8 @@ export interface SessionApi {
   closedReason: string | null;
   /** Latest transient error from the server. */
   error: { id: number; message: string } | null;
+  /** Bumped when the server reports changed screen definitions. */
+  screensVersion: number;
   send: (msg: ClientMessage) => void;
   disconnect: () => void;
   newSession: () => void;
@@ -33,6 +35,7 @@ export function useSession(): SessionApi {
   const [screen, setScreen] = useState<SessionApi['screen']>(null);
   const [closedReason, setClosedReason] = useState<string | null>(null);
   const [error, setError] = useState<SessionApi['error']>(null);
+  const [screensVersion, setScreensVersion] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const retries = useRef(0);
   const retryTimer = useRef<number | undefined>(undefined);
@@ -70,6 +73,9 @@ export function useSession(): SessionApi {
           break;
         case 'error':
           setError({ id: Date.now(), message: msg.message });
+          break;
+        case 'screens':
+          setScreensVersion(msg.version);
           break;
       }
     };
@@ -115,5 +121,5 @@ export function useSession(): SessionApi {
     connect(false);
   }, [connect]);
 
-  return { state, screen, closedReason, error, send, disconnect, newSession };
+  return { state, screen, closedReason, error, screensVersion, send, disconnect, newSession };
 }

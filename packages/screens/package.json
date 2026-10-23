@@ -1,0 +1,22 @@
+{
+  "name": "@veneer/screens",
+  "version": "0.1.0",
+  "description": "Screen identification and customization definitions for Veneer",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "veneer-source": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --conditions=veneer-source --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@veneer/tn5250": "^0.1.0"
+  }
+}

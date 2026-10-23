@@ -1,10 +1,10 @@
 // The view model produced by the auto-transform pipeline. Every item keeps
 // its 5250 row/column so the layout stays faithful to the original screen.
 
+import type { Role, Widget } from '@veneer/screens';
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
 
-/** Semantic color roles mapped from 5250 colors (CUA conventions). */
-export type Role = 'normal' | 'emphasis' | 'muted' | 'danger' | 'warning' | 'accent' | 'accent2';
+export type { Role, Widget };
 
 export interface Placed {
   /** 1-based row and column. */
@@ -12,6 +12,8 @@ export interface Placed {
   col: number;
   /** Width in character cells. */
   width: number;
+  /** Hidden by a customization; only drawn (ghosted) in the designer. */
+  hidden?: boolean;
 }
 
 export interface Action {
@@ -40,6 +42,8 @@ export interface FieldItem extends Placed {
   /** Command line (follows "===>"). */
   command?: boolean;
   options?: Option[];
+  /** Set by a customization: dropdown, checkbox or date picker. */
+  widget?: Widget;
 }
 
 export interface LinkItem extends Placed {
@@ -57,6 +61,7 @@ export interface TableCell {
   role: Role;
   field?: FieldSnapshot;
   options?: Option[];
+  widget?: Widget;
 }
 
 export interface TableRow {
@@ -113,5 +118,9 @@ export interface ScreenView {
   message?: { text: string; kind: 'error' | 'info' };
   /** Set when a pop-up window is active; `items` are then the dimmed background. */
   window?: WindowView;
+  /** Buttons added by a customization, shown above the screen. */
+  buttons: Array<{ label: string; action: Action }>;
+  /** The screen definition applied, if any. */
+  definition?: { id: string; name: string };
   snapshot: ScreenSnapshot;
 }

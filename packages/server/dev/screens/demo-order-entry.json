@@ -1,0 +1,26 @@
+{
+  "id": "demo-order-entry",
+  "name": "Demo order entry",
+  "match": {
+    "text": [
+      { "row": 1, "col": 2, "text": "ORD100" },
+      { "row": 1, "col": 34, "text": "Order Entry" }
+    ]
+  },
+  "title": "New Order",
+  "changes": [
+    { "op": "text", "at": { "row": 6, "col": 4 }, "text": "Customer number" },
+    { "op": "widget", "field": "7:22", "widget": { "type": "select", "options": [
+      { "value": "CA", "label": "California" },
+      { "value": "IL", "label": "Illinois" },
+      { "value": "NY", "label": "New York" },
+      { "value": "TX", "label": "Texas" }
+    ] } },
+    { "op": "hide", "at": { "row": 7, "col": 30 } },
+    { "op": "widget", "field": "10:22", "widget": { "type": "date", "format": "YYYYMMDD" } },
+    { "op": "hide", "at": { "row": 10, "col": 32 } },
+    { "op": "widget", "field": "11:22", "widget": { "type": "checkbox", "on": "Y", "off": "N" } },
+    { "op": "hide", "at": { "row": 11, "col": 30 } },
+    { "op": "button", "label": "Back to menu", "action": { "aid": "F12" } }
+  ]
+}

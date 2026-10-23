@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import WebSocket from 'ws';
@@ -21,6 +24,7 @@ before(async () => {
     resumeGraceMs: 300,
     maxSessions: 3,
     allowedOrigins: [],
+  screensDir: fs.mkdtempSync(path.join(os.tmpdir(), 'veneer-screens-')),
   });
   const addr = await server.listen();
   base = `127.0.0.1:${addr.port}`;

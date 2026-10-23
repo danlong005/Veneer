@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import WebSocket from 'ws';
@@ -42,6 +45,7 @@ before(async () => {
     host: { host: '127.0.0.1', port, tls: false },
     idleTimeoutMs: 0, resumeGraceMs: 0, maxSessions: 10, allowedOrigins: [],
     deviceNamePrefix: 'WEB',
+  screensDir: fs.mkdtempSync(path.join(os.tmpdir(), 'veneer-screens-')),
   });
   url = `ws://127.0.0.1:${(await server.listen()).port}/ws`;
 });
