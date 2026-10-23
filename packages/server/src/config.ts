@@ -1,6 +1,7 @@
 // Server settings from VENEER_* environment variables (see .env.example).
 
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { hostSettingsFromEnv, type HostSettings } from '@veneer/tn5250';
 
 export interface ServerConfig {
@@ -37,8 +38,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     resumeGraceMs: int(env, 'VENEER_RESUME_GRACE_SECONDS', 60) * 1000,
     maxSessions: int(env, 'VENEER_MAX_SESSIONS', 100),
     allowedOrigins: (env.VENEER_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
-    ...(env.VENEER_STATIC_DIR ? { staticDir: env.VENEER_STATIC_DIR } : {}),
+    ...(staticDir(env) ? { staticDir: staticDir(env)! } : {}),
   };
+}
+
+/** VENEER_STATIC_DIR, else the built client next to this package (packages/client/dist). */
+function staticDir(env: NodeJS.ProcessEnv): string | undefined {
+  if (env.VENEER_STATIC_DIR) return env.VENEER_STATIC_DIR;
+  const bundled = fileURLToPath(new URL('../../client/dist', import.meta.url));
+  return fs.existsSync(bundled) ? bundled : undefined;
 }
 
 function int(env: NodeJS.ProcessEnv, name: string, fallback: number): number {

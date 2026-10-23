@@ -1,0 +1,16 @@
+// The host message line (normally the last row) -> a banner.
+
+import type { TransformContext } from '../context.ts';
+
+export function messageLine(ctx: TransformContext): void {
+  const row = ctx.snap.messageRow;
+  if (ctx.snap.error) {
+    ctx.view.message = { text: ctx.snap.error, kind: 'error' };
+    ctx.claimRow(row);
+    return;
+  }
+  if (ctx.fieldsOn(row).length > 0) return;
+  const text = ctx.chunks(row).map((c) => c.text).join('  ');
+  if (text) ctx.view.message = { text, kind: 'info' };
+  ctx.claimRow(row);
+}

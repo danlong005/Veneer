@@ -9,12 +9,14 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -b packages/server",
+    "build": "tsc -b packages/server && npm run build -w @veneer/client",
     "typecheck": "tsc -b packages/server --noEmit",
     "test": "npm test --workspaces --if-present",
     "dev": "npm run dev -w @veneer/server",
     "start": "npm start -w @veneer/server",
-    "cli": "npm run cli -w @veneer/tn5250 --"
+    "cli": "npm run cli -w @veneer/tn5250 --",
+    "demo": "npm run demo -w @veneer/server",
+    "dev:client": "npm run dev -w @veneer/client"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -264,6 +264,8 @@ export class Terminal {
     const row = s.effectiveErrorRow();
     const start = s.address(row, 1);
     if (!s.error) s.error = { row, saved: s.buffer.slice(start, start + s.cols) };
+    // Clear the line so a shorter message does not leave old text behind.
+    s.buffer.fill(0x00, start, start + s.cols);
     let addr = start;
     while (i < data.length && data[i] !== ESC) {
       const b = data[i++]!;

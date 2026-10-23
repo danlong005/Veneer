@@ -177,6 +177,8 @@ export interface ScreenSnapshot {
   messageWaiting: boolean;
   /** Text of the error line while the keyboard is in error state. */
   error: string | null;
+  /** 1-based row where the host writes messages (normally the last row). */
+  messageRow: number;
   /** Plain text of each row, with non-display data blanked. */
   lines: string[];
   segments: Segment[][];
@@ -244,6 +246,7 @@ export function snapshot(screen: Screen, cp: Codepage): ScreenSnapshot {
     keyboardLocked: screen.keyboardLocked,
     messageWaiting: screen.messageWaiting,
     error,
+    messageRow: screen.effectiveErrorRow(),
     lines,
     segments,
     fields,

@@ -8,3 +8,4 @@ export {
 } from './screen.ts';
 export { Codepage, getCodepage, registerCodepage } from './ebcdic.ts';
 export { aidByte, type AidName } from './constants.ts';
+export { HostStream, Attr, type FieldOptions } from './hostStream.ts';

@@ -16,7 +16,8 @@
     "build": "tsc -b",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
     "dev": "node --conditions=veneer-source --env-file-if-exists=../../.env --watch src/main.ts",
-    "test": "VENEER_LOG_LEVEL=error node --conditions=veneer-source --test test/*.test.ts"
+    "test": "VENEER_LOG_LEVEL=error node --conditions=veneer-source --test test/*.test.ts",
+    "demo": "node --conditions=veneer-source dev/demo.ts"
   },
   "dependencies": {
     "@veneer/tn5250": "^0.1.0",

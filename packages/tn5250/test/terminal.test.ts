@@ -121,3 +121,12 @@ test('cancel invite is echoed and clears the pending read', () => {
   assert.equal(t.sent[0]![9], 0x0a);
   assert.equal(t.terminal.readPending, false);
 });
+
+test('a short error message replaces the whole message line', () => {
+  const t = signOn();
+  t.host([...wtd(0x00, UNLOCK, ...sba(24, 2), ...e('A much longer informational message')), ...readMdt()]);
+  t.host([0x04, 0x21, 0x22, ...e('Short error'), 0x20]);
+  assert.equal(snapshot(t.terminal.screen, cp).error, 'Short error');
+  t.terminal.reset();
+  assert.equal(snapshot(t.terminal.screen, cp).lines[23]!.trim(), 'A much longer informational message');
+});
