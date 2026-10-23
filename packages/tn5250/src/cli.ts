@@ -5,17 +5,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
+import { hostSettingsFromEnv } from './config.ts';
 import { Session } from './session.ts';
 import type { AidName } from './constants.ts';
 import type { ScreenSnapshot } from './screen.ts';
 
 const env = process.env;
-if (!env.VENEER_HOST) {
-  console.error('Set VENEER_HOST (see .env.example).');
+let settings;
+try {
+  settings = hostSettingsFromEnv(env);
+} catch (err) {
+  console.error((err as Error).message);
   process.exit(1);
 }
 
-const useTls = (env.VENEER_TLS ?? 'true') !== 'false';
 let trace: ((dir: 'in' | 'out', rec: Buffer) => void) | undefined;
 if (env.VENEER_TRACE) {
   fs.mkdirSync(path.dirname(env.VENEER_TRACE), { recursive: true });
@@ -24,17 +27,7 @@ if (env.VENEER_TRACE) {
   console.error(`Tracing records to ${env.VENEER_TRACE} (contains everything you type, including passwords)`);
 }
 
-const session = new Session({
-  host: env.VENEER_HOST,
-  port: env.VENEER_PORT ? Number(env.VENEER_PORT) : undefined,
-  tls: useTls && {
-    rejectUnauthorized: env.VENEER_TLS_REJECT_UNAUTHORIZED !== 'false',
-    ...(env.VENEER_TLS_CA ? { ca: fs.readFileSync(env.VENEER_TLS_CA) } : {}),
-  },
-  terminalType: env.VENEER_TERMINAL_TYPE || undefined,
-  deviceName: env.VENEER_DEVNAME || undefined,
-  trace,
-});
+const session = new Session({ ...settings, trace });
 
 session.on('warning', (msg) => console.error(`[warn] ${msg}`));
 session.on('close', (err) => {
@@ -60,7 +53,7 @@ function render(snap: ScreenSnapshot): void {
   });
 }
 
-console.error(`Connecting to ${env.VENEER_HOST} (${useTls ? 'TLS' : 'plain Telnet'})...`);
+console.error(`Connecting to ${settings.host} (${settings.tls ? 'TLS' : 'plain Telnet'})...`);
 await session.connect();
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 console.log('Commands: <n>=<value>, enter, f1-f24, pgup, pgdn, help, sysreq, attn, reset, show, quit');

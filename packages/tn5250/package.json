@@ -8,12 +8,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "veneer-source": "./src/index.ts",
       "default": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "tsc -b",
     "test": "node --test test/*.test.ts",
-    "cli": "node --env-file-if-exists=../../.env src/cli.ts"
+    "cli": "node --conditions=veneer-source --env-file-if-exists=../../.env src/cli.ts"
   }
 }

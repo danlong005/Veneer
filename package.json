@@ -9,9 +9,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -b packages/tn5250",
-    "typecheck": "tsc -b packages/tn5250 --noEmit",
+    "build": "tsc -b packages/server",
+    "typecheck": "tsc -b packages/server --noEmit",
     "test": "npm test --workspaces --if-present",
+    "dev": "npm run dev -w @veneer/server",
+    "start": "npm start -w @veneer/server",
     "cli": "npm run cli -w @veneer/tn5250 --"
   },
   "devDependencies": {

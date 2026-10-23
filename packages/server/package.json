@@ -1,0 +1,28 @@
+{
+  "name": "@veneer/server",
+  "version": "0.1.0",
+  "description": "Veneer session server: bridges browser WebSockets to TN5250 sessions",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "veneer-source": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node --env-file-if-exists=../../.env dist/main.js",
+    "dev": "node --conditions=veneer-source --env-file-if-exists=../../.env --watch src/main.ts",
+    "test": "VENEER_LOG_LEVEL=error node --conditions=veneer-source --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@veneer/tn5250": "^0.1.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13"
+  }
+}

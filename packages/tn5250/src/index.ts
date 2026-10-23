@@ -1,3 +1,4 @@
+export { hostSettingsFromEnv, type HostSettings } from './config.ts';
 export { Session, type SessionOptions, type SubmitInput } from './session.ts';
 export { Terminal, ProtocolError, buildRecord, type TerminalOptions } from './terminal.ts';
 export { TelnetCodec, type TelnetOptions } from './telnet.ts';

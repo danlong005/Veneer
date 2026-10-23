@@ -1,0 +1,110 @@
+// HTTP(S) server: /ws for browser sessions, /healthz, and the static client.
+
+import http from 'node:http';
+import https from 'node:https';
+import type { AddressInfo } from 'node:net';
+import { WebSocketServer, type WebSocket } from 'ws';
+import type { ServerConfig } from './config.ts';
+import { log } from './log.ts';
+import { SessionManager } from './sessions.ts';
+import { serveStatic } from './static.ts';
+
+const HEARTBEAT_MS = 30_000;
+const MAX_MESSAGE_BYTES = 64 * 1024;
+
+export interface VeneerServer {
+  readonly http: http.Server;
+  readonly sessions: SessionManager;
+  listen(): Promise<AddressInfo>;
+  close(): Promise<void>;
+}
+
+export function createServer(config: ServerConfig): VeneerServer {
+  const sessions = new SessionManager({
+    host: config.host,
+    idleTimeoutMs: config.idleTimeoutMs,
+    resumeGraceMs: config.resumeGraceMs,
+    maxSessions: config.maxSessions,
+  });
+
+  const onRequest: http.RequestListener = (req, res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+    const pathname = new URL(req.url ?? '/', 'http://x').pathname;
+    if (pathname === '/healthz') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', sessions: sessions.size }));
+    } else if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405).end();
+    } else if (config.staticDir) {
+      serveStatic(config.staticDir, req, res);
+    } else {
+      res.writeHead(404, { 'Content-Type': 'text/plain' }).end('No client configured (VENEER_STATIC_DIR)');
+    }
+  };
+
+  const server = config.https
+    ? https.createServer({ cert: config.https.cert, key: config.https.key }, onRequest)
+    : http.createServer(onRequest);
+
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES });
+  const alive = new WeakSet<WebSocket>();
+
+  server.on('upgrade', (req, socket, head) => {
+    const pathname = new URL(req.url ?? '/', 'http://x').pathname;
+    if (pathname !== '/ws') return void socket.destroy();
+    if (!originAllowed(req, config.allowedOrigins)) {
+      log.warn('rejected websocket origin', { origin: req.headers.origin });
+      socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+      return void socket.destroy();
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      alive.add(ws);
+      ws.on('pong', () => alive.add(ws));
+      sessions.accept(ws, req.socket.remoteAddress ?? 'unknown');
+    });
+  });
+
+  // Terminate sockets that stop answering pings (sleeping laptops, dead proxies).
+  const heartbeat = setInterval(() => {
+    for (const ws of wss.clients) {
+      if (!alive.has(ws)) { ws.terminate(); continue; }
+      alive.delete(ws);
+      ws.ping();
+    }
+  }, HEARTBEAT_MS);
+  heartbeat.unref();
+
+  return {
+    http: server,
+    sessions,
+    listen: () => new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(config.listenPort, config.listenHost, () => {
+        server.off('error', reject);
+        resolve(server.address() as AddressInfo);
+      });
+    }),
+    close: () => new Promise((resolve) => {
+      clearInterval(heartbeat);
+      sessions.closeAll();
+      for (const ws of wss.clients) ws.terminate();
+      wss.close();
+      server.close(() => resolve());
+      server.closeAllConnections?.();
+    }),
+  };
+}
+
+/** Browsers always send Origin on WebSocket upgrades; require it to match. */
+function originAllowed(req: http.IncomingMessage, allowed: string[]): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true; // not a browser
+  if (allowed.length > 0) return allowed.includes(origin);
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
