@@ -147,7 +147,7 @@ function signOn(error?: string): number[] {
 }
 
 /** Order entry: mandatory, mandatory-fill, signed numeric and auto-enter fields. */
-function orderEntry(message?: string): number[] {
+export function orderEntry(message?: string): number[] {
   const s = new HostStream().clear().write()
     .text(1, 2, 'ORD100')
     .text(1, 34, 'Order Entry', WHITE)

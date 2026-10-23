@@ -2,14 +2,14 @@
 // previews live, and saves it through /api/screens.
 
 import {
-  DATE_FORMATS, ID_PATTERN, ROLES, matches, type DateFormat, type Role, type ScreenDefinition, type Widget,
+  DATE_FORMATS, ID_PATTERN, ROLES, fingerprint, matches, type DateFormat, type Role, type ScreenDefinition, type Widget,
 } from '@veneer/screens';
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ScreenView } from '../transform/types.ts';
 import {
-  buttonsOf, formatOptions, isHidden, originalText, parseOptions, roleOf, setButtons, setHidden, setRole,
-  setText, setWidget, textOf, widgetOf, type Selection,
+  addScreenId, buttonsOf, formatOptions, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
+  setHidden, setRole, setText, setWidget, textOf, widgetOf, type Selection,
 } from './edit.ts';
 
 const TOKEN_KEY = 'veneer.designerToken';
@@ -28,6 +28,10 @@ interface Props {
   /** True while editing a definition that already existed when design mode began. */
   existing: boolean;
   selection: Selection | null;
+  /** All saved definitions, to pick one to edit or extend. */
+  definitions: ScreenDefinition[];
+  /** Edit a saved definition, or start a new one for this screen (null). */
+  onPick: (def: ScreenDefinition | null) => void;
   onSaved: () => void;
   onClose: () => void;
 }
@@ -42,6 +46,8 @@ export function DesignPanel(props: Props) {
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const matched = matches(snap, draft);
+  const print = useMemo(() => fingerprint(snap), [snap]);
+  const screenIds = draft.match.screenIds ?? [];
   const dirty = JSON.stringify(saved) !== JSON.stringify(draft);
 
   useEffect(() => { setStatus(null); }, [draft]);
@@ -96,7 +102,18 @@ export function DesignPanel(props: Props) {
       </header>
 
       <section>
-        <h3>Screen</h3>
+        <h3>Customization</h3>
+        <select
+          className="dp-pick"
+          aria-label="Customization to edit"
+          value={existing ? draft.id : ''}
+          onChange={(e) => props.onPick(props.definitions.find((d) => d.id === e.target.value) ?? null)}
+        >
+          <option value="">New customization for this screen</option>
+          {[...props.definitions].sort((a, b) => a.name.localeCompare(b.name)).map((d) => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </select>
         <label className="dp-row">Name
           <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
         </label>
@@ -122,6 +139,27 @@ export function DesignPanel(props: Props) {
 
       <section>
         <h3>Recognised by</h3>
+        {screenIds.length > 0 && (
+          <ul className="dp-list">
+            {screenIds.map((sid) => (
+              <li key={sid}>
+                Screen ID <code>{sid}</code>
+                {sid === print.id && <span className="dp-tag">this screen</span>}
+                <span className="dp-quote" />
+                <button type="button" className="dp-x" aria-label="Remove screen ID" onClick={() => setDraft(removeScreenId(draft, sid))}>×</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {!screenIds.includes(print.id) && (
+          <button type="button" className="ghost" onClick={() => setDraft(addScreenId(draft, print.id))}>
+            Add this screen (ID <code>{print.id}</code>)
+          </button>
+        )}
+        {print.fields === 0 && (
+          <p className="dp-hint">This screen has no input fields, so its ID comes from the title alone. Add a text rule if other screens share the title.</p>
+        )}
+        {draft.match.text.length > 0 && <p className="dp-hint">{screenIds.length > 0 ? 'and this text:' : 'Text:'}</p>}
         <ul className="dp-list">
           {draft.match.text.map((m, i) => (
             <li key={`${m.row}:${m.col}:${i}`}>
@@ -136,7 +174,9 @@ export function DesignPanel(props: Props) {
           ))}
         </ul>
         <p className={matched ? 'dp-ok' : 'dp-warn'}>
-          {matched ? '✓ Matches this screen' : draft.match.text.length === 0 ? 'Add at least one match rule.' : '✗ Does not match this screen'}
+          {matched ? '✓ Matches this screen'
+            : screenIds.length === 0 && draft.match.text.length === 0 ? 'Add a screen ID or a text rule.'
+            : '✗ Does not match this screen'}
         </p>
         {selection?.kind === 'item' && selection.item.kind !== 'table' && (() => {
           const m = originalText(snap, selection.item);
@@ -186,7 +226,7 @@ export function DesignPanel(props: Props) {
         </label>
         {status && <p className={status.kind === 'ok' ? 'dp-ok' : 'dp-warn'} role="status">{status.text}</p>}
         <div className="dp-actions">
-          <button type="button" className="primary" disabled={busy || !dirty || !idValid || draft.match.text.length === 0 || !token} onClick={save}>
+          <button type="button" className="primary" disabled={busy || !dirty || !idValid || (screenIds.length === 0 && draft.match.text.length === 0) || !token} onClick={save}>
             {saved ? 'Save changes' : 'Save'}
           </button>
           {saved && <button type="button" className="ghost" disabled={busy || !dirty} onClick={() => setDraft(saved)}>Revert</button>}

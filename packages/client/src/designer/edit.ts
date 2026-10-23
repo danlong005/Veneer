@@ -1,45 +1,31 @@
 // Pure helpers the designer uses to build and edit screen definitions.
 
-import type { ButtonAction, Change, Role, ScreenDefinition, Target, TextMatch, Widget } from '@veneer/screens';
+import { screenId, type ButtonAction, type Change, type Role, type ScreenDefinition, type Target, type TextMatch, type Widget } from '@veneer/screens';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
 import { itemAt } from '../transform/customize.ts';
 import type { Item, ScreenView } from '../transform/types.ts';
 
 const same = (a: Target, b: Target) => a.row === b.row && a.col === b.col;
 
-/** Text chunks of a row (split on 2+ spaces) with their 1-based columns. */
-function rowChunks(line: string): Array<{ col: number; text: string }> {
-  return [...line.matchAll(/\S+(?: \S+)*/g)].map((m) => ({ col: m.index + 1, text: m[0] }));
-}
-
 export function slug(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || 'screen';
 }
 
-/**
- * Match rules for a new definition: the title near the center of the first
- * non-blank row, plus a short identifier at its left edge (a program or
- * menu name such as ORD100 or MAIN) when there is one.
- */
-export function suggestMatch(snap: ScreenSnapshot): TextMatch[] {
-  const rowIndex = snap.lines.findIndex((l) => l.trim() !== '');
-  if (rowIndex < 0) return [];
-  const row = rowIndex + 1;
-  const chunks = rowChunks(snap.lines[rowIndex]!);
-  const center = snap.cols / 2;
-  const title = [...chunks].sort((a, b) =>
-    Math.abs(a.col + a.text.length / 2 - center) - Math.abs(b.col + b.text.length / 2 - center))[0]!;
-  const out: TextMatch[] = [{ row, col: title.col, text: title.text }];
-  const id = chunks[0]!;
-  if (id !== title && id.col <= 3 && id.text.length <= 10 && !id.text.includes(' ')) {
-    out.unshift({ row, col: id.col, text: id.text });
-  }
-  return out;
-}
-
+/** A new definition for this screen, recognised by its screen id. */
 export function newDefinition(snap: ScreenSnapshot, view: ScreenView): ScreenDefinition {
   const name = view.title ?? 'New screen';
-  return { id: slug(name), name, match: { text: suggestMatch(snap) }, changes: [] };
+  return { id: slug(name), name, match: { screenIds: [screenId(snap)], text: [] }, changes: [] };
+}
+
+export function addScreenId(def: ScreenDefinition, id: string): ScreenDefinition {
+  const ids = def.match.screenIds ?? [];
+  return ids.includes(id) ? def : { ...def, match: { ...def.match, screenIds: [...ids, id] } };
+}
+
+export function removeScreenId(def: ScreenDefinition, id: string): ScreenDefinition {
+  const ids = (def.match.screenIds ?? []).filter((x) => x !== id);
+  const { screenIds: _omit, ...rest } = def.match;
+  return { ...def, match: ids.length > 0 ? { ...rest, screenIds: ids } : rest };
 }
 
 /** The screen text under an item, as the host sent it (for a match rule). */

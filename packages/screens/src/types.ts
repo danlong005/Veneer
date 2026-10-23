@@ -18,10 +18,17 @@ export interface TextMatch extends Target {
   text: string;
 }
 
+/**
+ * How a definition recognises its screen: any of the screen ids (see
+ * fingerprint.ts), and all of the text rules. At least one of the two is needed.
+ */
 export interface Match {
+  /** Screen ids this definition applies to (variants such as an empty list). */
+  screenIds?: string[];
   /** Screen size, when the definition only applies to 24x80 or 27x132. */
   rows?: number;
   cols?: number;
+  /** Text that must also appear at fixed positions. */
   text: TextMatch[];
 }
 

@@ -43,7 +43,8 @@ test('rejects bad definitions with a useful path', () => {
   const base = { id: 'x', name: 'X', match: { text: [{ row: 1, col: 1, text: 'X' }] }, changes: [] };
   const cases: Array<[unknown, RegExp]> = [
     [{ ...base, id: '../etc' }, /id: must be lowercase/],
-    [{ ...base, match: { text: [] } }, /match\.text/],
+    [{ ...base, match: { text: [] } }, /match: needs a screen id/],
+    [{ ...base, match: { text: [], screenIds: ['not-hex!'] } }, /match\.screenIds\[0\]/],
     [{ ...base, changes: [{ op: 'hide', at: { row: 99, col: 1 } }] }, /changes\[0\]\.at\.row/],
     [{ ...base, changes: [{ op: 'button', label: 'x', action: { aid: 'F99' } }] }, /aid/],
     [{ ...base, changes: [{ op: 'widget', field: '7:22', widget: { type: 'date', format: 'bogus' } }] }, /format/],

@@ -1,23 +1,29 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { matches } from '@veneer/screens';
+import { matches, screenId } from '@veneer/screens';
 import {
-  formatOptions, isHidden, newDefinition, originalText, parseOptions, resolveSelection,
-  setHidden, setRole, setText, setWidget, slug, suggestMatch, textOf, widgetOf,
+  addScreenId, formatOptions, isHidden, newDefinition, originalText, parseOptions, removeScreenId, resolveSelection,
+  setHidden, setRole, setText, setWidget, slug, textOf, widgetOf,
 } from '../src/designer/edit.ts';
 import { transform } from '../src/transform/index.ts';
 import { mainMenu, orderEntry, workWithJobs } from './screens.ts';
 
-test('suggests the title and a program name as match rules', () => {
-  assert.deepEqual(suggestMatch(mainMenu()), [
-    { row: 1, col: 2, text: 'MAIN' },
-    { row: 1, col: 33, text: 'IBM i Main Menu' },
-  ]);
+test('a new definition is recognised by the screen id', () => {
   const snap = workWithJobs();
   const def = newDefinition(snap, transform(snap));
   assert.equal(def.id, 'work-with-active-jobs');
+  assert.deepEqual(def.match, { screenIds: [screenId(snap)], text: [] });
   assert.ok(matches(snap, def), 'a new definition matches the screen it was made on');
   assert.ok(!matches(mainMenu(), def));
+});
+
+test('screen ids are added once and removed cleanly', () => {
+  const snap = workWithJobs();
+  const def = newDefinition(snap, transform(snap));
+  const two = addScreenId(addScreenId(def, 'abcdef0123'), 'abcdef0123');
+  assert.equal(two.match.screenIds?.length, 2);
+  const none = removeScreenId(removeScreenId(two, 'abcdef0123'), screenId(snap));
+  assert.ok(!('screenIds' in none.match));
 });
 
 test('edits changes per target without duplicates', () => {

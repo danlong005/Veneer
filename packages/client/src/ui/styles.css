@@ -303,6 +303,8 @@ kbd {
 .dp-list li { display: flex; align-items: center; gap: 6px; }
 .dp-list code, .dp-desc code { font-size: 12px; color: var(--text-muted); }
 .dp-quote { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-pick { font-size: 13.5px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text); }
+.dp-tag { font-size: 11px; font-weight: 600; color: #1f8a5b; background: color-mix(in srgb, #1f8a5b 14%, transparent); border-radius: 999px; padding: 0 7px; }
 .dp-x { border: 0; background: transparent; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 0 4px; }
 .dp-x:hover { color: var(--danger); }
 .dp-ok { margin: 0; color: #1f8a5b; font-weight: 600; }

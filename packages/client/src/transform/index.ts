@@ -2,6 +2,7 @@
 // order; each claims the cells it renders so later rules skip them. Custom
 // per-screen rules can be inserted into the list later.
 
+import { activeWindow, findWindows } from '@veneer/screens';
 import type { ScreenSnapshot } from '@veneer/tn5250';
 import { TransformContext } from './context.ts';
 import { commandLine } from './rules/commandLine.ts';
@@ -13,7 +14,6 @@ import { subfile } from './rules/subfile.ts';
 import { text } from './rules/text.ts';
 import { title, windowTitle } from './rules/title.ts';
 import type { ScreenView } from './types.ts';
-import { activeWindow, findWindows } from './windows.ts';
 
 export type Rule = (ctx: TransformContext) => void;
 
@@ -58,5 +58,5 @@ function run(ctx: TransformContext, rules: readonly Rule[]): ScreenView {
 }
 
 export { TransformContext, type Region } from './context.ts';
-export { findWindows, activeWindow, type WindowBox } from './windows.ts';
+export { findWindows, activeWindow, type WindowBox } from '@veneer/screens';
 export type * from './types.ts';

@@ -106,7 +106,7 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
 {
   "id": "order-entry",
   "name": "Order entry",
-  "match": { "text": [{ "row": 1, "col": 2, "text": "ORD100" }, { "row": 1, "col": 34, "text": "Order Entry" }] },
+  "match": { "screenIds": ["04e026716dd801"], "text": [] },
   "title": "New Order",
   "changes": [
     { "op": "text", "at": { "row": 6, "col": 4 }, "text": "Customer number" },
@@ -119,9 +119,19 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
 }
 ```
 
-- **Matching:** a definition applies when all of its `match.text` entries appear at their
-  positions. If several match, the one with the most conditions wins. Match on stable
-  text such as the title and the program name, never on data.
+- **Screen IDs:** every screen has an ID, a hash of what stays the same when the data
+  changes. That's the screen size, the input-field layout from the display file, and the
+  title. Dates, records, messages and the system name are left out, so an ID is the same
+  on every page of a list and on development and production machines. A subfile's
+  column of option fields counts once, whatever the number of records. A pop-up window is
+  identified by its own title and fields, whatever screen it opens over. Recompiling a
+  display file with a different field layout changes the ID.
+- **Matching:** a definition applies when the screen's ID is one of its `screenIds`
+  (if it lists any) and all its `text` rules match. Text rules are optional; use them to
+  tell apart screens that share a layout and title, or screens with no input fields.
+  List several IDs for variants of one screen, such as a list with no records (which
+  has no option fields). If several definitions match, one with a screen ID wins, then
+  the one with the most text rules.
 - **Changes:**
   - `hide` hides the item at a position.
   - `text` replaces an item's text.
@@ -131,9 +141,10 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   - `button` adds an action button that presses a key, optionally filling fields first.
   - `title` replaces the page title.
 - **Designer:** set `VENEER_DESIGNER_TOKEN` and a **Design** button appears. Click any
-  text, field or table to change it, and see the result immediately. The panel suggests
-  match rules and shows whether the definition still matches the current screen. **Save**
-  writes the JSON file, and every connected browser picks up the change at once. Without
-  a token, definitions are read-only.
+  text, field or table to change it, and see the result immediately. New customizations
+  are recognised by this screen's ID. To attach another variant, such as the empty list,
+  open it, pick the existing customization in the panel, and click **Add this screen**.
+  **Save** writes the JSON file, and every connected browser picks up the change at once.
+  Without a token, definitions are read-only.
 - **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2).
   Its designer token is `veneer-demo-designer`.

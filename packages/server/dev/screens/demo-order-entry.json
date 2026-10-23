@@ -2,10 +2,8 @@
   "id": "demo-order-entry",
   "name": "Demo order entry",
   "match": {
-    "text": [
-      { "row": 1, "col": 2, "text": "ORD100" },
-      { "row": 1, "col": 34, "text": "Order Entry" }
-    ]
+    "screenIds": ["04e026716dd801"],
+    "text": []
   },
   "title": "New Order",
   "changes": [

@@ -6,7 +6,14 @@
 //    :......................:      bottom: ':' corners, '.' fill
 
 import type { ScreenSnapshot } from '@veneer/tn5250';
-import type { Region } from './context.ts';
+
+/** A rectangle of the screen, 1-based and inclusive. */
+export interface Region {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+}
 
 export interface WindowBox {
   /** The border, 1-based and inclusive. */

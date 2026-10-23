@@ -5,6 +5,7 @@ import { DATE_FORMATS, ROLES, type Change, type ScreenDefinition, type Target, t
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const AID = /^(Enter|Help|PageUp|PageDown|Print|Clear|RecordBackspace|F([1-9]|1\d|2[0-4]))$/;
 const FIELD_ID = /^\d{1,3}:\d{1,3}$/;
+const SCREEN_ID = /^[0-9a-f]{8,32}$/;
 const MAX_CHANGES = 500;
 
 export class DefinitionError extends Error {
@@ -113,12 +114,18 @@ export function validateDefinition(input: unknown): ScreenDefinition {
   const name = str(o.name, 'name', 100);
   if (name.trim() === '') fail('name', 'must not be blank');
   const m = obj(o.match, 'match');
-  const text = arr(m.text, 'match.text', 20).map((x, i) => textMatch(x, `match.text[${i}]`));
-  if (text.length === 0) fail('match.text', 'needs at least one text condition');
+  const text = arr(m.text ?? [], 'match.text', 20).map((x, i) => textMatch(x, `match.text[${i}]`));
+  const screenIds = arr(m.screenIds ?? [], 'match.screenIds', 20).map((x, i) => {
+    const sid = str(x, `match.screenIds[${i}]`, 32);
+    if (!SCREEN_ID.test(sid)) fail(`match.screenIds[${i}]`, 'must be a screen id (hex digits)');
+    return sid;
+  });
+  if (text.length === 0 && screenIds.length === 0) fail('match', 'needs a screen id or at least one text rule');
   const def: ScreenDefinition = {
     id,
     name,
     match: {
+      ...(screenIds.length > 0 ? { screenIds } : {}),
       ...(m.rows !== undefined ? { rows: int(m.rows, 'match.rows', 24, 27) } : {}),
       ...(m.cols !== undefined ? { cols: int(m.cols, 'match.cols', 80, 132) } : {}),
       text,

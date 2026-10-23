@@ -56,11 +56,19 @@ export function App() {
     setSelectedAt(null);
     setMode('modern');
   };
-  const stopDesign = () => {
+  const confirmDiscard = () => {
     const unsaved = draft && (savedDraft ? JSON.stringify(savedDraft) !== JSON.stringify(draft) : draft.changes.length > 0 || Boolean(draft.title));
-    if (unsaved && !window.confirm('Discard unsaved design changes?')) return;
+    return !unsaved || window.confirm('Discard unsaved design changes?');
+  };
+  const stopDesign = () => {
+    if (!confirmDiscard()) return;
     setDraft(null);
     setSelectedAt(null);
+  };
+  const pickDefinition = (def: ScreenDefinition | null) => {
+    if (!snap || !baseView || !confirmDiscard()) return;
+    setDraft(def ? structuredClone(def) : newDefinition(snap, baseView));
+    setDraftExisting(def !== null);
   };
 
   // Edits made on the current screen, by field id.
@@ -321,6 +329,8 @@ export function App() {
           saved={savedDraft}
           existing={draftExisting}
           selection={selection}
+          definitions={screens.screens}
+          onPick={pickDefinition}
           onSaved={screens.reload}
           onClose={stopDesign}
         />
