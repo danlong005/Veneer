@@ -1,0 +1,21 @@
+{
+  "name": "veneer",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -b packages/tn5250",
+    "typecheck": "tsc -b packages/tn5250 --noEmit",
+    "test": "npm test --workspaces --if-present",
+    "cli": "npm run cli -w @veneer/tn5250 --"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.0"
+  }
+}

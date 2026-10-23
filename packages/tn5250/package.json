@@ -1,0 +1,19 @@
+{
+  "name": "@veneer/tn5250",
+  "version": "0.1.0",
+  "description": "Pure TypeScript TN5250 client and 5250 screen model",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --test test/*.test.ts",
+    "cli": "node --env-file-if-exists=../../.env src/cli.ts"
+  }
+}
