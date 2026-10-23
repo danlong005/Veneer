@@ -130,3 +130,58 @@ test('a short error message replaces the whole message line', () => {
   t.terminal.reset();
   assert.equal(snapshot(t.terminal.screen, cp).lines[23]!.trim(), 'A much longer informational message');
 });
+
+// Signed numeric (shift 7) and numeric-only (shift 3) fields, blank fill.
+function numericScreen() {
+  const t = makeTerminal();
+  t.host([...CLEAR,
+    ...wtd(0x00, UNLOCK, ...sba(2, 2), ...sf(0x4706, 0x20, 6), ...sba(3, 2), ...sf(0x4306, 0x20, 5)),
+    ...readMdt()]);
+  return t;
+}
+
+test('signed numeric: right-adjusted digits, sign folded into the last digit when sent', () => {
+  const { terminal, sent } = numericScreen();
+  const [signed, numeric] = terminal.screen.fields;
+  terminal.setFieldValue(signed!, '-123');
+  terminal.setFieldValue(numeric!, '45');
+  assert.equal(snapshot(terminal.screen, cp).fields[0]!.value, '123-');
+  terminal.sendAid(0xf1);
+  assert.deepEqual([...sent[0]!.subarray(13)], [
+    0x11, 2, 3, 0x40, 0x40, 0xf1, 0xf2, 0xd3, // "  12" + 3 with D zone; sign position not sent
+    0x11, 3, 3, 0x40, 0x40, 0x40, 0xf4, 0xf5,
+  ]);
+});
+
+test('numeric-only: a negative value zones the last digit and displays with a minus', () => {
+  const { terminal } = numericScreen();
+  const numeric = terminal.screen.fields[1]!;
+  terminal.setFieldValue(numeric, '7-');
+  assert.deepEqual([...terminal.screen.fieldBytes(numeric)], [0x40, 0x40, 0x40, 0x40, 0xd7]);
+  assert.equal(snapshot(terminal.screen, cp).fields[1]!.value, '7-');
+});
+
+test('reformatted but identical values do not mark a field modified', () => {
+  const { terminal } = numericScreen();
+  const signed = terminal.screen.fields[0]!;
+  assert.equal(terminal.setFieldValue(signed, '123-'), true);
+  assert.equal(terminal.setFieldValue(signed, '  -123 '), false);
+  assert.equal(terminal.setFieldValue(signed, '123'), true, 'sign change is a change');
+});
+
+test('auto-enter fields are flagged in the snapshot', () => {
+  const t = makeTerminal();
+  t.host([...CLEAR, ...wtd(0x00, UNLOCK, ...sba(2, 2), ...sf(0x4080, 0x20, 2)), ...readMdt()]);
+  assert.equal(snapshot(t.terminal.screen, cp).fields[0]!.autoEnter, true);
+});
+
+test('Clear Unit Alternate switches to 27x132 and addresses rows past 24', () => {
+  const t = makeTerminal();
+  t.host([0x04, 0x20, 0x00, ...wtd(0x00, UNLOCK, ...sba(27, 120), ...e('Bottom right'), ...sba(26, 2), ...sf(0x4000, 0x24, 100)), ...readMdt()]);
+  const snap = snapshot(t.terminal.screen, cp);
+  assert.equal(snap.rows, 27);
+  assert.equal(snap.cols, 132);
+  assert.equal(snap.lines[26]!.trim(), 'Bottom right');
+  assert.equal(snap.fields[0]!.id, '26:3');
+  assert.equal(snap.fields[0]!.length, 100);
+});

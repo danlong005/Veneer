@@ -164,6 +164,8 @@ export interface FieldSnapshot {
   modified: boolean;
   monocase: boolean;
   mandatoryEnter: boolean;
+  /** Submit Enter automatically when the field is filled. */
+  autoEnter: boolean;
   shift: FieldShiftName;
   adjust: FieldAdjustName;
   attr: DisplayAttribute;
@@ -226,11 +228,12 @@ export function snapshot(screen: Screen, cp: Codepage): ScreenSnapshot {
       col,
       length: f.length,
       // Never echo non-display (password) contents back out.
-      value: attr.nonDisplay ? '' : cp.decode(screen.fieldBytes(f)).replace(/\s+$/, ''),
+      value: attr.nonDisplay ? '' : fieldText(f, screen.fieldBytes(f), cp),
       bypass: (f.ffw & FFW.BYPASS) !== 0,
       modified: (f.ffw & FFW.MDT) !== 0,
       monocase: (f.ffw & FFW.MONOCASE) !== 0,
       mandatoryEnter: (f.ffw & FFW.MANDATORY_ENTER) !== 0,
+      autoEnter: (f.ffw & FFW.AUTO_ENTER) !== 0,
       shift: fieldShift(f),
       adjust: fieldAdjust(f),
       attr,
@@ -251,6 +254,23 @@ export function snapshot(screen: Screen, cp: Codepage): ScreenSnapshot {
     segments,
     fields,
   };
+}
+
+/** A field's text for display: numeric fields trimmed, negative zoned digits shown as "-". */
+function fieldText(f: Field, bytes: Uint8Array, cp: Codepage): string {
+  const shift = fieldShift(f);
+  if (shift !== 'numericOnly' && shift !== 'signedNumeric') return cp.decode(bytes).replace(/\s+$/, '');
+  const copy = Uint8Array.from(bytes);
+  let end = copy.length;
+  while (end > 0 && (copy[end - 1] === 0x00 || copy[end - 1] === 0x40)) end--;
+  const last = copy[end - 1];
+  let negative = false;
+  if (shift === 'numericOnly' && last !== undefined && (last & 0xf0) === 0xd0 && (last & 0x0f) <= 9) {
+    copy[end - 1] = 0xf0 | (last & 0x0f);
+    negative = true;
+  }
+  const text = cp.decode(copy).trim();
+  return negative ? `${text}-` : text;
 }
 
 function sameAttr(a: DisplayAttribute, b: DisplayAttribute): boolean {

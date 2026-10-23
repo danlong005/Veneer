@@ -33,6 +33,8 @@ export class FakeHost {
   readonly server = net.createServer((s) => this.onConnection(s));
   readonly records: Buffer[] = [];
   readonly sockets = new Set<net.Socket>();
+  /** DEVNAME values clients sent via NEW-ENVIRON, in connection order. */
+  readonly deviceNames: Array<string | null> = [];
   connections = 0;
 
   async start(): Promise<number> {
@@ -51,9 +53,12 @@ export class FakeHost {
     socket.on('close', () => this.sockets.delete(socket));
     socket.on('error', () => {});
     socket.write(Buffer.from([IAC, 0xfd, 0x18, IAC, 0xfd, 0x19, IAC, 0xfb, 0x19, IAC, 0xfd, 0x00, IAC, 0xfb, 0x00]));
+    // Ask for environment variables (DEVNAME), as IBM i does.
+    socket.write(Buffer.from([IAC, 0xfd, 0x27, IAC, 0xfa, 0x27, 0x01, 0x03, IAC, 0xf0]));
     send(socket, SIGN_ON);
 
     let pending: number[] = [];
+    let sub: number[] = [];
     let skip = 0;
     let inSub = false;
     let iac = false;
@@ -62,17 +67,26 @@ export class FakeHost {
         if (skip > 0) { skip--; continue; }
         if (iac) {
           iac = false;
-          if (b === IAC) { if (!inSub) pending.push(b); }
+          if (b === IAC) { if (inSub) sub.push(b); else pending.push(b); }
           else if (b === 0xef) { this.onRecord(socket, Buffer.from(pending)); pending = []; }
           else if (b >= 0xfb && b <= 0xfe) skip = 1;
-          else if (b === 0xfa) inSub = true;
-          else if (b === 0xf0) inSub = false;
+          else if (b === 0xfa) { inSub = true; sub = []; }
+          else if (b === 0xf0) { inSub = false; this.onSub(sub); }
           continue;
         }
         if (b === IAC) iac = true;
-        else if (!inSub) pending.push(b);
+        else if (inSub) sub.push(b);
+        else pending.push(b);
       }
     });
+  }
+
+  /** NEW-ENVIRON IS [USERVAR "DEVNAME" VALUE "..."] */
+  private onSub(sub: number[]): void {
+    if (sub[0] !== 0x27 || sub[1] !== 0x00) return;
+    const text = Buffer.from(sub.slice(2)).toString('latin1');
+    const m = /\x03DEVNAME\x01([^\x00-\x03]*)/.exec(text);
+    this.deviceNames.push(m ? m[1]! : null);
   }
 
   private onRecord(socket: net.Socket, rec: Buffer): void {

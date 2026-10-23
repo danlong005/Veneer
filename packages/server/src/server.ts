@@ -25,6 +25,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     idleTimeoutMs: config.idleTimeoutMs,
     resumeGraceMs: config.resumeGraceMs,
     maxSessions: config.maxSessions,
+    deviceNamePrefix: config.deviceNamePrefix,
   });
 
   const onRequest: http.RequestListener = (req, res) => {

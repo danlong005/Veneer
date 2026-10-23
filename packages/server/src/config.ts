@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hostSettingsFromEnv, type HostSettings } from '@veneer/tn5250';
+import { DeviceNamePool } from './devices.ts';
 
 export interface ServerConfig {
   listenHost: string;
@@ -15,6 +16,8 @@ export interface ServerConfig {
   /** How long a host session survives with no browser attached (page reloads). */
   resumeGraceMs: number;
   maxSessions: number;
+  /** Name devices PREFIX01, PREFIX02, ...; unset lets IBM i assign QPADEVxxxx. */
+  deviceNamePrefix?: string;
   /** Allowed browser origins; empty means same-origin only. */
   allowedOrigins: string[];
   /** Directory of client files to serve, if any. */
@@ -23,8 +26,11 @@ export interface ServerConfig {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const host = hostSettingsFromEnv(env);
-  // A fixed device name can only be used by one session at a time.
+  // A fixed device name can only be used by one session at a time; see VENEER_DEVNAME_PREFIX.
   delete host.deviceName;
+
+  // Validate the device name prefix now rather than on the first connection.
+  if (env.VENEER_DEVNAME_PREFIX) new DeviceNamePool(env.VENEER_DEVNAME_PREFIX);
 
   const cert = env.VENEER_HTTPS_CERT, key = env.VENEER_HTTPS_KEY;
   if (Boolean(cert) !== Boolean(key)) throw new Error('Set both VENEER_HTTPS_CERT and VENEER_HTTPS_KEY, or neither');
@@ -37,6 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     idleTimeoutMs: int(env, 'VENEER_IDLE_TIMEOUT_MINUTES', 30) * 60_000,
     resumeGraceMs: int(env, 'VENEER_RESUME_GRACE_SECONDS', 60) * 1000,
     maxSessions: int(env, 'VENEER_MAX_SESSIONS', 100),
+    ...(env.VENEER_DEVNAME_PREFIX ? { deviceNamePrefix: env.VENEER_DEVNAME_PREFIX } : {}),
     allowedOrigins: (env.VENEER_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     ...(staticDir(env) ? { staticDir: staticDir(env)! } : {}),
   };

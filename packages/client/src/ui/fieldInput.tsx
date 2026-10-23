@@ -3,13 +3,16 @@
 import type { FieldSnapshot } from '@veneer/tn5250';
 import type { CSSProperties } from 'react';
 import type { Option } from '../transform/types.ts';
+import { filterValue, isNumeric, withSign } from './fieldRules.ts';
 
 export interface FieldBinding {
   value: (f: FieldSnapshot) => string;
   onChange: (f: FieldSnapshot, value: string) => void;
+  /** An auto-enter field was filled: submit Enter with this value. */
+  onAutoEnter: (f: FieldSnapshot, value: string) => void;
 }
 
-const NUMERIC = new Set(['numericOnly', 'digitsOnly', 'signedNumeric']);
+const NUMERIC_KEYBOARD = new Set(['numericOnly', 'digitsOnly', 'signedNumeric']);
 
 export function FieldInput(props: {
   field: FieldSnapshot;
@@ -20,7 +23,8 @@ export function FieldInput(props: {
   options?: Option[] | undefined;
 }) {
   const { field, binding, style, label, options } = props;
-  const className = ['field', props.className, field.mandatoryEnter ? 'required' : ''].filter(Boolean).join(' ');
+  const className = ['field', props.className, field.mandatoryEnter ? 'required' : '', isNumeric(field) ? 'numeric' : '']
+    .filter(Boolean).join(' ');
   const value = binding.value(field);
 
   if (options && options.length > 0) {
@@ -50,16 +54,27 @@ export function FieldInput(props: {
       data-field={field.id}
       aria-label={label}
       type={field.attr.nonDisplay ? 'password' : 'text'}
-      inputMode={NUMERIC.has(field.shift) ? 'decimal' : undefined}
+      inputMode={NUMERIC_KEYBOARD.has(field.shift) ? 'decimal' : undefined}
       autoComplete={field.attr.nonDisplay ? 'current-password' : 'off'}
       spellCheck={false}
       maxLength={field.length}
       value={value}
       onChange={(e) => {
-        const v = field.monocase ? e.target.value.toUpperCase() : e.target.value;
+        const raw = field.monocase ? e.target.value.toUpperCase() : e.target.value;
+        const v = filterValue(field, raw);
         binding.onChange(field, v);
-        // 5250 behaviour: a full field advances to the next one.
-        if (v.length === field.length && e.target.selectionStart === v.length) focusNext(e.target);
+        if (v.length === field.length && e.target.selectionStart === v.length) {
+          // 5250 behaviour: a full field submits (auto-enter) or advances to the next one.
+          if (field.autoEnter) binding.onAutoEnter(field, v);
+          else focusNext(e.target);
+        }
+      }}
+      onKeyDown={(e) => {
+        // Field+ / Field- on the numeric keypad set the sign and move on.
+        if (!isNumeric(field) || (e.code !== 'NumpadAdd' && e.code !== 'NumpadSubtract')) return;
+        e.preventDefault();
+        binding.onChange(field, withSign(value, e.code === 'NumpadSubtract'));
+        focusNext(e.currentTarget);
       }}
     />
   );

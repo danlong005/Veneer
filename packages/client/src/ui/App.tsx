@@ -5,6 +5,7 @@ import type { Action, FunctionKey } from '../transform/types.ts';
 import { ClassicScreen } from './ClassicScreen.tsx';
 import type { FieldBinding } from './fieldInput.tsx';
 import { keyAction, keyHint, typedKey } from './keys.ts';
+import { checkFields } from './fieldRules.ts';
 import { ModernScreen } from './ModernScreen.tsx';
 import { MAX_TYPEAHEAD, caretAtCursor, caretPosition, replay, type Caret, type ReplayResult, type TypedKey } from './typeahead.ts';
 import { useSession } from './useSession.ts';
@@ -34,10 +35,9 @@ export function App() {
   // Where to put focus after the next render.
   const focusTarget = useRef<Caret | null>(null);
 
-  const binding: FieldBinding = useMemo(() => ({
-    value: (f) => edits[f.id] ?? f.value,
-    onChange: (f, value) => setEdits((e) => ({ ...e, [f.id]: value })),
-  }), [edits]);
+  // Problems found before sending (mandatory fields), shown like server errors.
+  const [notice, setNotice] = useState<{ id: number; message: string } | null>(null);
+  useEffect(() => { if (session.error) setNotice(session.error); }, [session.error]);
 
   const connected = session.state === 'connected' && snap !== null;
   const canSubmit = Boolean(connected && awaitingSeq === null && (!snap!.keyboardLocked || snap!.error));
@@ -62,8 +62,24 @@ export function App() {
 
   const submit = useCallback((aid: AidName, extra: Record<string, string> = {}) => {
     if (!snap || !canSubmit) return;
-    sendAid(aid, { ...edits, ...extra }, currentCursor(snap, clickedCursor.current));
+    const values = { ...edits, ...extra };
+    if (aid === 'Enter') {
+      const problem = checkFields(snap.fields, values);
+      if (problem) {
+        setNotice({ id: Date.now(), message: problem.message });
+        focusTarget.current = endOf(snap, values, problem.id);
+        setEdits(values);
+        return;
+      }
+    }
+    sendAid(aid, values, currentCursor(snap, clickedCursor.current));
   }, [snap, canSubmit, edits, sendAid]);
+
+  const binding: FieldBinding = useMemo(() => ({
+    value: (f) => edits[f.id] ?? f.value,
+    onChange: (f, value) => setEdits((e) => ({ ...e, [f.id]: value })),
+    onAutoEnter: (f, value) => submit('Enter', { [f.id]: value }),
+  }), [edits, submit]);
 
   const onAction = useCallback((a: Action) => submit(a.aid, a.fields), [submit]);
 
@@ -83,6 +99,7 @@ export function App() {
     if (snap.keyboardLocked) return;
     // Any newer unlocked screen answers the AID we were waiting on.
     awaitingNow.current = false;
+    setNotice(null);
     setAwaitingSeq(null);
     const start = { edits: {}, caret: caretAtCursor(snap) };
     const result: ReplayResult = queue.current.length > 0 ? replay(snap, start, queue.current) : { state: start, rest: [] };
@@ -91,8 +108,18 @@ export function App() {
     setEdits(result.state.edits);
     focusTarget.current = result.state.caret;
     if (result.aid) {
-      const caret = result.state.caret;
-      sendAid(result.aid, result.state.edits, (caret && caretPosition(snap, caret)) ?? snap.cursor);
+      const problem = result.aid === 'Enter' ? checkFields(snap.fields, result.state.edits) : null;
+      if (problem) {
+        // Stop replaying, as a 5250 does on an operator error.
+        queue.current = [];
+        setQueued(0);
+        setNotice({ id: Date.now(), message: problem.message });
+        focusTarget.current = endOf(snap, result.state.edits, problem.id);
+        setEdits(result.state.edits);
+      } else {
+        const caret = result.state.caret;
+        sendAid(result.aid, result.state.edits, (caret && caretPosition(snap, caret)) ?? snap.cursor);
+      }
     }
     // Only a new screen should trigger this, not edits or the callbacks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,7 +222,7 @@ export function App() {
             )}
           </div>
         )}
-        <Toast error={session.error} />
+        <Toast error={notice} />
 
         {snap && view ? (
           <form className="sheet" onSubmit={(e) => e.preventDefault()} autoComplete="off">
@@ -247,6 +274,12 @@ function statusText(state: string, busy: boolean): string {
   return 'Disconnected';
 }
 
+/** A caret at the end of a field's current value, for correcting it. */
+function endOf(snap: ScreenSnapshot, values: Record<string, string>, id: string): Caret {
+  const value = values[id] ?? snap.fields.find((f) => f.id === id)?.value ?? '';
+  return { id, offset: value.length };
+}
+
 /** The cursor to report: the caret in the focused field, else the last clicked text. */
 function currentCursor(snap: ScreenSnapshot, clicked: { row: number; col: number } | null) {
   const el = document.activeElement as HTMLInputElement | null;
@@ -263,8 +296,8 @@ function currentCursor(snap: ScreenSnapshot, clicked: { row: number; col: number
 function Toast({ error }: { error: { id: number; message: string } | null }) {
   const [visible, setVisible] = useState<typeof error>(null);
   useEffect(() => {
-    if (!error) return;
     setVisible(error);
+    if (!error) return;
     const t = window.setTimeout(() => setVisible(null), 5000);
     return () => window.clearTimeout(t);
   }, [error]);

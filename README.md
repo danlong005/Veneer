@@ -47,8 +47,10 @@ If a socket drops, its host session stays alive for `VENEER_RESUME_GRACE_SECONDS
 so a page reload can reattach. Sessions with no input for `VENEER_IDLE_TIMEOUT_MINUTES`
 are ended. The server listens on 127.0.0.1 by default. Before exposing it on a
 network, set `VENEER_HTTPS_CERT`/`VENEER_HTTPS_KEY` so sign-on passwords are encrypted.
-The server leaves device naming to IBM i (QPADEVxxxx), because one fixed name
-can't be shared between sessions.
+By default, IBM i names the devices (QPADEVxxxx). Set `VENEER_DEVNAME_PREFIX=VENEER` to
+get VENEER001, VENEER002, … instead, so Veneer jobs are easy to spot in WRKACTJOB. Names
+are reused when sessions end, and the number width fills the 10-character limit (up to
+3 digits).
 
 ## Auto-transform
 
@@ -78,3 +80,17 @@ As on a 5250, keys typed while the host is busy are not lost. They are queued (t
 shows "N typed ahead") and replayed into the next screen, starting at the host's cursor.
 Full fields advance to the next field, and an AID key in the queue (Enter, F-keys, PgUp/PgDn)
 submits; any keys after it wait for the following screen. A host error discards the queue.
+
+## Field handling
+
+The browser applies the same field rules as a 5250 terminal:
+
+- **Numeric fields** (signed and numeric-only) right-align and accept only digits, signs,
+  `.` and `,`. Digits-only fields accept only digits.
+- **Negative numbers**: type `-` before or after the digits, or use keypad **−** (Field−).
+  Keypad **+** (Field+) clears the sign. Both move to the next field. The value is sent
+  as a 5250 does: right-adjusted, with the sign in the zone of the last digit.
+- **Auto-enter** fields submit Enter as soon as they're full.
+- **Mandatory entry** and **mandatory fill** fields are checked before Enter. A notice
+  explains the problem, and the cursor goes back to the field.
+- Upper-case (monocase) fields convert as you type. A full field advances to the next one.

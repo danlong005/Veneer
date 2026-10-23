@@ -75,3 +75,11 @@ export const promptWindow = (opts: { borderTitle?: string } = {}) => render((s) 
     .text(15, 22, 'F4=Prompt   F12=Cancel', BLUE)
     .cursor(12, 41);
 });
+
+/** An order entry screen exercising field rules. */
+export const orderEntry = () => render((s) => s
+  .text(1, 33, 'Order Entry', WHITE)
+  .text(4, 3, 'Customer').field(4, 20, 6, { ffw: 0x4008 })       // mandatory enter
+  .text(5, 3, 'State').field(5, 20, 2, { ffw: 0x4027 })           // monocase, mandatory fill
+  .text(6, 3, 'Quantity').field(6, 20, 5, { ffw: 0x4706 })        // signed numeric, blank fill
+  .text(7, 3, 'Item code').field(7, 20, 3, { ffw: 0x4580 }));      // digits only, auto-enter

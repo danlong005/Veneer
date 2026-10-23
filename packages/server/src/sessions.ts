@@ -5,6 +5,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Session, type HostSettings } from '@veneer/tn5250';
 import WebSocket from 'ws';
+import { DeviceNamePool } from './devices.ts';
 import { log } from './log.ts';
 import { CloseCode, parseClientMessage, type ClientMessage, type ServerMessage } from './protocol.ts';
 
@@ -13,6 +14,8 @@ export interface SessionManagerOptions {
   idleTimeoutMs: number;
   resumeGraceMs: number;
   maxSessions: number;
+  /** Name devices PREFIX01, PREFIX02, ...; unset lets IBM i assign names. */
+  deviceNamePrefix?: string | undefined;
   /** How long a new socket has to send its hello message. */
   helloTimeoutMs?: number;
 }
@@ -24,6 +27,7 @@ export class BrowserSession {
   readonly id = randomUUID();
   readonly resumeToken = randomBytes(32).toString('base64url');
   readonly host: Session;
+  readonly deviceName: string | undefined;
   socket: WebSocket | null = null;
   lastActivity = Date.now();
   seq = 0;
@@ -31,8 +35,9 @@ export class BrowserSession {
   graceTimer: NodeJS.Timeout | undefined;
   pushTimer: NodeJS.Timeout | undefined;
 
-  constructor(host: Session) {
+  constructor(host: Session, deviceName: string | undefined) {
     this.host = host;
+    this.deviceName = deviceName;
   }
 
   send(msg: ServerMessage): void {
@@ -44,9 +49,11 @@ export class SessionManager {
   private readonly opts: SessionManagerOptions;
   private readonly sessions = new Map<string, BrowserSession>(); // by resume token
   private readonly idleSweep: NodeJS.Timeout;
+  private readonly devices: DeviceNamePool | undefined;
 
   constructor(opts: SessionManagerOptions) {
     this.opts = opts;
+    this.devices = opts.deviceNamePrefix ? new DeviceNamePool(opts.deviceNamePrefix) : undefined;
     this.idleSweep = setInterval(() => this.sweepIdle(), Math.min(30_000, Math.max(1000, opts.idleTimeoutMs / 4)));
     this.idleSweep.unref();
   }
@@ -80,10 +87,17 @@ export class SessionManager {
       socket.close(CloseCode.SESSION_LIMIT, 'Session limit reached');
       return;
     }
-    const host = new Session(this.opts.host);
-    const bs = new BrowserSession(host);
+    const deviceName = this.devices?.acquire();
+    if (this.devices && !deviceName) {
+      log.warn('no free device names', { prefix: this.devices.prefix, capacity: this.devices.capacity });
+      socket.send(JSON.stringify({ type: 'error', message: 'Too many sessions; try again later' } satisfies ServerMessage));
+      socket.close(CloseCode.SESSION_LIMIT, 'No free device names');
+      return;
+    }
+    const host = new Session({ ...this.opts.host, ...(deviceName ? { deviceName } : {}) });
+    const bs = new BrowserSession(host, deviceName);
     this.sessions.set(bs.resumeToken, bs);
-    log.info('session created', { session: bs.id, remote });
+    log.info('session created', { session: bs.id, remote, ...(deviceName ? { device: deviceName } : {}) });
 
     host.on('screen', () => this.schedulePush(bs));
     host.on('warning', (message) => log.warn('protocol warning', { session: bs.id, message }));
@@ -208,6 +222,7 @@ export class SessionManager {
     bs.socket?.close(code, reason);
     bs.socket = null;
     bs.host.close();
+    if (bs.deviceName) this.devices?.release(bs.deviceName);
     log.info('session closed', { session: bs.id, reason });
   }
 

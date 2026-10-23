@@ -150,6 +150,7 @@ button.ghost:hover { background: var(--surface-2); }
 .field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); background: var(--surface); }
 .field.required { border-left: 3px solid var(--accent); }
 .field.command { font-size: 1em; }
+.field.numeric { text-align: right; }
 
 .menu-link, .more-link {
   height: var(--rh); border: 0; background: transparent; padding: 0 8px 0 0; margin-left: -2px;

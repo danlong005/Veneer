@@ -3,6 +3,7 @@
 // it can be tested without a browser.
 
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
+import { acceptsChar } from './fieldRules.ts';
 
 export type TypedKey =
   | { kind: 'char'; ch: string }
@@ -74,13 +75,17 @@ export function replay(snap: ScreenSnapshot, initial: ReplayState, keys: readonl
       continue;
     }
     const ch = field.monocase ? key.ch.toUpperCase() : key.ch;
+    if (!acceptsChar(field, ch)) continue;
     const offset = Math.min(caret.offset, value.length);
     // Insert while there is room; once the field is full, overwrite as a 5250 does.
     edits[field.id] = value.length < field.length
       ? value.slice(0, offset) + ch + value.slice(offset)
       : value.slice(0, offset) + ch + value.slice(offset + 1);
     caret = { id: field.id, offset: offset + 1 };
-    if (caret.offset >= field.length) move(1);
+    if (caret.offset >= field.length) {
+      if (field.autoEnter) return { state: { edits, caret }, aid: 'Enter', rest: keys.slice(k + 1) };
+      move(1);
+    }
   }
   return { state: { edits, caret }, rest: [] };
 }

@@ -32,6 +32,7 @@ type State =
   | { screen: 'signon' }
   | { screen: 'menu'; user: string }
   | { screen: 'menuWindow'; user: string }
+  | { screen: 'order'; user: string }
   | { screen: 'jobs'; user: string; page: number };
 
 /** Simulated host latency, to exercise type-ahead (VENEER_DEMO_DELAY_MS). */
@@ -68,6 +69,10 @@ export class DemoHost {
         if (aid === 0x33 || aid === 0x3c) { state = { screen: 'signon' }; return show(signOn()); } // F3, F12
         const cmd = (fields.get('20:7') ?? '').trim().toUpperCase();
         if (cmd === '90' || cmd === 'SIGNOFF') return void socket.end();
+        if (cmd === '2') {
+          state = { screen: 'order', user: s.user };
+          return show(orderEntry());
+        }
         if (aid === 0x34 || cmd === '9') { // F4 or "Display a menu"
           state = { screen: 'menuWindow', user: s.user };
           return show(menuWindow());
@@ -78,6 +83,13 @@ export class DemoHost {
         }
         if (!cmd) return show(mainMenu(s.user));
         return show(new HostStream().errorMessage(`CPD0030 - Command ${cmd} in library *LIBL not found.`).build());
+      }
+      if (s.screen === 'order') {
+        if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
+        const qty = decodeSigned(fields.get('8:22'));
+        const summary = `Order accepted: customer ${(fields.get('6:22') ?? '').trim()}, ` +
+          `state ${(fields.get('7:22') ?? '').trim()}, quantity ${qty}, item ${(fields.get('9:22') ?? '').trim()}.`;
+        return show(orderEntry(summary));
       }
       if (s.screen === 'menuWindow') {
         const menu = (fields.get('11:38') ?? '').trim().toUpperCase();
@@ -132,6 +144,30 @@ function signOn(error?: string): number[] {
   return error ? [...s, ...new HostStream().errorMessage(error).build()] : s;
 }
 
+/** Order entry: mandatory, mandatory-fill, signed numeric and auto-enter fields. */
+function orderEntry(message?: string): number[] {
+  const s = new HostStream().clear().write()
+    .text(1, 2, 'ORD100')
+    .text(1, 34, 'Order Entry', WHITE)
+    .text(3, 2, 'Type choices, press Enter.', BLUE)
+    .text(6, 4, 'Customer . . . .').field(6, 22, 6, { ffw: 0x4028 }).text(6, 30, 'Required', BLUE)
+    .text(7, 4, 'State  . . . . .').field(7, 22, 2, { ffw: 0x4027 }).text(7, 30, 'Two letters', BLUE)
+    .text(8, 4, 'Quantity . . . .').field(8, 22, 6, { ffw: 0x4706 }).text(8, 30, 'Negative for a return', BLUE)
+    .text(9, 4, 'Item code  . . .').field(9, 22, 3, { ffw: 0x4580 }).text(9, 30, '3 digits, submits when full', BLUE)
+    .text(22, 2, 'F3=Exit   F12=Cancel', BLUE);
+  if (message) s.text(24, 2, message);
+  return s.cursor(6, 22).readMdt().build();
+}
+
+/** Decode a signed numeric field as sent: a D zone on the last digit means negative. */
+function decodeSigned(text: string | undefined): string {
+  const t = (text ?? '').trim();
+  if (!t) return '0';
+  const last = t.at(-1)!;
+  const negIndex = '}JKLMNOPQR'.indexOf(last);
+  return negIndex >= 0 ? `-${t.slice(0, -1)}${negIndex}` : t;
+}
+
 /** A prompt window over the main menu, drawn with border characters as IBM i does. */
 function menuWindow(): number[] {
   const s = new HostStream().write()
@@ -156,7 +192,7 @@ function mainMenu(user: string, message?: string): number[] {
     .text(1, 64, 'System:   VENEER')
     .text(3, 2, 'Select one of the following:')
     .text(5, 6, '1. User tasks')
-    .text(6, 6, '2. Office tasks')
+    .text(6, 6, '2. Order entry (field rules demo)')
     .text(8, 6, '4. Files, libraries, and folders')
     .text(10, 6, '6. Communications')
     .text(12, 6, '8. Problem handling')

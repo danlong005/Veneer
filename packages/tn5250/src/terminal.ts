@@ -345,35 +345,67 @@ export class Terminal {
   // ----------------------------------------------------------------- inbound
 
   /**
-   * Store user input in a field, applying monocase and right-adjust rules.
-   * Returns false when the value is unchanged (MDT is left alone).
+   * Store user input in a field, applying monocase, right-adjust and sign rules.
+   * Numeric fields accept a leading or trailing "-" for negative values.
+   * Returns false when the field already holds exactly this data (MDT is left alone).
    */
   setFieldValue(field: Field, value: string): boolean {
     const s = this.screen;
-    const cp = this.opts.codepage;
-    const current = cp.decode(s.fieldBytes(field)).replace(/\s+$/, '');
-    let text = value.replace(/\s+$/, '');
-    if (field.ffw & FFW.MONOCASE) text = text.toUpperCase();
-    if (text === current) return false;
+    const out = this.encodeField(field, value);
+    const current = s.fieldBytes(field);
+    const blank = (b: number) => (b === 0x00 ? 0x40 : b);
+    if (out.every((b, i) => blank(b) === blank(current[i] ?? 0x00))) return false;
     if ((field.ffw & FFW.BYPASS) !== 0) throw new ProtocolError('Cannot write to a bypass field');
-
-    const bytes = cp.encode(text).slice(0, field.length);
-    const out = new Uint8Array(field.length); // nulls
-    const adjust = fieldAdjust(field);
-    const signed = fieldShift(field) === 'signedNumeric';
-    // Signed numeric fields reserve the last position for the sign.
-    const width = signed ? field.length - 1 : field.length;
-    if (adjust === 'zeroFill' || adjust === 'blankFill') {
-      const fill = adjust === 'zeroFill' ? 0xf0 : 0x40;
-      const digits = bytes.slice(0, width);
-      out.fill(fill, 0, width - digits.length);
-      out.set(digits, width - digits.length);
-    } else {
-      out.set(bytes.slice(0, width));
-    }
-    s.fieldBytes(field).set(out);
+    current.set(out);
     field.ffw |= FFW.MDT;
     return true;
+  }
+
+  private encodeField(field: Field, value: string): Uint8Array {
+    const cp = this.opts.codepage;
+    const shift = fieldShift(field);
+    const adjust = fieldAdjust(field);
+    const out = new Uint8Array(field.length); // nulls
+    let text = value.replace(/\s+$/, '');
+    if (field.ffw & FFW.MONOCASE) text = text.toUpperCase();
+
+    const numeric = shift === 'signedNumeric' || shift === 'numericOnly';
+    let negative = false;
+    if (numeric) {
+      text = text.trim();
+      negative = /^-|-$/.test(text);
+      text = text.replace(/^[-+]|[-+]$/, '').trim();
+    }
+    // Signed numeric fields reserve the last position for the sign.
+    const width = shift === 'signedNumeric' ? field.length - 1 : field.length;
+    const bytes = cp.encode(text).slice(0, width);
+    const rightAdjust = adjust === 'zeroFill' || adjust === 'blankFill' || shift === 'signedNumeric' || negative;
+    if (rightAdjust && (text !== '' || adjust !== 'none')) {
+      out.fill(adjust === 'zeroFill' ? 0xf0 : 0x40, 0, width - bytes.length);
+      out.set(bytes, width - bytes.length);
+    } else {
+      out.set(bytes);
+    }
+
+    if (shift === 'signedNumeric') {
+      if (negative) out[field.length - 1] = 0x60; // '-'
+      else if (text !== '') out[field.length - 1] = 0x40;
+    } else if (negative) {
+      // Numeric-only: a negative value is the last digit with a D zone.
+      const last = out[field.length - 1]!;
+      if (last >= 0xf0 && last <= 0xf9) out[field.length - 1] = 0xd0 | (last & 0x0f);
+    }
+    return out;
+  }
+
+  /** Field data as sent to the host: signed numeric sign folded into the last digit's zone. */
+  private fieldData(f: Field): number[] {
+    const bytes = Array.from(this.screen.fieldBytes(f));
+    if (fieldShift(f) !== 'signedNumeric' || bytes.length < 2) return bytes;
+    const sign = bytes.pop()!;
+    const last = bytes[bytes.length - 1]!;
+    if (sign === 0x60 && last >= 0xf0 && last <= 0xf9) bytes[bytes.length - 1] = 0xd0 | (last & 0x0f);
+    return bytes;
   }
 
   /** Send an AID key with the current field contents, as the pending Read requests. */
@@ -392,7 +424,7 @@ export class Terminal {
       if (read === Command.READ_INPUT_FIELDS) {
         if (s.fields.some((f) => f.ffw & FFW.MDT)) {
           for (const f of s.fields) {
-            if ((f.ffw & FFW.BYPASS) === 0) out.push(...s.fieldBytes(f));
+            if ((f.ffw & FFW.BYPASS) === 0) out.push(...this.fieldData(f));
           }
         }
       } else {
@@ -400,7 +432,7 @@ export class Terminal {
         for (const f of s.fields) {
           if ((f.ffw & FFW.MDT) === 0) continue;
           const pos = s.rowCol(f.start);
-          let bytes = Array.from(s.fieldBytes(f));
+          let bytes = this.fieldData(f);
           if (!keepNulls) {
             let end = bytes.length;
             while (end > 0 && bytes[end - 1] === 0x00) end--;
