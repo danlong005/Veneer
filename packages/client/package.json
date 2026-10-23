@@ -2,6 +2,7 @@
   "name": "@veneer/client",
   "version": "0.1.0",
   "description": "Veneer browser client: renders 5250 screens with auto-transform rules",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {

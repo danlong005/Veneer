@@ -2,6 +2,7 @@
   "name": "@veneer/server",
   "version": "0.1.0",
   "description": "Veneer session server: bridges browser WebSockets to TN5250 sessions",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

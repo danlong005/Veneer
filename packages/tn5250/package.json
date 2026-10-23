@@ -2,6 +2,7 @@
   "name": "@veneer/tn5250",
   "version": "0.1.0",
   "description": "Pure TypeScript TN5250 client and 5250 screen model",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

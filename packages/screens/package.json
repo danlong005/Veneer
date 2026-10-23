@@ -2,6 +2,7 @@
   "name": "@veneer/screens",
   "version": "0.1.0",
   "description": "Screen identification and customization definitions for Veneer",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

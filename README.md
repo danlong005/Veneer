@@ -148,3 +148,7 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   Without a token, definitions are read-only.
 - **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2).
   Its designer token is `veneer-demo-designer`.
+
+## License
+
+[MIT](LICENSE) © 2026 Daniel Long
