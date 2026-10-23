@@ -3,7 +3,7 @@
 import type { TransformContext } from '../context.ts';
 
 export function commandLine(ctx: TransformContext): void {
-  for (let row = 2; row <= ctx.snap.rows; row++) {
+  for (const row of ctx.rows(ctx.region.top + 1)) {
     for (const arrow of ctx.chunks(row).filter((c) => c.text.endsWith('===>'))) {
       const field = ctx.fieldsOn(row).find((f) => f.col >= arrow.end && f.col <= arrow.end + 3);
       if (!field) continue;

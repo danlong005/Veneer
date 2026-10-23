@@ -7,7 +7,7 @@ const ITEM = /^(\d{1,2})\.\s+(\S.*)$/;
 
 export function menu(ctx: TransformContext): void {
   const items: Array<{ chunk: Chunk; key: string; label: string }> = [];
-  for (let row = 2; row <= ctx.snap.rows; row++) {
+  for (const row of ctx.rows(ctx.region.top + 1)) {
     for (const chunk of ctx.chunks(row)) {
       const m = ITEM.exec(chunk.text);
       if (m) items.push({ chunk, key: m[1]!, label: m[2]! });
@@ -28,7 +28,7 @@ export function menu(ctx: TransformContext): void {
 
 /** The command/selection field: after "===>", else the first input below the menu. */
 function selectionField(ctx: TransformContext, below: number): FieldSnapshot | undefined {
-  for (let row = below; row <= ctx.snap.rows; row++) {
+  for (const row of ctx.rows(below)) {
     const arrow = ctx.chunks(row).find((c) => c.text.endsWith('===>'));
     if (arrow) {
       const f = ctx.fieldsOn(row).find((x) => x.col >= arrow.end);

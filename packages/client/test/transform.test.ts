@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { transform, type FieldItem, type LinkItem, type TableItem, type TextItem } from '../src/transform/index.ts';
 import { stripLeaders } from '../src/transform/text.ts';
-import { mainMenu, signOn, titled, workWithJobs } from './screens.ts';
+import { mainMenu, promptWindow, signOn, titled, workWithJobs } from './screens.ts';
 
 const texts = (items: unknown[]) => (items as TextItem[]).filter((i) => i.kind === 'text').map((i) => i.text);
 
@@ -82,4 +82,34 @@ test('every input field is rendered exactly once', () => {
     const expected = snap.fields.filter((f) => !f.bypass).map((f) => f.id);
     assert.deepEqual([...rendered].sort(), [...expected].sort());
   }
+});
+
+test('a bordered pop-up window becomes a modal view over the dimmed screen', () => {
+  const v = transform(promptWindow());
+  assert.ok(v.window, 'window detected');
+  const w = v.window!;
+  assert.deepEqual([w.top, w.left, w.bottom, w.right], [8, 21, 15, 58]);
+  assert.equal(w.title, 'Select Printer');
+  assert.deepEqual(w.functionKeys.map((k) => k.aid), ['F4', 'F12']);
+  const fields = w.items.filter((i): i is FieldItem => i.kind === 'field');
+  assert.deepEqual(fields.map((f) => [f.field.id, f.label]), [['12:41', 'Printer'], ['13:41', 'Copies']]);
+  assert.ok(texts(w.items).includes('Type choices, press Enter.'));
+  assert.ok(!texts(w.items).some((t) => /[:.]{3,}/.test(t)), 'no border characters');
+
+  // The background keeps its text but nothing interactive, and no border characters.
+  assert.equal(v.title, 'IBM i Main Menu');
+  assert.ok(texts(v.items).includes('Select one of the following:'));
+  assert.ok(!v.items.some((i) => i.kind === 'field' || i.kind === 'link'));
+  assert.ok(!texts(v.items).some((t) => t === ':' || /^\.+$/.test(t)));
+  assert.ok(!texts(v.items).some((t) => t.includes('F3=')), 'background F-key legend is not drawn');
+});
+
+test('a title in the window border is used, and the first row stays content', () => {
+  const v = transform(promptWindow({ borderTitle: 'Select Printer' }));
+  assert.equal(v.window?.title, 'Select Printer');
+});
+
+test('screens without borders have no window', () => {
+  assert.equal(transform(mainMenu()).window, undefined);
+  assert.equal(transform(workWithJobs()).window, undefined);
 });

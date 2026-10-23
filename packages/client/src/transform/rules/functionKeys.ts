@@ -20,9 +20,9 @@ export function aidForKey(key: string): AidName | undefined {
 }
 
 export function functionKeys(ctx: TransformContext): void {
-  const { rows } = ctx.snap;
+  const { top, bottom } = ctx.region;
   const seen = new Set<string>();
-  for (let row = Math.max(3, rows - 4); row <= rows; row++) {
+  for (const row of ctx.rows(Math.max(top + 2, bottom - 4))) {
     if (ctx.fieldsOn(row).length > 0) continue;
     const tokens = legendTokens(rowLine(ctx, row), KEY);
     if (tokens.length === 0) continue;

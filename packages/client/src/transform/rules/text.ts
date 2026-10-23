@@ -4,7 +4,7 @@ import { roleOf, type TransformContext } from '../context.ts';
 import { stripLeaders } from '../text.ts';
 
 export function text(ctx: TransformContext): void {
-  for (let row = 1; row <= ctx.snap.rows; row++) {
+  for (const row of ctx.rows()) {
     for (const c of ctx.chunks(row)) {
       const t = stripLeaders(c.text);
       ctx.claim(c.row, c.col, c.end - c.col);

@@ -51,6 +51,12 @@ export class HostStream {
     return this;
   }
 
+  /** Overwrite a run of cells with one character (blanks by default), e.g. to clear a window's interior. */
+  fill(row: number, col: number, length: number, char = ' '): this {
+    this.out.push(Order.SBA, row, col, ...this.cp.encode(char.repeat(length)));
+    return this;
+  }
+
   cursor(row: number, col: number): this {
     this.out.push(Order.IC, row, col);
     return this;

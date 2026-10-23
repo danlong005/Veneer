@@ -89,6 +89,10 @@ button, input, select { font: inherit; color: inherit; }
 .status-connected::before { background: #22a06b; }
 .status-connecting::before { background: var(--warning); }
 .status-closed::before { background: var(--danger); }
+.typeahead {
+  margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-weight: 600;
+}
 
 button.ghost {
   border: 1px solid var(--border); background: transparent; border-radius: 7px;
@@ -159,6 +163,21 @@ button.ghost:hover { background: var(--surface-2); }
 }
 .more-link { font-weight: 600; padding: 0 8px; background: var(--accent-soft); height: calc(var(--rh) - 6px); margin-top: 3px; }
 button:disabled { cursor: default; opacity: 0.55; }
+
+/* ---- pop-up windows ---- */
+.background { position: absolute; inset: 0; opacity: 0.35; filter: saturate(0.4); pointer-events: none; }
+.background > * { position: absolute; }
+.window {
+  z-index: 2; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 40px rgb(16 24 40 / 22%), 0 2px 6px rgb(16 24 40 / 10%);
+}
+.window-title {
+  height: var(--rh); line-height: var(--rh); padding: 0 var(--cw);
+  font-weight: 650; color: var(--text-strong); border-bottom: 1px solid var(--border);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.window-body { position: absolute; right: 0; bottom: 0; }
+.window-body > * { position: absolute; }
 
 /* ---- tables (subfiles) ---- */
 .table { border-radius: 8px; }

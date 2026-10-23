@@ -20,6 +20,7 @@ npm run build         # compile to dist/ for deployment
 cp .env.example .env  # then set VENEER_HOST etc.
 npm run cli           # interactive session against your IBM i
 npm run demo          # fake IBM i + server + client on http://127.0.0.1:8080 (after npm run build)
+                      # VENEER_DEMO_DELAY_MS=700 npm run demo simulates a slow host
 npm run dev           # session server against your IBM i, restarts on change
 npm run dev:client    # Vite dev server on :5173 with hot reload; proxies /ws to :8080
 ```
@@ -65,6 +66,15 @@ patterns are swapped for widgets:
 | ` 1. User tasks` menu lines | Links that enter the option |
 | `===>` command line | Command input |
 | `User . . . . :` dot leaders | Clean labels |
+| `.....` / `:` bordered pop-up window | Modal card over the dimmed screen; its F-keys and messages take over |
 
-Rules run in order, and each one claims the cells it renders. Per-screen customizations
+Rules run in order, and each one claims the cells it renders. Rules work on a region: the
+whole screen, or the interior of the active pop-up window. Per-screen customizations
 can later be added as extra rules. **Classic view** shows the untransformed screen.
+
+## Type-ahead
+
+As on a 5250, keys typed while the host is busy are not lost. They are queued (the header
+shows "N typed ahead") and replayed into the next screen, starting at the host's cursor.
+Full fields advance to the next field, and an AID key in the queue (Enter, F-keys, PgUp/PgDn)
+submits; any keys after it wait for the following screen. A host error discards the queue.

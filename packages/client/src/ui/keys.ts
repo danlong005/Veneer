@@ -1,6 +1,7 @@
 // Keyboard -> 5250 AID keys. Shift+F1..F12 gives F13..F24.
 
 import type { AidName } from '@veneer/tn5250';
+import type { TypedKey } from './typeahead.ts';
 
 export type KeyAction = AidName | 'Reset';
 
@@ -33,4 +34,16 @@ export function keyHint(aid: AidName): string {
     case 'RecordBackspace': return 'RecBksp';
     default: return aid;
   }
+}
+
+/** A keystroke to queue while the host is busy, or null to ignore it. */
+export function typedKey(e: KeyboardEvent): TypedKey | null {
+  if (e.altKey || e.metaKey || e.ctrlKey) return null;
+  const action = keyAction(e);
+  if (action === 'Reset') return null;
+  if (action) return { kind: 'aid', aid: action };
+  if (e.key === 'Tab') return { kind: 'tab', back: e.shiftKey };
+  if (e.key === 'Backspace') return { kind: 'backspace' };
+  if (e.key.length === 1) return { kind: 'char', ch: e.key };
+  return null;
 }

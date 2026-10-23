@@ -53,3 +53,25 @@ export const workWithJobs = (marker = 'More...') => render((s) => s
   .field(21, 7, 73)
   .text(22, 2, 'F3=Exit   F5=Refresh   F7=Find   F10=Restart statistics', BLUE)
   .text(23, 2, 'F11=Display elapsed data   F12=Cancel   F23=More options   F24=More keys', BLUE));
+
+/** The main menu with a prompt window over it, cursor in the window. */
+export const promptWindow = (opts: { borderTitle?: string } = {}) => render((s) => {
+  s.text(1, 2, 'MAIN').text(1, 33, 'IBM i Main Menu', WHITE)
+    .text(3, 2, 'Select one of the following:')
+    .text(5, 6, '1. User tasks').text(6, 6, '2. Office tasks')
+    .text(19, 2, 'Selection or command').text(20, 2, '===>').field(20, 7, 70)
+    .text(22, 2, 'F3=Exit   F4=Prompt   F12=Cancel', BLUE);
+  const top = opts.borderTitle ? `.... ${opts.borderTitle} ${'.'.repeat(34 - opts.borderTitle.length)}` : '.'.repeat(40);
+  s.text(7, 20, top, BLUE);
+  for (let r = 8; r <= 15; r++) s.text(r, 20, ':', BLUE).text(r, 59, ':', BLUE);
+  s.text(16, 20, ':' + '.'.repeat(38) + ':', BLUE);
+  if (!opts.borderTitle) s.text(8, 30, 'Select Printer', WHITE);
+  return s
+    .text(10, 22, 'Type choices, press Enter.', BLUE)
+    .text(12, 22, 'Printer . . . . :')
+    .field(12, 41, 10, { ffw: 0x4020 })
+    .text(13, 22, 'Copies  . . . . :')
+    .field(13, 41, 3, { ffw: 0x4300 })
+    .text(15, 22, 'F4=Prompt   F12=Cancel', BLUE)
+    .cursor(12, 41);
+});

@@ -89,6 +89,19 @@ export interface FunctionKey {
   label: string;
 }
 
+/** A pop-up window: rendered as a modal card over the dimmed screen. */
+export interface WindowView {
+  /** Interior of the window (border excluded), 1-based and inclusive. */
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+  title?: string;
+  items: Item[];
+  functionKeys: FunctionKey[];
+  message?: { text: string; kind: 'error' | 'info' };
+}
+
 export interface ScreenView {
   rows: number;
   cols: number;
@@ -98,5 +111,7 @@ export interface ScreenView {
   items: Item[];
   functionKeys: FunctionKey[];
   message?: { text: string; kind: 'error' | 'info' };
+  /** Set when a pop-up window is active; `items` are then the dimmed background. */
+  window?: WindowView;
   snapshot: ScreenSnapshot;
 }

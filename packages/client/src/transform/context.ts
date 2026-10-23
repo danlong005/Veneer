@@ -26,25 +26,50 @@ export function roleOf(attr: DisplayAttribute): Role {
   }
 }
 
+/** A rectangle of the screen, 1-based and inclusive. */
+export interface Region {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+}
+
 export class TransformContext {
   readonly snap: ScreenSnapshot;
   readonly view: ScreenView;
-  /** Input (non-bypass) fields; bypass fields render as text. */
+  /** The part of the screen rules work on: the whole screen, or a window's interior. */
+  readonly region: Region;
+  /** Input (non-bypass) fields in the region; bypass fields render as text. */
   readonly inputs: FieldSnapshot[];
   private readonly claimed: Uint8Array;
   private readonly chunksByRow: Chunk[][];
 
-  constructor(snap: ScreenSnapshot) {
+  constructor(snap: ScreenSnapshot, region?: Region) {
     this.snap = snap;
+    this.region = region ?? { top: 1, left: 1, bottom: snap.rows, right: snap.cols };
     this.view = { rows: snap.rows, cols: snap.cols, meta: [], items: [], functionKeys: [], snapshot: snap };
-    this.inputs = snap.fields.filter((f) => !f.bypass);
+    this.inputs = snap.fields.filter((f) => !f.bypass && this.inRegion(f.row, f.col));
     this.claimed = new Uint8Array(snap.rows * snap.cols);
     const inField = new Uint8Array(snap.rows * snap.cols);
     for (const f of this.inputs) {
       const start = (f.row - 1) * snap.cols + (f.col - 1);
       inField.fill(1, Math.max(0, start - 1), Math.min(inField.length, start + f.length));
     }
-    this.chunksByRow = snap.segments.map((segs, r) => splitRow(r + 1, segs, inField, snap.cols));
+    const { left, right } = this.region;
+    this.chunksByRow = snap.segments.map((segs, r) =>
+      splitRow(r + 1, segs, inField, snap.cols).flatMap((c) => clip(c, left, right)));
+  }
+
+  inRegion(row: number, col: number): boolean {
+    const r = this.region;
+    return row >= r.top && row <= r.bottom && col >= r.left && col <= r.right;
+  }
+
+  /** Rows of the region, top to bottom. */
+  rows(from = this.region.top, to = this.region.bottom): number[] {
+    const out: number[] = [];
+    for (let r = Math.max(from, this.region.top); r <= Math.min(to, this.region.bottom); r++) out.push(r);
+    return out;
   }
 
   private index(row: number, col: number): number {
@@ -60,8 +85,9 @@ export class TransformContext {
     this.claimed.fill(1, start, Math.min(this.claimed.length, start + width));
   }
 
-  claimRow(row: number, fromCol = 1): void {
-    this.claim(row, fromCol, this.snap.cols - fromCol + 1);
+  /** Claim the rest of a row within the region. */
+  claimRow(row: number, fromCol = this.region.left): void {
+    this.claim(row, fromCol, this.region.right - fromCol + 1);
   }
 
   claimField(f: FieldSnapshot): void {
@@ -73,8 +99,9 @@ export class TransformContext {
     return this.isClaimed(f.row, f.col);
   }
 
-  /** Unclaimed text chunks on a row, left to right. */
+  /** Unclaimed text chunks in the region on a row, left to right. */
   chunks(row: number): Chunk[] {
+    if (row < this.region.top || row > this.region.bottom) return [];
     return (this.chunksByRow[row - 1] ?? []).filter((c) => !this.isClaimed(c.row, c.col));
   }
 
@@ -83,16 +110,6 @@ export class TransformContext {
     return this.inputs.filter((f) => f.row === row && !this.isFieldClaimed(f));
   }
 
-  /** Text of a row between two columns (inclusive start, exclusive end), field cells blanked. */
-  slice(row: number, col: number, end: number): string {
-    let s = '';
-    for (const c of this.chunksByRow[row - 1] ?? []) {
-      if (c.end <= col || c.col >= end) continue;
-      const pad = Math.max(0, c.col - col - s.length);
-      s += ' '.repeat(pad) + c.text.slice(Math.max(0, col - c.col), end - c.col);
-    }
-    return s.trim();
-  }
 }
 
 function splitRow(row: number, segs: ScreenSnapshot['segments'][number], inField: Uint8Array, cols: number): Chunk[] {
@@ -119,4 +136,15 @@ function splitRow(row: number, segs: ScreenSnapshot['segments'][number], inField
     flush(seg.text.length);
   }
   return chunks;
+}
+
+/** Trim a chunk to the columns left..right, e.g. dropping a window border it ran into. */
+function clip(c: Chunk, left: number, right: number): Chunk[] {
+  if (c.col >= left && c.end - 1 <= right) return [c];
+  const from = Math.max(c.col, left), to = Math.min(c.end, right + 1);
+  if (to <= from) return [];
+  const raw = c.text.slice(from - c.col, to - c.col);
+  const lead = raw.length - raw.trimStart().length;
+  const text = raw.trim();
+  return text ? [{ ...c, col: from + lead, end: from + lead + text.length, text }] : [];
 }

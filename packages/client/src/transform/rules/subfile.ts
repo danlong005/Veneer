@@ -13,27 +13,27 @@ const MARKER = /^(More\.\.\.|More…|Bottom|\+)$/;
 const MAX_PAGE_ROWS = 22;
 
 export function subfile(ctx: TransformContext): void {
-  const { rows, cols } = ctx.snap;
-  for (let row = 4; row <= rows; row++) {
+  const { top, left, right } = ctx.region;
+  for (const row of ctx.rows(top + 3)) {
     const marker = ctx.chunks(row).find((c) =>
-      MARKER.test(c.text) && c.col > cols / 2 && (c.text !== '+' || c.end >= cols - 1));
+      MARKER.test(c.text) && c.col > (left + right) / 2 && (c.text !== '+' || c.end >= right));
     if (marker) buildTable(ctx, row, marker);
   }
 }
 
 function isHeaderRow(ctx: TransformContext, row: number): boolean {
-  if (row < 2 || ctx.fieldsOn(row).length > 0) return false;
+  if (row <= ctx.region.top || ctx.fieldsOn(row).length > 0) return false;
   const chunks = ctx.chunks(row);
   return chunks.length > 0 && chunks.every((c) => c.attr.color === 'white');
 }
 
 function buildTable(ctx: TransformContext, markerRow: number, marker: Chunk): void {
-  const { cols } = ctx.snap;
+  const right = ctx.region.right;
   const markerAlone = ctx.chunks(markerRow).length === 1 && ctx.fieldsOn(markerRow).length === 0;
   const lastData = markerAlone ? markerRow - 1 : markerRow;
 
   let header = -1;
-  for (let r = lastData; r >= Math.max(2, lastData - MAX_PAGE_ROWS); r--) {
+  for (let r = lastData; r >= Math.max(ctx.region.top + 1, lastData - MAX_PAGE_ROWS); r--) {
     if (isHeaderRow(ctx, r)) { header = r; break; }
   }
   if (header < 0 || header >= lastData) return;
@@ -54,7 +54,7 @@ function buildTable(ctx: TransformContext, markerRow: number, marker: Chunk): vo
   const lines = new Map(dataRows.map((r) => [r, rowLine(ctx, r)]));
   const dataFields = dataRows.flatMap((r) => ctx.fieldsOn(r));
   const dataChunkCols = dataRows.flatMap((r) => ctx.chunks(r).filter((c) => c !== marker).map((c) => c.col));
-  const firstCol = Math.min(starts[0] ?? cols, ...dataFields.map((f) => f.col), ...dataChunkCols);
+  const firstCol = Math.min(starts[0] ?? right, ...dataFields.map((f) => f.col), ...dataChunkCols);
 
   // Move each boundary left past any value that straddles it (right-aligned numbers).
   const bounds = [firstCol, ...starts.slice(1)];
@@ -69,7 +69,7 @@ function buildTable(ctx: TransformContext, markerRow: number, marker: Chunk): vo
   const optionCol = options.length > 0 ? optionColumn(bounds, dataFields) : -1;
 
   const columns: TableColumn[] = bounds.map((col, k) => ({
-    col, width: (bounds[k + 1] ?? cols + 1) - col, header: headers[k] ?? '',
+    col, width: (bounds[k + 1] ?? right + 1) - col, header: headers[k] ?? '',
   }));
 
   const tableRows: TableRow[] = [];
@@ -92,7 +92,7 @@ function buildTable(ctx: TransformContext, markerRow: number, marker: Chunk): vo
   }
 
   ctx.view.items.push({
-    kind: 'table', row: top, col: firstCol, width: cols - firstCol + 1,
+    kind: 'table', row: top, col: firstCol, width: right - firstCol + 1,
     height: lastData - top + 1, headerRows: header - top + 1,
     columns, rows: tableRows, more: marker.text !== 'Bottom',
   });
@@ -110,7 +110,7 @@ function buildTable(ctx: TransformContext, markerRow: number, marker: Chunk): vo
 /** "2=Change  4=Delete  5=Display" rows above the table. */
 function optionsLegend(ctx: TransformContext, top: number): Option[] {
   const options: Option[] = [];
-  for (let r = 2; r < top; r++) {
+  for (const r of ctx.rows(ctx.region.top + 1, top - 1)) {
     for (const t of legendTokens(rowLine(ctx, r), String.raw`\d{1,2}`)) {
       if (!options.some((o) => o.value === t.key)) options.push({ value: t.key, label: t.label });
     }

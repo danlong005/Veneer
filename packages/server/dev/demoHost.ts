@@ -31,7 +31,11 @@ const JOBS = [
 type State =
   | { screen: 'signon' }
   | { screen: 'menu'; user: string }
+  | { screen: 'menuWindow'; user: string }
   | { screen: 'jobs'; user: string; page: number };
+
+/** Simulated host latency, to exercise type-ahead (VENEER_DEMO_DELAY_MS). */
+const DELAY_MS = Number(process.env.VENEER_DEMO_DELAY_MS ?? 0);
 
 export class DemoHost {
   readonly server = net.createServer((s) => this.onConnection(s));
@@ -64,12 +68,24 @@ export class DemoHost {
         if (aid === 0x33 || aid === 0x3c) { state = { screen: 'signon' }; return show(signOn()); } // F3, F12
         const cmd = (fields.get('20:7') ?? '').trim().toUpperCase();
         if (cmd === '90' || cmd === 'SIGNOFF') return void socket.end();
+        if (aid === 0x34 || cmd === '9') { // F4 or "Display a menu"
+          state = { screen: 'menuWindow', user: s.user };
+          return show(menuWindow());
+        }
         if (cmd === 'WRKACTJOB' || cmd === '1') {
           state = { screen: 'jobs', user: s.user, page: 0 };
           return show(jobs(0));
         }
         if (!cmd) return show(mainMenu(s.user));
         return show(new HostStream().errorMessage(`CPD0030 - Command ${cmd} in library *LIBL not found.`).build());
+      }
+      if (s.screen === 'menuWindow') {
+        const menu = (fields.get('11:38') ?? '').trim().toUpperCase();
+        if (aid === 0x3c || aid === 0x33 || (aid === 0xf1 && menu)) { // F12, F3, or a menu name
+          state = { screen: 'menu', user: s.user };
+          return show(mainMenu(s.user, menu && aid === 0xf1 ? `Menu ${menu} is not available in the demo.` : undefined));
+        }
+        return show(new HostStream().errorMessage('CPD0071 - Value required for Menu.').build());
       }
       if (s.screen === 'jobs') {
         const pages = Math.ceil(JOBS.length / PAGE_SIZE);
@@ -116,7 +132,24 @@ function signOn(error?: string): number[] {
   return error ? [...s, ...new HostStream().errorMessage(error).build()] : s;
 }
 
-function mainMenu(user: string): number[] {
+/** A prompt window over the main menu, drawn with border characters as IBM i does. */
+function menuWindow(): number[] {
+  const s = new HostStream().write()
+    .text(7, 18, '.... Display a Menu ' + '.'.repeat(26), BLUE);
+  // Like IBM i, blank the interior first so the screen underneath does not show through.
+  for (let r = 8; r <= 15; r++) s.text(r, 18, ':', BLUE).fill(r, 20, 42).text(r, 63, ':', BLUE);
+  return s.text(16, 18, ':' + '.'.repeat(44) + ':', BLUE)
+    .text(9, 21, 'Type choice, press Enter.', BLUE)
+    .text(11, 21, 'Menu . . . . . .')
+    .field(11, 38, 10, { ffw: 0x4020 })
+    .text(11, 50, 'Name', BLUE)
+    .text(12, 21, 'Library  . . . .')
+    .field(12, 38, 10, { ffw: 0x4020, value: '*LIBL' })
+    .text(15, 21, 'F4=Prompt   F12=Cancel', BLUE)
+    .cursor(11, 38).readMdt().build();
+}
+
+function mainMenu(user: string, message?: string): number[] {
   return new HostStream().clear().write()
     .text(1, 2, 'MAIN')
     .text(1, 33, 'IBM i Main Menu', WHITE)
@@ -136,7 +169,7 @@ function mainMenu(user: string): number[] {
     .field(20, 7, 70)
     .text(22, 2, 'F3=Exit   F4=Prompt   F9=Retrieve   F12=Cancel   F13=Information Assistant', BLUE)
     .text(23, 2, 'F23=Set initial menu', BLUE)
-    .text(24, 2, `Signed on as ${user}. Try option 1 or the command WRKACTJOB.`)
+    .text(24, 2, message ?? `Signed on as ${user}. Try option 1, option 9, or the command WRKACTJOB.`)
     .cursor(20, 7).readMdt().build();
 }
 
@@ -210,5 +243,7 @@ function parseFields(data: Buffer): Map<string, string> {
 function send(socket: net.Socket, stream: number[]): void {
   const out: number[] = [];
   for (const b of buildRecord(0x03, stream)) { out.push(b); if (b === IAC) out.push(IAC); }
-  socket.write(Buffer.from([...out, IAC, 0xef]));
+  const bytes = Buffer.from([...out, IAC, 0xef]);
+  if (DELAY_MS > 0) setTimeout(() => socket.write(bytes), DELAY_MS);
+  else socket.write(bytes);
 }

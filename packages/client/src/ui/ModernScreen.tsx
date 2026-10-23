@@ -3,7 +3,7 @@
 
 import type { CSSProperties, WheelEvent } from 'react';
 import { useRef } from 'react';
-import type { Action, Item, ScreenView, TableItem } from '../transform/types.ts';
+import type { Action, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
 
 interface Props {
@@ -14,27 +14,75 @@ interface Props {
   onCursor: (row: number, col: number) => void;
 }
 
-const at = (row: number, col: number, top: number, width?: number): CSSProperties => ({
-  top: `calc(${row - top} * var(--rh))`,
-  left: `calc(${col - 1} * var(--cw))`,
+/** The screen cell drawn at the top-left of a container. */
+interface Origin {
+  row: number;
+  col: number;
+}
+
+const at = (row: number, col: number, origin: Origin, width?: number): CSSProperties => ({
+  top: `calc(${row - origin.row} * var(--rh))`,
+  left: `calc(${col - origin.col} * var(--cw))`,
   ...(width !== undefined ? { width: `calc(${width} * var(--cw))` } : {}),
 });
 
-function extent(items: Item[]): { top: number; bottom: number } {
-  if (items.length === 0) return { top: 1, bottom: 1 };
-  const top = Math.min(...items.map((i) => i.row));
-  const bottom = Math.max(...items.map((i) => (i.kind === 'table' ? i.row + i.height - 1 : i.row)));
-  return { top, bottom };
+function extent(view: ScreenView): { top: number; bottom: number } {
+  const rows = view.items.flatMap((i) => [i.row, i.kind === 'table' ? i.row + i.height - 1 : i.row]);
+  if (view.window) rows.push(view.window.top - 1, view.window.bottom + 1);
+  if (rows.length === 0) return { top: 1, bottom: 1 };
+  return { top: Math.min(...rows), bottom: Math.max(...rows) };
 }
 
-export function ModernScreen({ view, binding, locked, onAction, onCursor }: Props) {
-  const { top, bottom } = extent(view.items);
+export function ModernScreen(props: Props) {
+  const { view } = props;
+  const { top, bottom } = extent(view);
+  const origin = { row: top, col: 1 };
   return (
     <div
       className="canvas"
       style={{ '--cols': view.cols, height: `calc(${bottom - top + 1} * var(--rh))` } as CSSProperties}
     >
-      {view.items.map((item) => {
+      {view.window ? (
+        <>
+          <div className="background" aria-hidden inert>
+            <Items {...props} items={view.items} origin={origin} />
+          </div>
+          <Window {...props} win={view.window} origin={origin} />
+        </>
+      ) : (
+        <Items {...props} items={view.items} origin={origin} />
+      )}
+    </div>
+  );
+}
+
+/** A pop-up window: a card over the border's cells, interior items inside it. */
+function Window(props: Props & { win: WindowView; origin: Origin }) {
+  const { win, origin } = props;
+  const width = win.right - win.left + 3;
+  const height = win.bottom - win.top + 3;
+  return (
+    <div
+      className="window"
+      role="dialog"
+      aria-modal="true"
+      aria-label={win.title ?? 'Window'}
+      style={{ ...at(win.top - 1, win.left - 1, origin, width), height: `calc(${height} * var(--rh))` }}
+    >
+      <div className="window-title">{win.title}</div>
+      <div className="window-body" style={{ top: 'var(--rh)', left: 'var(--cw)' }}>
+        <Items {...props} items={win.items} origin={{ row: win.top, col: win.left }} />
+      </div>
+    </div>
+  );
+}
+
+function Items({ items, origin, binding, locked, onAction, onCursor, view }: Props & { items: Item[]; origin: Origin }) {
+  const top = origin;
+  const cols = view.cols;
+  return (
+    <>
+      {items.map((item) => {
         const key = `${item.kind}-${item.row}-${item.col}`;
         switch (item.kind) {
           case 'text':
@@ -49,7 +97,7 @@ export function ModernScreen({ view, binding, locked, onAction, onCursor }: Prop
               </span>
             );
           case 'field': {
-            const width = Math.min(item.width, view.cols - item.col + 1);
+            const width = Math.min(item.width, cols - item.col + 1);
             return (
               <FieldInput
                 key={key}
@@ -77,15 +125,15 @@ export function ModernScreen({ view, binding, locked, onAction, onCursor }: Prop
               </button>
             );
           case 'table':
-            return <Table key={key} table={item} top={top} binding={binding} locked={locked} onAction={onAction} />;
+            return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} />;
         }
       })}
-    </div>
+    </>
   );
 }
 
-function Table({ table, top, binding, locked, onAction }: {
-  table: TableItem; top: number; binding: FieldBinding; locked: boolean; onAction: (a: Action) => void;
+function Table({ table, origin, binding, locked, onAction }: {
+  table: TableItem; origin: Origin; binding: FieldBinding; locked: boolean; onAction: (a: Action) => void;
 }) {
   const lastWheel = useRef(0);
   const onWheel = (e: WheelEvent) => {
@@ -103,7 +151,7 @@ function Table({ table, top, binding, locked, onAction }: {
     <div
       className="table"
       role="table"
-      style={{ ...at(table.row, table.col, top, table.width), height: `calc(${table.height} * var(--rh))` }}
+      style={{ ...at(table.row, table.col, origin, table.width), height: `calc(${table.height} * var(--rh))` }}
       onWheel={onWheel}
     >
       <div className="thead" role="row" style={{ height: `calc(${table.headerRows} * var(--rh))` }}>
