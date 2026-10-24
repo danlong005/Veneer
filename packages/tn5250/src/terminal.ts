@@ -5,7 +5,7 @@ import {
   AIDS_WITHOUT_DATA, Aid, Command, ESC, HeaderFlag, Opcode, Order, RECORD_TYPE_DISPLAY,
 } from './constants.ts';
 import type { Codepage } from './ebcdic.ts';
-import { FFW, Screen, fieldAdjust, fieldShift, isAttributeByte, type Field } from './screen.ts';
+import { FFW, Screen, fieldAdjust, fieldId, fieldShift, isAttributeByte, type Field } from './screen.ts';
 
 export interface TerminalOptions {
   codepage: Codepage;
@@ -375,6 +375,12 @@ export class Terminal {
       text = text.trim();
       negative = /^-|-$/.test(text);
       text = text.replace(/^[-+]|[-+]$/, '').trim();
+    }
+    // Signed numeric fields take digits only; IBM i rejects anything else
+    // (CPF0886), including a decimal point, which the field implies.
+    if (shift === 'signedNumeric' && /[^0-9]/.test(text)) {
+      const { row, col } = this.screen.rowCol(field.start);
+      throw new ProtocolError(`Field ${fieldId(row, col)} takes digits only (type 1250 for 12.50)`);
     }
     // Signed numeric fields reserve the last position for the sign.
     const width = shift === 'signedNumeric' ? field.length - 1 : field.length;

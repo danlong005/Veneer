@@ -4,6 +4,12 @@
 import type { FieldSnapshot } from '@veneer/tn5250';
 
 const NUMERIC_CHARS = /^[0-9 ,.+-]$/;
+/**
+ * Signed numeric fields take digits only, as on a terminal: the decimal point
+ * is implied by the field (type 1250 for 12.50), and IBM i rejects the
+ * record (CPF0886) if one is sent. The sign is typed or set with Field+/Field-.
+ */
+const SIGNED_CHARS = /^[0-9+-]$/;
 
 /** Signed and numeric-only fields: right-aligned, numbers and signs only. */
 export function isNumeric(f: FieldSnapshot): boolean {
@@ -11,7 +17,8 @@ export function isNumeric(f: FieldSnapshot): boolean {
 }
 
 export function acceptsChar(f: FieldSnapshot, ch: string): boolean {
-  if (isNumeric(f)) return NUMERIC_CHARS.test(ch);
+  if (f.shift === 'signedNumeric') return SIGNED_CHARS.test(ch);
+  if (f.shift === 'numericOnly') return NUMERIC_CHARS.test(ch);
   if (f.shift === 'digitsOnly') return ch >= '0' && ch <= '9';
   return true;
 }

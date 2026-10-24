@@ -125,8 +125,11 @@ submits; any keys after it wait for the following screen. A host error discards 
 
 The browser applies the same field rules as a 5250 terminal:
 
-- **Numeric fields** (signed and numeric-only) right-align and accept only digits, signs,
-  `.` and `,`. Digits-only fields accept only digits.
+- **Numeric fields** right-align. Numeric-only fields accept digits, signs, `.` and `,`,
+  and IBM i aligns the decimals using the job's decimal format. Signed numeric fields
+  accept only digits and a sign, as on a terminal: the decimal point is implied by the
+  field, so type `1250` for 12.50 (IBM i rejects a record with a `.` in a signed field).
+  Digits-only fields accept only digits.
 - **Negative numbers**: type `-` before or after the digits, or use keypad **−** (Field−).
   Keypad **+** (Field+) clears the sign. Both move to the next field. The value is sent
   as a 5250 does: right-adjusted, with the sign in the zone of the last digit.

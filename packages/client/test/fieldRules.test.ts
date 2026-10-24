@@ -9,6 +9,7 @@ const field = (id: string) => orderEntry().fields.find((f) => f.id === id)!;
 
 test('numeric fields accept digits and signs only; digits-only accepts digits', () => {
   assert.equal(filterValue(field('6:20'), '1a2-'), '12-');
+  assert.equal(filterValue(field('6:20'), '-12.50'), '-1250', 'signed numeric: no decimal point, as on a terminal');
   assert.equal(filterValue(field('7:20'), '1-2.'), '12');
   assert.equal(filterValue(field('4:20'), 'ACME!'), 'ACME!');
 });

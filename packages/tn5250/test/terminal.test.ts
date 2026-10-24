@@ -153,6 +153,14 @@ test('signed numeric: right-adjusted digits, sign folded into the last digit whe
   ]);
 });
 
+test('signed numeric takes digits only; IBM i rejects a decimal point (CPF0886, seen on PUB400)', () => {
+  const { terminal } = numericScreen();
+  const signed = terminal.screen.fields[0]!;
+  assert.throws(() => terminal.setFieldValue(signed, '-1.5'), /digits only/);
+  assert.throws(() => terminal.setFieldValue(signed, '1,5'), /digits only/);
+  assert.equal(terminal.setFieldValue(signed, '15-'), true);
+});
+
 test('numeric-only: a negative value zones the last digit and displays with a minus', () => {
   const { terminal } = numericScreen();
   const numeric = terminal.screen.fields[1]!;
