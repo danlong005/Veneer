@@ -30,7 +30,7 @@ test('sign-on: title, labelled fields, info message', () => {
 test('main menu: links fill the command line, F-keys become buttons', () => {
   const v = transform(mainMenu());
   assert.equal(v.title, 'IBM i Main Menu');
-  assert.deepEqual(v.meta, ['MAIN', 'System: PUB400']);
+  assert.deepEqual(v.meta.map((m) => [m.text, m.row, m.col]), [['MAIN', 1, 2], ['System: PUB400', 1, 64]], 'header items keep their position');
   const links = v.items.filter((i): i is LinkItem => i.kind === 'link');
   assert.deepEqual(links.map((l) => [l.key, l.text]), [['1', 'User tasks'], ['2', 'Office tasks'], ['90', 'Sign off']]);
   assert.deepEqual(links[2]!.action, { aid: 'Enter', fields: { '20:7': '90' } });

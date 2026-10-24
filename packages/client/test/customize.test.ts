@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import { matchScreen, type ScreenDefinition } from '@veneer/screens';
 import { customize, itemAt } from '../src/transform/customize.ts';
 import { transform, type FieldItem, type TableItem, type TextItem } from '../src/transform/index.ts';
-import { orderEntry, promptWindow, workWithJobs } from './screens.ts';
+import { resolveSelection } from '../src/designer/edit.ts';
+import { mainMenu, orderEntry, promptWindow, workWithJobs } from './screens.ts';
 
 const def: ScreenDefinition = {
   id: 'order-entry',
@@ -126,4 +127,31 @@ test('a style rule on a position restyles that item when its value passes', () =
 test('an unfinished pattern in the designer is skipped, not an error', () => {
   const v = customize(transform(workWithJobs()), jobsDef([{ op: 'style', when: { column: 'Status', matches: '(' }, role: 'danger', target: 'row' }]));
   assert.ok(tableOf(v).rows.every((r) => !r.role));
+});
+
+test('header items can be hidden, renamed and restyled, but stay in the header', () => {
+  const menuDef = (changes: ScreenDefinition['changes']): ScreenDefinition =>
+    ({ id: 'menu', name: 'Menu', match: { text: [{ row: 1, col: 33, text: 'IBM i Main Menu' }] }, changes });
+  const v = customize(transform(mainMenu()), menuDef([
+    { op: 'hide', at: { row: 1, col: 2 } },
+    { op: 'text', at: { row: 1, col: 64 }, text: 'Production' },
+    { op: 'role', at: { row: 1, col: 64 }, role: 'danger' },
+    { op: 'move', at: { row: 1, col: 64 }, to: { row: 5, col: 40 } },
+  ]));
+  assert.deepEqual(v.meta.map((m) => [m.text, m.role, m.row]), [['Production', 'danger', 1]], 'program name hidden, system renamed, not moved');
+  assert.ok(!v.items.some((i) => i.kind === 'text' && i.text === 'Production'));
+
+  const design = customize(transform(mainMenu()), menuDef([{ op: 'hide', at: { row: 1, col: 2 } }]), { design: true });
+  assert.equal(design.meta[0]!.hidden, true, 'kept, marked hidden, in the designer');
+
+  const styled = customize(transform(mainMenu()), menuDef([{ op: 'style', when: { at: { row: 1, col: 64 }, contains: 'pub400' }, role: 'warning', target: 'item' }]));
+  assert.equal(styled.meta[1]!.role, 'warning', 'style rules reach header items');
+});
+
+test('the designer selects header items by position', () => {
+  const view = transform(mainMenu());
+  const sel = resolveSelection(view, mainMenu(), { row: 1, col: 70 });
+  assert.equal(sel?.kind, 'item');
+  assert.ok(sel?.kind === 'item' && sel.header);
+  assert.deepEqual(sel?.at, { row: 1, col: 64 });
 });

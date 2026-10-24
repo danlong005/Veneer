@@ -409,7 +409,21 @@ export function App() {
         <div className="titles">
           <h1>{(mode === 'modern' && view?.title) || 'Veneer'}</h1>
           {mode === 'modern' && view && view.meta.length > 0 && (
-            <div className="meta">{view.meta.join(' · ')}</div>
+            <div className="meta">
+              {view.meta.map((m) => {
+                const cls = `meta-item${m.role !== 'normal' ? ` role-${m.role}` : ''}`;
+                if (!designing) return <span key={`${m.row}:${m.col}`} className={cls}>{m.text}</span>;
+                // In the designer, header items are selectable to hide, rename or restyle.
+                const selected = selection?.at.row === m.row && selection.at.col === m.col;
+                return (
+                  <button
+                    key={`${m.row}:${m.col}`} type="button" title="Select to hide, rename or restyle"
+                    className={`${cls} meta-pick${m.hidden ? ' ghost' : ''}${selected ? ' selected' : ''}`}
+                    onClick={() => setSelectedAt({ row: m.row, col: m.col })}
+                  >{m.text}</button>
+                );
+              })}
+            </div>
           )}
         </div>
         <div className="top-actions">

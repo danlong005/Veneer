@@ -82,7 +82,14 @@ button, input, select { font: inherit; color: inherit; }
 .brand { width: 32px; height: 32px; border-radius: 8px; flex: none; display: block; }
 .titles { min-width: 0; flex: 1; }
 .titles h1 { margin: 0; font-size: 17px; font-weight: 650; color: var(--text-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+.meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; display: flex; flex-wrap: wrap; align-items: center; }
+.meta-item + .meta-item::before { content: "·"; margin: 0 6px; color: var(--text-muted); font-weight: 400; }
+.meta-pick { border: 1px dashed var(--border); background: none; border-radius: 5px; padding: 0 6px; font-size: inherit; cursor: pointer; }
+.meta-pick + .meta-pick { margin-left: 14px; }
+.meta-pick + .meta-pick::before { content: none; }
+.meta-pick:hover { border-color: var(--accent-2); }
+.meta-pick.selected { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.meta-pick.ghost { opacity: 0.45; text-decoration: line-through; }
 .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .status { font-size: 12.5px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; }
 .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }

@@ -1,6 +1,7 @@
 // First row -> page title (the highlighted text nearest the center) plus metadata.
 
 import type { TransformContext } from '../context.ts';
+import type { TextItem } from '../types.ts';
 
 export function title(ctx: TransformContext): void {
   const row = ctx.region.top;
@@ -13,13 +14,20 @@ export function title(ctx: TransformContext): void {
   const pool = highlighted.length > 0 ? highlighted : chunks.filter((c) => c.col > ctx.region.left + 9);
   const best = [...pool].sort((a, b) => distance(a) - distance(b))[0];
   if (best) ctx.view.title = best.text;
-  // Group nearby chunks so "System:   PUB400" stays one item.
-  const meta: string[] = [];
+  // Group nearby chunks so "System:   PUB400" stays one item. Header items keep
+  // their position so customizations can hide, rename or restyle them; they
+  // start as 'normal' because the header has its own look.
+  const meta: TextItem[] = [];
   let prevEnd = -Infinity;
   for (const c of chunks) {
     if (c === best) { prevEnd = -Infinity; continue; }
-    if (c.col - prevEnd <= 4 && meta.length > 0) meta[meta.length - 1] += ` ${c.text}`;
-    else meta.push(c.text);
+    const last = meta.at(-1);
+    if (c.col - prevEnd <= 4 && last) {
+      last.text += ` ${c.text}`;
+      last.width = c.end - last.col;
+    } else {
+      meta.push({ kind: 'text', row, col: c.col, width: c.end - c.col, text: c.text, role: 'normal', reverse: false, underline: false });
+    }
     prevEnd = c.end;
   }
   ctx.view.meta = meta;

@@ -526,9 +526,9 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
   const original = item.kind === 'text' || item.kind === 'link' ? item.text : '';
   return (
     <>
-      <p className="dp-desc">{kind} at <code>{at.row},{at.col}</code>{original ? `: “${original}”` : ''}</p>
+      <p className="dp-desc">{selection.header ? 'Page header text' : kind} at <code>{at.row},{at.col}</code>{original ? `: “${original}”` : ''}</p>
       {hideToggle}
-      <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />
+      {!selection.header && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />}
       {(item.kind === 'text' || item.kind === 'link') && (
         <label className="dp-row">Text
           <input

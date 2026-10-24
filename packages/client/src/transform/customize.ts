@@ -29,6 +29,7 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
   const out: ScreenView = {
     ...view,
     items: view.items.map((i) => ({ ...i })),
+    meta: view.meta.map((m) => ({ ...m })),
     ...(view.window ? { window: { ...view.window, items: view.window.items.map((i) => ({ ...i })) } } : {}),
     buttons: [],
     definition: { id: def.id, name: def.name },
@@ -37,22 +38,24 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
   if (def.css) out.css = def.css;
   if (def.scripts) out.scripts = def.scripts;
   const all = () => [...out.items, ...(out.window?.items ?? [])];
+  // Header items can be hidden, renamed and restyled, but not moved.
+  const withHeader = () => [...all(), ...out.meta];
   const moves: Array<Extract<ScreenDefinition['changes'][number], { op: 'move' }>> = [];
 
   for (const change of def.changes) {
     switch (change.op) {
       case 'hide': {
-        const item = itemAt(all(), change.at);
+        const item = itemAt(withHeader(), change.at);
         if (item) item.hidden = true;
         break;
       }
       case 'text': {
-        const item = itemAt(all(), change.at);
+        const item = itemAt(withHeader(), change.at);
         if (item?.kind === 'text' || item?.kind === 'link') item.text = change.text;
         break;
       }
       case 'role': {
-        const item = itemAt(all(), change.at);
+        const item = itemAt(withHeader(), change.at);
         if (item?.kind === 'text') item.role = change.role;
         break;
       }
@@ -74,7 +77,7 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
         moves.push(change);
         break;
       case 'style':
-        applyStyle(all(), change);
+        applyStyle(withHeader(), change);
         break;
       case 'html': {
         const item: HtmlItem = {
@@ -106,6 +109,7 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
 
   if (!opts.design) {
     out.items = out.items.filter((i) => !i.hidden);
+    out.meta = out.meta.filter((m) => !m.hidden);
     if (out.window) out.window.items = out.window.items.filter((i) => !i.hidden);
   }
   return out;

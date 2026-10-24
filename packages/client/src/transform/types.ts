@@ -134,8 +134,8 @@ export interface ScreenView {
   rows: number;
   cols: number;
   title?: string;
-  /** Other header text from the title row (program name, system name). */
-  meta: string[];
+  /** Other header text from the title row (program name, system name), shown in the page header. */
+  meta: TextItem[];
   items: Item[];
   functionKeys: FunctionKey[];
   message?: { text: string; kind: 'error' | 'info' };

@@ -196,7 +196,9 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
     `lessThan` or `greaterThan` for numbers. Numbers are read as screens show them
     (`12.50-`, `-12,50`, `1,234.50`). In the designer, the **Styles** section shows how
     many rows each rule matches on the current screen. A cell rule wins over a row rule.
-  - `title` replaces the page title.
+  - `title` replaces the page title. The rest of the title row (program name, system
+    name) appears in the page header. `hide`, `text`, `role` and `style` work on those items
+    by their position on row 1. In the designer, click them in the header bar.
   - `move` draws an item somewhere else: `{ "op": "move", "at": { "row": 6, "col": 4 }, "to": { "row": 6, "col": 44 } }`.
     In the designer, drag any item (a table moves as a whole), or select it and use the arrow
     keys. Drag the corner handle of an HTML box to resize it. Moving only changes the layout:

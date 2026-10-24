@@ -38,11 +38,14 @@ export function originalText(snap: ScreenSnapshot, item: { row: number; col: num
 
 export type Selection =
   | { kind: 'field'; at: Target; field: FieldSnapshot; item?: Item }
-  | { kind: 'item'; at: Target; item: Item }
+  /** `header`: text from the title row, shown in the page header (it cannot move). */
+  | { kind: 'item'; at: Target; item: Item; header?: boolean }
   | { kind: 'empty'; at: Target };
 
 /** Resolve a clicked position: custom HTML or an input field first, else the item covering it, else the empty cell. */
 export function resolveSelection(view: ScreenView, snap: ScreenSnapshot, at: Target): Selection | null {
+  const header = itemAt(view.meta, at);
+  if (header) return { kind: 'item', at: { row: header.row, col: header.col }, item: header, header: true };
   const items = [...view.items, ...(view.window?.items ?? [])];
   const item = itemAt(items, at);
   if (item?.kind === 'html') return { kind: 'item', at: homeOf(item), item };
