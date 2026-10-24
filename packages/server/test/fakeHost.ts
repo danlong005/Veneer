@@ -1,5 +1,6 @@
 // A tiny fake IBM i: negotiates TN5250, shows a sign-on screen, and shows a
-// menu after Enter. Records every inbound 5250 record.
+// menu after Enter. Records every inbound 5250 record. Like IBM i, it asks
+// for another DEVNAME when the one sent is in use, and hangs up if none comes.
 
 import net from 'node:net';
 import { buildRecord, getCodepage } from '@veneer/tn5250';
@@ -36,6 +37,9 @@ export class FakeHost {
   readonly sockets = new Set<net.Socket>();
   /** DEVNAME values clients sent via NEW-ENVIRON, in connection order. */
   readonly deviceNames: Array<string | null> = [];
+  /** Device names held by jobs outside the test (leftovers, other emulators). */
+  readonly heldNames = new Set<string>();
+  private readonly devices = new Map<net.Socket, string | null>();
   connections = 0;
 
   async start(): Promise<number> {
@@ -51,12 +55,12 @@ export class FakeHost {
   private onConnection(socket: net.Socket): void {
     this.connections++;
     this.sockets.add(socket);
-    socket.on('close', () => this.sockets.delete(socket));
+    socket.on('close', () => { this.sockets.delete(socket); this.devices.delete(socket); });
     socket.on('error', () => {});
     socket.write(Buffer.from([IAC, 0xfd, 0x18, IAC, 0xfd, 0x19, IAC, 0xfb, 0x19, IAC, 0xfd, 0x00, IAC, 0xfb, 0x00]));
     // Ask for environment variables (DEVNAME), as IBM i does.
     socket.write(Buffer.from([IAC, 0xfd, 0x27, IAC, 0xfa, 0x27, 0x01, 0x03, IAC, 0xf0]));
-    send(socket, SIGN_ON);
+    let retried = false;
 
     let pending: number[] = [];
     let sub: number[] = [];
@@ -72,7 +76,20 @@ export class FakeHost {
           else if (b === 0xef) { this.onRecord(socket, Buffer.from(pending)); pending = []; }
           else if (b >= 0xfb && b <= 0xfe) skip = 1;
           else if (b === 0xfa) { inSub = true; sub = []; }
-          else if (b === 0xf0) { inSub = false; this.onSub(sub); }
+          else if (b === 0xf0) {
+            inSub = false;
+            const name = this.onSub(sub);
+            if (name === undefined) continue;
+            if (name !== null && this.inUse(name, socket)) {
+              retried = true;
+              socket.write(Buffer.from([IAC, 0xfa, 0x27, 0x01, 0x03, ...Buffer.from('DEVNAME'), IAC, 0xf0]));
+            } else if (name === null && retried) {
+              socket.destroy();
+            } else {
+              this.devices.set(socket, name);
+              send(socket, SIGN_ON);
+            }
+          }
           continue;
         }
         if (b === IAC) iac = true;
@@ -82,12 +99,19 @@ export class FakeHost {
     });
   }
 
-  /** NEW-ENVIRON IS [USERVAR "DEVNAME" VALUE "..."] */
-  private onSub(sub: number[]): void {
-    if (sub[0] !== 0x27 || sub[1] !== 0x00) return;
+  /** NEW-ENVIRON IS [USERVAR "DEVNAME" VALUE "..."]: the name, null for none, undefined if not that. */
+  private onSub(sub: number[]): string | null | undefined {
+    if (sub[0] !== 0x27 || sub[1] !== 0x00) return undefined;
     const text = Buffer.from(sub.slice(2)).toString('latin1');
     const m = /\x03DEVNAME\x01([^\x00-\x03]*)/.exec(text);
-    this.deviceNames.push(m ? m[1]! : null);
+    const name = m ? m[1]! : null;
+    this.deviceNames.push(name);
+    return name;
+  }
+
+  private inUse(name: string, socket: net.Socket): boolean {
+    if (this.heldNames.has(name)) return true;
+    return [...this.devices].some(([s, n]) => s !== socket && n === name);
   }
 
   private onRecord(socket: net.Socket, rec: Buffer): void {

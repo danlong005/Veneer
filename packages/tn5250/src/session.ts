@@ -18,6 +18,8 @@ export interface SessionOptions {
   tls?: boolean | tls.ConnectionOptions;
   terminalType?: string;
   deviceName?: string;
+  /** The device name is in use: return another to try, or undefined to give up. */
+  onDeviceNameInUse?: (name: string) => string | undefined;
   ccsid?: number;
   connectTimeoutMs?: number;
   /** Receives every 5250 record in both directions, for debugging and fixtures. */
@@ -37,6 +39,16 @@ interface SessionEvents {
   screen: [ScreenSnapshot];
   warning: [string];
   close: [Error | undefined];
+}
+
+/** The host closed the connection because the device name is in use. */
+export class DeviceNameInUseError extends Error {
+  readonly deviceName: string;
+  constructor(deviceName: string) {
+    super(`Device name ${deviceName} is in use`);
+    this.name = 'DeviceNameInUseError';
+    this.deviceName = deviceName;
+  }
 }
 
 export class Session extends EventEmitter<SessionEvents> {
@@ -64,6 +76,7 @@ export class Session extends EventEmitter<SessionEvents> {
     this.telnet = new TelnetCodec({
       terminalType,
       deviceName: opts.deviceName,
+      onDeviceNameInUse: opts.onDeviceNameInUse,
       send: (bytes) => this.socket?.write(bytes),
       onRecord: (rec) => this.onRecord(rec),
     });
@@ -97,6 +110,11 @@ export class Session extends EventEmitter<SessionEvents> {
 
   get connected(): boolean {
     return this.socket !== null && !this.closed;
+  }
+
+  /** The device name requested from the host; changes if a name was in use. */
+  get deviceName(): string | undefined {
+    return this.telnet.deviceName;
   }
 
   snapshot(): ScreenSnapshot {
@@ -166,6 +184,8 @@ export class Session extends EventEmitter<SessionEvents> {
   private shutdown(err?: Error): void {
     if (this.closed) return;
     this.closed = true;
+    const refused = this.telnet.refusedDeviceName;
+    if (!err && refused) err = new DeviceNameInUseError(refused);
     this.socket?.destroy();
     this.emit('close', err);
   }

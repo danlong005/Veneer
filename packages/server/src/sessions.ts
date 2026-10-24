@@ -3,7 +3,7 @@
 // period, during which a new socket can reattach with the resume token.
 
 import { randomBytes, randomUUID } from 'node:crypto';
-import { Session, type HostSettings, type ScreenSnapshot } from '@veneer/tn5250';
+import { DeviceNameInUseError, Session, type HostSettings, type ScreenSnapshot } from '@veneer/tn5250';
 import WebSocket from 'ws';
 import { DeviceNamePool } from './devices.ts';
 import type { ScreenInventory } from './inventory.ts';
@@ -39,6 +39,9 @@ export interface SessionInfo {
   graceEndsAt: string | null;
 }
 
+/** Other device names to try when the host says one is in use. */
+const DEVICE_NAME_RETRIES = 3;
+
 /** Host records often arrive in quick bursts; coalesce them into one screen push. */
 const PUSH_DELAY_MS = 10;
 
@@ -46,7 +49,8 @@ export class BrowserSession {
   readonly id = randomUUID();
   readonly resumeToken = randomBytes(32).toString('base64url');
   readonly host: Session;
-  readonly deviceName: string | undefined;
+  /** Requested device name; changes when the host says a name is in use. */
+  deviceName: string | undefined;
   readonly remote: string;
   readonly createdAt = Date.now();
   /** Display name read from the sign-on screen when IBM i assigned it. */
@@ -122,14 +126,25 @@ export class SessionManager {
       socket.close(CloseCode.SESSION_LIMIT, 'No free device names');
       return;
     }
-    const host = new Session({ ...this.opts.host, ...(deviceName ? { deviceName } : {}) });
-    const bs = new BrowserSession(host, deviceName, remote);
+    let retries = 0;
+    const host: Session = new Session({
+      ...this.opts.host,
+      ...(deviceName ? { deviceName, onDeviceNameInUse: (name: string) => this.nextDeviceName(bs, name, ++retries) } : {}),
+    });
+    const bs: BrowserSession = new BrowserSession(host, deviceName, remote);
     this.sessions.set(bs.resumeToken, bs);
     log.info('session created', { session: bs.id, remote, ...(deviceName ? { device: deviceName } : {}) });
 
+    host.once('screen', (screen) => {
+      log.info('device assigned', { session: bs.id, device: bs.deviceName ?? displayName(screen) ?? 'unknown' });
+    });
     host.on('screen', () => this.schedulePush(bs));
     host.on('warning', (message) => log.warn('protocol warning', { session: bs.id, message }));
     host.on('close', (err) => {
+      if (err instanceof DeviceNameInUseError) {
+        bs.send({ type: 'error', message: 'All device names tried are in use on the IBM i; try again later' });
+        return this.destroy(bs, CloseCode.HOST_CLOSED, 'No free device name');
+      }
       if (err) log.warn('host connection error', { session: bs.id, error: err.message });
       this.destroy(bs, CloseCode.HOST_CLOSED, 'Host closed the connection');
     });
@@ -147,6 +162,18 @@ export class SessionManager {
         this.destroy(bs, CloseCode.HOST_CLOSED, 'Host connection failed');
       },
     );
+  }
+
+  /**
+   * The host says `name` is in use, e.g. by a job left over from before a
+   * restart or another emulator. Skip it for a while and offer the next one.
+   */
+  private nextDeviceName(bs: BrowserSession, name: string, attempt: number): string | undefined {
+    this.devices!.avoid(name);
+    const next = attempt <= DEVICE_NAME_RETRIES ? this.devices!.acquire() : undefined;
+    log.warn('device name in use', { session: bs.id, device: name, ...(next ? { trying: next } : { giving_up: true }) });
+    bs.deviceName = next;
+    return next;
   }
 
   private attach(bs: BrowserSession, socket: WebSocket, resumed: boolean, remote: string): void {

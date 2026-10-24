@@ -30,6 +30,39 @@ test('answers TERMINAL-TYPE and NEW-ENVIRON requests', () => {
   assert.deepEqual(sent[1], [IAC, SB, 0x27, 0x00, 0x03, ...Buffer.from('DEVNAME'), 0x01, ...Buffer.from('VENEER01'), IAC, SE]);
 });
 
+test('offers another device name when the host says the first is in use', () => {
+  const offered: string[] = [];
+  const sent: number[][] = [];
+  const names = ['VENEER02', 'VENEER03'];
+  const c = new TelnetCodec({
+    terminalType: 'IBM-3179-2', deviceName: 'VENEER01',
+    onDeviceNameInUse: (name) => { offered.push(name); return names.shift(); },
+    send: (b) => sent.push([...b]), onRecord: () => {},
+  });
+  const devname = (name: string) => [IAC, SB, 0x27, 0x00, 0x03, ...Buffer.from('DEVNAME'), 0x01, ...Buffer.from(name), IAC, SE];
+  // IBM i's first request asks for every variable; a retry asks for DEVNAME.
+  c.receive(Buffer.from([IAC, SB, 0x27, 0x01, 0x00, 0x03, IAC, SE]));
+  assert.deepEqual(sent.at(-1), devname('VENEER01'));
+  const again = [IAC, SB, 0x27, 0x01, 0x03, ...Buffer.from('DEVNAME'), IAC, SE];
+  c.receive(Buffer.from(again));
+  assert.deepEqual(sent.at(-1), devname('VENEER02'));
+  assert.equal(c.deviceName, 'VENEER02');
+  c.receive(Buffer.from(again));
+  c.receive(Buffer.from(again));
+  assert.deepEqual(offered, ['VENEER01', 'VENEER02', 'VENEER03']);
+  assert.deepEqual(sent.at(-1), [IAC, SB, 0x27, 0x00, IAC, SE], 'no names left: none sent');
+  assert.equal(c.refusedDeviceName, 'VENEER03');
+  assert.equal(c.deviceName, undefined);
+});
+
+test('without a device name, repeated requests are answered the same way', () => {
+  const { c, sent } = codec();
+  c.receive(Buffer.from([IAC, SB, 0x27, 0x01, 0x00, 0x03, IAC, SE]));
+  c.receive(Buffer.from([IAC, SB, 0x27, 0x01, 0x00, 0x03, IAC, SE]));
+  assert.deepEqual(sent, [[IAC, SB, 0x27, 0x00, IAC, SE], [IAC, SB, 0x27, 0x00, IAC, SE]]);
+  assert.equal(c.refusedDeviceName, undefined);
+});
+
 test('frames records on IAC EOR across chunks and unescapes IAC', () => {
   const { c, records } = codec();
   c.receive(Buffer.from([0x00, 0x0a, IAC]));

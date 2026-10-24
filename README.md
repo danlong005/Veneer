@@ -59,7 +59,11 @@ network, set `VENEER_HTTPS_CERT`/`VENEER_HTTPS_KEY` so sign-on passwords are enc
 By default, IBM i names the devices (QPADEVxxxx). Set `VENEER_DEVNAME_PREFIX=VENEER` to
 get VENEER001, VENEER002, … instead, so Veneer jobs are easy to spot in WRKACTJOB. Names
 are reused when sessions end, and the number width fills the 10-character limit (up to
-3 digits).
+3 digits). If a name is already in use, for example by a job left over from before a
+restart or by another emulator, IBM i first checks that the session holding it is still
+alive, then asks for another name. Veneer offers the next free one (up to three more) and
+skips the busy name for 10 minutes. The log records `device name in use` and the
+`device assigned` to each session.
 
 ### Admin page
 

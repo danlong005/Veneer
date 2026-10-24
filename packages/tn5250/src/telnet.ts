@@ -9,6 +9,14 @@ export interface TelnetOptions {
   terminalType: string;
   /** Requested virtual device name; omit to let the host assign one. */
   deviceName?: string | undefined;
+  /**
+   * Called when the host asks for DEVNAME again, which means the name sent is
+   * in use: IBM i first checks the session holding it is alive (it sends that
+   * session DO TIMING-MARK), then asks for another name on this connection.
+   * Return another name to try, or undefined to give up (the host then closes
+   * the connection; answering with no name does not get a QPADEV device).
+   */
+  onDeviceNameInUse?: ((name: string) => string | undefined) | undefined;
   send: (bytes: Buffer) => void;
   onRecord: (record: Buffer) => void;
 }
@@ -28,6 +36,10 @@ export class TelnetCodec {
   private sub: number[] = [];
   private readonly localOn = new Set<number>();
   private readonly remoteOn = new Set<number>();
+  /** The device name last sent to the host. */
+  private sentDeviceName: string | undefined;
+  /** The last name the host refused when no other was offered. */
+  private refused: string | undefined;
 
   constructor(opts: TelnetOptions) {
     this.opts = opts;
@@ -65,6 +77,16 @@ export class TelnetCodec {
           break;
       }
     }
+  }
+
+  /** The device name last requested from the host. */
+  get deviceName(): string | undefined {
+    return this.sentDeviceName;
+  }
+
+  /** The device name the host refused when there was no other to offer. */
+  get refusedDeviceName(): string | undefined {
+    return this.refused;
   }
 
   /** Send one 5250 record, escaping IAC and terminating with IAC EOR. */
@@ -118,10 +140,13 @@ export class TelnetCodec {
     if (option === TelnetOption.TERMINAL_TYPE) {
       this.sendSub(TelnetOption.TERMINAL_TYPE, [Sub.IS, ...ascii(this.opts.terminalType)]);
     } else if (option === TelnetOption.NEW_ENVIRON) {
+      // Asked again after we sent a name: that name is in use.
+      const retry = this.sentDeviceName !== undefined;
+      const name = (retry ? this.opts.onDeviceNameInUse?.(this.sentDeviceName!) : this.opts.deviceName) || undefined;
+      if (retry && !name) this.refused = this.sentDeviceName;
+      this.sentDeviceName = name;
       const body: number[] = [Sub.IS];
-      if (this.opts.deviceName) {
-        body.push(Sub.USERVAR, ...ascii('DEVNAME'), Sub.VALUE, ...ascii(this.opts.deviceName));
-      }
+      if (name) body.push(Sub.USERVAR, ...ascii('DEVNAME'), Sub.VALUE, ...ascii(name));
       this.sendSub(TelnetOption.NEW_ENVIRON, body);
     }
   }
