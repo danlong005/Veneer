@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { transform, type FieldItem, type LinkItem, type TableItem, type TextItem } from '../src/transform/index.ts';
+import { Attr } from '@veneer/tn5250';
+import { findWindows, transform, type FieldItem, type LinkItem, type TableItem, type TextItem } from '../src/transform/index.ts';
 import { stripLeaders } from '../src/transform/text.ts';
-import { mainMenu, promptWindow, signOn, titled, workWithJobs } from './screens.ts';
+import { drawnLines, mainMenu, promptWindow, signOn, titled, workWithJobs, type WindowOptions } from './screens.ts';
 
 const texts = (items: unknown[]) => (items as TextItem[]).filter((i) => i.kind === 'text').map((i) => i.text);
 
@@ -112,4 +113,34 @@ test('a title in the window border is used, and the first row stays content', ()
 test('screens without borders have no window', () => {
   assert.equal(transform(mainMenu()).window, undefined);
   assert.equal(transform(workWithJobs()).window, undefined);
+});
+
+// DDS WDWBORDER: other border characters and colors (issue #6).
+const customBorders: Array<[string, WindowOptions]> = [
+  ['+-+ corners, | sides', { border: '+-+||+-+' }],
+  ['all asterisks', { border: '********', borderAttr: Attr.PINK }],
+  ['different top and bottom', { border: '=====#-#', borderAttr: Attr.WHITE }],
+  ['blanks in reverse image', { border: '        ', borderAttr: Attr.GREEN_REVERSE }],
+];
+for (const [name, opts] of customBorders) {
+  test(`a window with a custom border is found: ${name}`, () => {
+    const v = transform(promptWindow(opts));
+    const w = v.window;
+    assert.ok(w, 'window detected');
+    assert.deepEqual([w.top, w.left, w.bottom, w.right], [8, 21, 15, 58]);
+    assert.equal(w.title, 'Select Printer');
+    assert.deepEqual(w.items.filter((i): i is FieldItem => i.kind === 'field').map((f) => f.field.id), ['12:41', '13:41']);
+    const border = new Set([...(opts.border ?? '')].filter((c) => c !== ' '));
+    const leftover = [...texts(w.items), ...texts(v.items)].filter((t) => [...t].every((c) => border.has(c)));
+    assert.deepEqual(leftover, [], 'no border characters drawn');
+  });
+
+  test(`a custom border keeps its title: ${name}`, () => {
+    assert.equal(transform(promptWindow({ ...opts, borderTitle: 'Select Printer' })).window?.title, 'Select Printer');
+  });
+}
+
+test('separator lines, text tables and reverse-image bars are not windows', () => {
+  assert.deepEqual(findWindows(drawnLines()), []);
+  assert.equal(transform(drawnLines()).window, undefined);
 });

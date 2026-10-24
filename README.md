@@ -95,7 +95,7 @@ patterns are swapped for widgets:
 | ` 1. User tasks` menu lines | Links that enter the option |
 | `===>` command line | Command input |
 | `User . . . . :` dot leaders | Clean labels |
-| `.....` / `:` bordered pop-up window | Modal card over the dimmed screen; its F-keys and messages take over |
+| Bordered pop-up window: the IBM i `.....` / `:` border, or any WDWBORDER characters or reverse-image border | Modal card over the dimmed screen; its F-keys and messages take over |
 
 Rules run in order, and each one claims the cells it renders. Rules work on a region: the
 whole screen, or the interior of the active pop-up window. Per-screen customizations

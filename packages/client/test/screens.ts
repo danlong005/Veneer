@@ -54,17 +54,30 @@ export const workWithJobs = (marker = 'More...') => render((s) => s
   .text(22, 2, 'F3=Exit   F5=Refresh   F7=Find   F10=Restart statistics', BLUE)
   .text(23, 2, 'F11=Display elapsed data   F12=Cancel   F23=More options   F24=More keys', BLUE));
 
+export interface WindowOptions {
+  borderTitle?: string;
+  /**
+   * Border characters in DDS WDWBORDER CHAR order: top-left, top, top-right,
+   * left, right, bottom-left, bottom, bottom-right. Default: the IBM i border.
+   */
+  border?: string;
+  /** Border attribute; default blue. */
+  borderAttr?: number;
+}
+
 /** The main menu with a prompt window over it, cursor in the window. */
-export const promptWindow = (opts: { borderTitle?: string } = {}) => render((s) => {
+export const promptWindow = (opts: WindowOptions = {}) => render((s) => {
   s.text(1, 2, 'MAIN').text(1, 33, 'IBM i Main Menu', WHITE)
     .text(3, 2, 'Select one of the following:')
     .text(5, 6, '1. User tasks').text(6, 6, '2. Office tasks')
     .text(19, 2, 'Selection or command').text(20, 2, '===>').field(20, 7, 70)
     .text(22, 2, 'F3=Exit   F4=Prompt   F12=Cancel', BLUE);
-  const top = opts.borderTitle ? `.... ${opts.borderTitle} ${'.'.repeat(34 - opts.borderTitle.length)}` : '.'.repeat(40);
-  s.text(7, 20, top, BLUE);
-  for (let r = 8; r <= 15; r++) s.text(r, 20, ':', BLUE).text(r, 59, ':', BLUE);
-  s.text(16, 20, ':' + '.'.repeat(38) + ':', BLUE);
+  const [tl, t, tr, l, r, bl, b, br] = [...(opts.border ?? '...:::.:')] as string[];
+  const attr = opts.borderAttr ?? BLUE;
+  const fill = opts.borderTitle ? `${t!.repeat(3)} ${opts.borderTitle} ${t!.repeat(33 - opts.borderTitle.length)}` : t!.repeat(38);
+  s.text(7, 20, tl + fill + tr, attr);
+  for (let row = 8; row <= 15; row++) s.text(row, 20, l!, attr).text(row, 59, r!, attr);
+  s.text(16, 20, bl + b!.repeat(38) + br, attr);
   if (!opts.borderTitle) s.text(8, 30, 'Select Printer', WHITE);
   return s
     .text(10, 22, 'Type choices, press Enter.', BLUE)
@@ -75,6 +88,31 @@ export const promptWindow = (opts: { borderTitle?: string } = {}) => render((s) 
     .text(15, 22, 'F4=Prompt   F12=Cancel', BLUE)
     .cursor(12, 41);
 });
+
+/** A normal screen with dashed separator lines and a text table: no windows here. */
+export const drawnLines = () => render((s) => s
+  .text(1, 30, 'Item Availability', WHITE)
+  .text(3, 2, '-'.repeat(78))
+  .text(4, 2, 'Warehouse . . . :   CENTRAL')
+  .text(5, 2, 'Updated . . . . :   2026-10-24')
+  .text(6, 2, '-'.repeat(78))
+  .text(8, 4, '+----------+----------+')
+  .text(9, 4, '| Item     | Qty      |')
+  .text(10, 4, '+----------+----------+')
+  .text(11, 4, '| A100     | 5        |')
+  .text(12, 4, '| B200     | 12       |')
+  .text(13, 4, '+----------+----------+')
+  .text(8, 40, '+-------+-------+')
+  .text(9, 40, '| Dept  | Name  |')
+  .text(10, 40, '|  10   | Sales |')
+  .text(11, 40, '+---------------+')
+  .text(15, 2, '='.repeat(40))
+  .text(16, 2, '| Totals are estimates                 |')
+  .text(17, 2, '='.repeat(40) + '==')
+  .text(20, 2, ' '.repeat(78), Attr.GREEN_REVERSE)
+  .text(21, 3, 'Option').field(21, 12, 2, { attr: 0x25 })
+  .text(23, 2, ' '.repeat(78), Attr.GREEN_REVERSE)
+  .text(24, 2, 'F3=Exit   F12=Cancel', BLUE));
 
 /** An order entry screen exercising field rules. */
 export const orderEntry = () => render((s) => s
