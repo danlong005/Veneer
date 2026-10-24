@@ -1,7 +1,8 @@
 // Strict validation of screen definitions from files or the designer API.
 
 import { isWebTemplate, placeholders } from './links.ts';
-import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, type Change, type KeyAction, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
+import { STYLE_TESTS } from './styles.ts';
+import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type StyleCondition, type KeyAction, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const AID = /^(Enter|Help|PageUp|PageDown|Print|Clear|RecordBackspace|F([1-9]|1\d|2[0-4]))$/;
@@ -31,6 +32,27 @@ function obj(v: unknown, path: string): Obj {
 function str(v: unknown, path: string, max = 200): string {
   if (typeof v !== 'string' || v.length > max) fail(path, `must be a string of at most ${max} characters`);
   return v;
+}
+
+function condition(v: unknown, path: string): StyleCondition {
+  const o = obj(v, path);
+  if ((o.column === undefined) === (o.at === undefined)) fail(path, 'needs either column or at');
+  const when: StyleCondition = o.column !== undefined
+    ? { column: str(o.column, `${path}.column`, 132) }
+    : { at: target(o.at, `${path}.at`) };
+  const tests = STYLE_TESTS.filter((t) => o[t] !== undefined);
+  if (tests.length !== 1) fail(path, `needs exactly one of ${STYLE_TESTS.join(', ')}`);
+  const test = tests[0]!;
+  if (test === 'lessThan' || test === 'greaterThan') {
+    if (typeof o[test] !== 'number' || !Number.isFinite(o[test])) fail(`${path}.${test}`, 'must be a number');
+    when[test] = o[test] as number;
+  } else {
+    when[test] = str(o[test], `${path}.${test}`, 200);
+    if (test === 'matches') {
+      try { new RegExp(when.matches!, 'i'); } catch { fail(`${path}.matches`, 'is not a valid regular expression'); }
+    }
+  }
+  return when;
 }
 
 function urlTemplate(v: unknown, path: string): string {
@@ -119,6 +141,13 @@ function change(v: unknown, path: string): Change {
     }
     case 'move':
       return { op: 'move', at: target(o.at, `${path}.at`), to: target(o.to, `${path}.to`) };
+    case 'style': {
+      const when = condition(o.when, `${path}.when`);
+      const targetOf = oneOf(o.target, STYLE_TARGETS, `${path}.target`);
+      if (when.column !== undefined && targetOf === 'item') fail(`${path}.target`, 'must be row or cell for a column condition');
+      if (when.at !== undefined && targetOf !== 'item') fail(`${path}.target`, 'must be item for a condition on a position');
+      return { op: 'style', when, role: oneOf(o.role, ROLES, `${path}.role`), target: targetOf };
+    }
     case 'html':
       return {
         op: 'html',
@@ -130,7 +159,7 @@ function change(v: unknown, path: string): Change {
         ...(o.script !== undefined && o.script !== '' ? { script: str(o.script, `${path}.script`, MAX_SCRIPT) } : {}),
       };
     default:
-      fail(`${path}.op`, 'must be hide, text, role, widget, button, move or html');
+      fail(`${path}.op`, 'must be hide, text, role, widget, button, move, style or html');
   }
 }
 

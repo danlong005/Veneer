@@ -63,6 +63,26 @@ export interface UrlAction {
 
 export type ButtonAction = KeyAction | UrlAction;
 
+/**
+ * What a style rule checks: each row's cell in a table column (by its
+ * heading), or the text or field at a screen position. Exactly one test:
+ * equals, contains and matches (a regular expression) ignore case; lessThan
+ * and greaterThan read the text as a number. See styles.ts.
+ */
+export interface StyleCondition {
+  column?: string;
+  at?: Target;
+  equals?: string;
+  contains?: string;
+  matches?: string;
+  lessThan?: number;
+  greaterThan?: number;
+}
+
+/** What a style rule restyles: a column condition's whole row or cell, or the item at `at`. */
+export const STYLE_TARGETS = ['row', 'cell', 'item'] as const;
+export type StyleTarget = (typeof STYLE_TARGETS)[number];
+
 export type Change =
   | { op: 'hide'; at: Target }
   | { op: 'text'; at: Target; text: string }
@@ -71,6 +91,8 @@ export type Change =
   | { op: 'button'; label: string; action: ButtonAction }
   /** Draw the item at `at` with its top-left cell at `to` instead (layout only). */
   | { op: 'move'; at: Target; to: Target }
+  /** Restyle what matches a condition, e.g. rows whose Status column equals MSGW. */
+  | { op: 'style'; when: StyleCondition; role: Role; target: StyleTarget }
   /**
    * Custom HTML drawn over the screen at a position, `width` x `height` cells.
    * `css` is scoped to the box (nested rules reach inside it); `script` runs

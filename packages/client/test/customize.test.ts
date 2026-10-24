@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { matchScreen, type ScreenDefinition } from '@veneer/screens';
 import { customize, itemAt } from '../src/transform/customize.ts';
-import { transform, type FieldItem, type TextItem } from '../src/transform/index.ts';
+import { transform, type FieldItem, type TableItem, type TextItem } from '../src/transform/index.ts';
 import { orderEntry, promptWindow, workWithJobs } from './screens.ts';
 
 const def: ScreenDefinition = {
@@ -94,4 +94,36 @@ test('moving a table moves its rows and columns with it', () => {
 test('no definition leaves the view untouched', () => {
   const view = transform(orderEntry());
   assert.equal(customize(view, undefined), view);
+});
+
+const jobsDef = (changes: ScreenDefinition['changes']): ScreenDefinition =>
+  ({ id: 'jobs', name: 'Jobs', match: { text: [{ row: 1, col: 30, text: 'Work with Active Jobs' }] }, changes });
+const tableOf = (v: ReturnType<typeof transform>) => v.items.find((i): i is TableItem => i.kind === 'table')!;
+const cellText = (r: TableItem['rows'][number], k: number) => r.cells[k]!.text;
+
+test('style rules highlight rows and cells by a column value', () => {
+  const v = customize(transform(workWithJobs()), jobsDef([
+    { op: 'style', when: { column: 'status', equals: 'run' }, role: 'danger', target: 'row' },
+    { op: 'style', when: { column: 'CPU %', greaterThan: 10 }, role: 'warning', target: 'cell' },
+  ]));
+  const t = tableOf(v);
+  const status = t.columns.findIndex((c) => c.header === 'Status');
+  const cpu = t.columns.findIndex((c) => c.header === 'CPU %');
+  assert.deepEqual(t.rows.map((r) => [cellText(r, status), r.role ?? null]), [['DEQW', null], ['DEQW', null], ['RUN', 'danger']],
+    'equals ignores case, in the heading and the value');
+  assert.deepEqual(t.rows.map((r) => [cellText(r, cpu), r.cells[cpu]!.role]), [['.0', 'normal'], ['12.5', 'warning'], ['.1', 'normal']]);
+  assert.equal(t.rows[1]!.cells[cpu]!.styled, true, 'a styled cell keeps its color in a highlighted row');
+});
+
+test('a style rule on a position restyles that item when its value passes', () => {
+  const at = { row: 7, col: 2 };
+  const styled = (when: Record<string, unknown>) =>
+    (itemAt(customize(transform(workWithJobs()), jobsDef([{ op: 'style', when: { at, ...when }, role: 'accent', target: 'item' }])).items, at) as TextItem).role;
+  assert.equal(styled({ matches: '^type options' }), 'accent');
+  assert.equal(styled({ contains: 'xyz' }), 'muted', 'unchanged when the value does not pass');
+});
+
+test('an unfinished pattern in the designer is skipped, not an error', () => {
+  const v = customize(transform(workWithJobs()), jobsDef([{ op: 'style', when: { column: 'Status', matches: '(' }, role: 'danger', target: 'row' }]));
+  assert.ok(tableOf(v).rows.every((r) => !r.role));
 });

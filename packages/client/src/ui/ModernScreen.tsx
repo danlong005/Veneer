@@ -171,7 +171,7 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
                 widget={item.widget}
                 readOnly={Boolean(design)}
                 dataAt={atKey(home)}
-                className={`${item.command ? 'command' : ''}${designClass(design, home, item.hidden)}`}
+                className={`${item.command ? 'command' : ''}${item.role ? ` role-${item.role}` : ''}${designClass(design, home, item.hidden)}`}
                 style={at(item.row, item.col, top, width)}
               />
             );
@@ -260,7 +260,7 @@ function Table({ table, origin, binding, locked, onAction, design }: {
         <div
           key={r.row}
           role="row"
-          className={`tr${i % 2 ? ' odd' : ''}`}
+          className={`tr${i % 2 ? ' odd' : ''}${r.role && r.role !== 'normal' ? ` row-${r.role}` : ''}`}
           style={{ top: `calc(${r.row - table.row} * var(--rh))` }}
           onClick={(e) => {
             if ((e.target as HTMLElement).closest('[data-field]')) return;
@@ -268,7 +268,7 @@ function Table({ table, origin, binding, locked, onAction, design }: {
           }}
         >
           {r.cells.map((c) => (
-            <div key={c.col} role="cell" className={`td role-${c.role}`} style={rel(c.col, c.width)}>
+            <div key={c.col} role="cell" className={`td role-${c.role}${c.styled ? ' styled' : ''}`} style={rel(c.col, c.width)}>
               {c.field ? (
                 <FieldInput
                   field={c.field}

@@ -1,7 +1,7 @@
 // Applies a screen definition's changes to an auto-transformed view. Items are
 // found by their screen position, so changes survive data changing on screen.
 
-import type { ScreenDefinition, Target } from '@veneer/screens';
+import { conditionTester, type Change, type ScreenDefinition, type Target } from '@veneer/screens';
 import type { HtmlItem, Item, ScreenView } from './types.ts';
 
 export interface CustomizeOptions {
@@ -73,6 +73,9 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
       case 'move':
         moves.push(change);
         break;
+      case 'style':
+        applyStyle(all(), change);
+        break;
       case 'html': {
         const item: HtmlItem = {
           kind: 'html', row: change.at.row, col: change.at.col, width: change.width, height: change.height, html: change.html,
@@ -106,6 +109,38 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
     if (out.window) out.window.items = out.window.items.filter((i) => !i.hidden);
   }
   return out;
+}
+
+/**
+ * A style rule: restyle the rows or cells whose cell in a column passes the
+ * test, or the text or field at a position when its own value passes.
+ */
+function applyStyle(items: Item[], rule: Extract<Change, { op: 'style' }>): void {
+  let passes: (text: string) => boolean;
+  try {
+    passes = conditionTester(rule.when);
+  } catch {
+    return; // A pattern being typed in the designer, not valid yet.
+  }
+  if (rule.when.at) {
+    const item = itemAt(items, rule.when.at);
+    if (item?.kind === 'text' && passes(item.text)) item.role = rule.role;
+    if (item?.kind === 'field' && passes(item.field.value)) item.role = rule.role;
+    return;
+  }
+  const heading = rule.when.column!.trim().toLowerCase();
+  for (const table of items) {
+    if (table.kind !== 'table') continue;
+    const k = table.columns.findIndex((c) => c.header.trim().toLowerCase() === heading);
+    if (k < 0) continue;
+    table.rows = table.rows.map((r) => {
+      const cell = r.cells[k];
+      if (!cell || !passes(cell.field?.value ?? cell.text)) return r;
+      return rule.target === 'row'
+        ? { ...r, role: rule.role }
+        : { ...r, cells: r.cells.map((c, j) => (j === k ? { ...c, role: rule.role, styled: true } : c)) };
+    });
+  }
 }
 
 function moveItem(item: Item, to: Target): void {

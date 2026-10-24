@@ -10,10 +10,11 @@ import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { runScript } from '../custom/runtime.ts';
 import { InventoryDialog } from './InventoryDialog.tsx';
+import { StyleRules } from './StyleRules.tsx';
 import type { ScreenView } from '../transform/types.ts';
 import {
   addScreenId, buttonsOf, formatOptions, freeSpot, htmlAt, htmlOf, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
-  moveOf, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textOf, widgetOf, type Selection,
+  ROLE_LABELS, moveOf, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textOf, widgetOf, type Selection,
 } from './edit.ts';
 
 const TOKEN_KEY = 'veneer.designerToken';
@@ -351,6 +352,8 @@ export function DesignPanel(props: Props) {
             </button>
           </section>
 
+          <StyleRules draft={draft} setDraft={setDraft} view={props.view} selected={selection?.at} />
+
           <section>
             <h3>HTML</h3>
             {htmlOf(draft).length > 0 && (
@@ -661,9 +664,6 @@ function HtmlEditor({ draft, setDraft, html, cols, onSelect }: {
   );
 }
 
-const ROLE_LABELS: Record<Role, string> = {
-  normal: 'Normal', emphasis: 'Bold', muted: 'Muted', danger: 'Error', warning: 'Warning', accent: 'Accent', accent2: 'Highlight',
-};
 
 function defaultWidget(type: string, value: string): Widget | null {
   switch (type) {

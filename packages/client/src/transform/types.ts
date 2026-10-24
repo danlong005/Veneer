@@ -50,6 +50,8 @@ export interface FieldItem extends Placed {
   options?: Option[];
   /** Set by a customization: dropdown, checkbox or date picker. */
   widget?: Widget;
+  /** Set by a style rule. */
+  role?: Role;
 }
 
 export interface LinkItem extends Placed {
@@ -68,11 +70,15 @@ export interface TableCell {
   field?: FieldSnapshot;
   options?: Option[];
   widget?: Widget;
+  /** Set when a style rule chose `role`, so it wins over a row highlight. */
+  styled?: boolean;
 }
 
 export interface TableRow {
   row: number;
   cells: TableCell[];
+  /** Set by a style rule: highlights the whole row. */
+  role?: Role;
 }
 
 export interface TableColumn {

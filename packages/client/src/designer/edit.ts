@@ -155,6 +155,25 @@ export function setButtons(def: ScreenDefinition, buttons: Array<{ label: string
   };
 }
 
+/** Role names as the designer shows them. */
+export const ROLE_LABELS: Record<Role, string> = {
+  normal: 'Normal', emphasis: 'Bold', muted: 'Muted', danger: 'Error', warning: 'Warning', accent: 'Accent', accent2: 'Highlight',
+};
+
+export type StyleRule = Omit<ChangeOf<'style'>, 'op'>;
+
+export function stylesOf(def: ScreenDefinition): StyleRule[] {
+  return def.changes.filter((c): c is ChangeOf<'style'> => c.op === 'style').map(({ op: _op, ...rule }) => rule);
+}
+
+/** Replace the style rules, keeping other changes in place. Rules apply in order. */
+export function setStyles(def: ScreenDefinition, rules: StyleRule[]): ScreenDefinition {
+  return {
+    ...def,
+    changes: [...def.changes.filter((c) => c.op !== 'style'), ...rules.map((r) => ({ op: 'style' as const, ...r }))],
+  };
+}
+
 // ---- small text formats used by the panel -----------------------------------
 
 /** "value=Label" lines <-> select options. */

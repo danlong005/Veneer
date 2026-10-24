@@ -157,7 +157,8 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
     { "op": "widget", "field": "10:22", "widget": { "type": "date", "format": "YYYYMMDD" } },
     { "op": "widget", "field": "11:22", "widget": { "type": "checkbox", "on": "Y", "off": "N" } },
     { "op": "button", "label": "Back to menu", "action": { "aid": "F12" } },
-    { "op": "button", "label": "Customer in CRM", "action": { "url": "https://crm.example.com/customers/{6:22}" } }
+    { "op": "button", "label": "Customer in CRM", "action": { "url": "https://crm.example.com/customers/{6:22}" } },
+    { "op": "style", "when": { "column": "Status", "equals": "MSGW" }, "role": "danger", "target": "row" }
   ]
 }
 ```
@@ -188,6 +189,13 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
     URL-encoded, and only `http://` and `https://` addresses with a fixed host name are
     allowed. In the designer, choose **Open URL** as the button's action. **Insert
     selected** adds the selected item's position, and a preview shows the address.
+  - `style` restyles what matches a condition. `when` checks either a list column by its
+    heading (`"column": "Status"`), with `target` set to `row` or `cell`, or the text or
+    field at a position (`"at": { "row": 4, "col": 20 }`), with `target` set to `item`. The test is one
+    of `equals`, `contains` or `matches` (a regular expression), all ignoring case, or
+    `lessThan` or `greaterThan` for numbers. Numbers are read as screens show them
+    (`12.50-`, `-12,50`, `1,234.50`). In the designer, the **Styles** section shows how
+    many rows each rule matches on the current screen. A cell rule wins over a row rule.
   - `title` replaces the page title.
   - `move` draws an item somewhere else: `{ "op": "move", "at": { "row": 6, "col": 4 }, "to": { "row": 6, "col": 44 } }`.
     In the designer, drag any item (a table moves as a whole), or select it and use the arrow
