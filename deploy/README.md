@@ -27,6 +27,10 @@ accepts connections from the server itself. If other machines will connect, set
 `VENEER_HTTPS_CERT` and `VENEER_HTTPS_KEY` too, so sign-on passwords are encrypted. The
 file may contain the designer token, so make it readable only by the service.
 
+For the designer, `VENEER_DESIGNER=local` lets a browser on the server itself, or one
+connected through an SSH tunnel, use it without a token. Behind a reverse proxy, requests
+are never treated as local. Other people need `VENEER_DESIGNER_TOKEN`.
+
 After starting, check the server:
 
 ```sh

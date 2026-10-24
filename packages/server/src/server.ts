@@ -43,7 +43,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     if (pathname === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', version: VERSION, uptimeSeconds: Math.round(process.uptime()), sessions: sessions.size }));
-    } else if (handleApi(req, res, pathname, { store: screens, designerToken: config.designerToken })) {
+    } else if (handleApi(req, res, pathname, { store: screens, designerToken: config.designerToken, designerLocal: config.designerLocal })) {
       // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405).end();

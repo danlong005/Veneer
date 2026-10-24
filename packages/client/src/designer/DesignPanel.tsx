@@ -32,6 +32,8 @@ interface Props {
   definitions: ScreenDefinition[];
   /** Edit a saved definition, or start a new one for this screen (null). */
   onPick: (def: ScreenDefinition | null) => void;
+  /** False when the server lets this browser save without the token. */
+  tokenRequired: boolean;
   onSaved: () => void;
   onClose: () => void;
 }
@@ -41,8 +43,9 @@ function loadToken(): string {
 }
 
 export function DesignPanel(props: Props) {
-  const { snap, draft, setDraft, saved, existing, selection } = props;
+  const { snap, draft, setDraft, saved, existing, selection, tokenRequired } = props;
   const [token, setToken] = useState(loadToken);
+  const canSave = !tokenRequired || token !== '';
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const matched = matches(snap, draft);
@@ -62,7 +65,10 @@ export function DesignPanel(props: Props) {
     try {
       const res = await fetch(`/api/screens/${encodeURIComponent(draft.id)}`, {
         method,
-        headers: { Authorization: `Bearer ${token}`, ...(method === 'PUT' ? { 'Content-Type': 'application/json' } : {}) },
+        headers: {
+          ...(tokenRequired ? { Authorization: `Bearer ${token}` } : {}),
+          ...(method === 'PUT' ? { 'Content-Type': 'application/json' } : {}),
+        },
         ...(method === 'PUT' ? { body: JSON.stringify(draft) } : {}),
       });
       if (res.ok) return true;
@@ -220,17 +226,21 @@ export function DesignPanel(props: Props) {
       </section>
 
       <footer className="dp-foot">
-        {!token && <p className="dp-hint">Saving needs the designer token (VENEER_DESIGNER_TOKEN).</p>}
-        <label className="dp-row">Designer token
-          <input type="password" value={token} autoComplete="off" onChange={(e) => storeToken(e.target.value)} />
-        </label>
+        {tokenRequired && (
+          <>
+            {!token && <p className="dp-hint">Saving needs the designer token (VENEER_DESIGNER_TOKEN).</p>}
+            <label className="dp-row">Designer token
+              <input type="password" value={token} autoComplete="off" onChange={(e) => storeToken(e.target.value)} />
+            </label>
+          </>
+        )}
         {status && <p className={status.kind === 'ok' ? 'dp-ok' : 'dp-warn'} role="status">{status.text}</p>}
         <div className="dp-actions">
-          <button type="button" className="primary" disabled={busy || !dirty || !idValid || (screenIds.length === 0 && draft.match.text.length === 0) || !token} onClick={save}>
+          <button type="button" className="primary" disabled={busy || !dirty || !idValid || (screenIds.length === 0 && draft.match.text.length === 0) || !canSave} onClick={save}>
             {saved ? 'Save changes' : 'Save'}
           </button>
           {saved && <button type="button" className="ghost" disabled={busy || !dirty} onClick={() => setDraft(saved)}>Revert</button>}
-          {saved && <button type="button" className="ghost danger" disabled={busy || !token} onClick={remove}>Delete</button>}
+          {saved && <button type="button" className="ghost danger" disabled={busy || !canSave} onClick={remove}>Delete</button>}
         </div>
       </footer>
     </aside>

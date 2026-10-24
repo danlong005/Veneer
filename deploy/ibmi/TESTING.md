@@ -44,7 +44,9 @@ ls current                   # expect: packages/ deploy/ node_modules/ veneer.en
 ```
 
 **3. Create the config file.** pub400 is shared, so use an uncommon port. The same
-number goes in steps 4 and 5.
+number goes in steps 4 and 5. `VENEER_DESIGNER=local` lets your browser use the designer
+through the SSH tunnel without a token. On pub400, other users signed on to the machine
+could reach it too, so stop Veneer when you're done.
 
 ```sh
 cat > ~/veneer/etc/veneer.env <<'EOF'
@@ -55,7 +57,7 @@ VENEER_LISTEN_HOST=127.0.0.1
 VENEER_LISTEN_PORT=18250
 VENEER_SCREENS_DIR=/home/YOURUSER/veneer/etc/screens
 VENEER_LOG_FILE=/home/YOURUSER/veneer/log/veneer.log
-VENEER_DESIGNER_TOKEN=pick-a-long-secret-here
+VENEER_DESIGNER=local
 EOF
 chmod 600 ~/veneer/etc/veneer.env
 ```
@@ -84,7 +86,7 @@ Then browse to **http://localhost:18250** and:
 
 - [ ] Sign on.
 - [ ] Run `WRKACTJOB` and a few menus.
-- [ ] Try the Design button, using the token from step 3.
+- [ ] Try the Design button. It should save without asking for a token.
 - [ ] Press Ctrl+C in the first SSH session. The browser shows "Server shutting down",
   and the log has `shutting down` and `session closed` lines.
 

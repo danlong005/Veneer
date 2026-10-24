@@ -10,9 +10,14 @@ const MAX_BODY = 256 * 1024;
 
 export interface ApiOptions {
   store: ScreenStore;
-  /** Bearer token required to change definitions; unset disables the designer. */
+  /** Bearer token required to change definitions. */
   designerToken?: string | undefined;
+  /** Requests from this machine may change definitions without the token. */
+  designerLocal?: boolean | undefined;
 }
+
+/** How a request may use the designer: freely, with the token, or not at all. */
+type DesignerAccess = 'open' | 'token' | 'off';
 
 /** Handle an /api request. Returns false if the path is not an API route. */
 export function handleApi(req: http.IncomingMessage, res: http.ServerResponse, pathname: string, opts: ApiOptions): boolean {
@@ -29,7 +34,8 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   res.setHeader('Cache-Control', 'no-store');
 
   if (pathname === '/api/config' && req.method === 'GET') {
-    return json(res, 200, { designer: Boolean(opts.designerToken) });
+    const access = designerAccess(req, opts);
+    return json(res, 200, { designer: access !== 'off', tokenRequired: access === 'token' });
   }
   if (pathname === '/api/screens' && req.method === 'GET') {
     return json(res, 200, { version: store.version, screens: store.list() });
@@ -41,8 +47,9 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   if (!ID_PATTERN.test(id)) return json(res, 400, { error: 'Invalid screen id' });
   if (req.method !== 'PUT' && req.method !== 'DELETE') return json(res, 405, { error: 'Method not allowed' });
 
-  if (!opts.designerToken) return json(res, 403, { error: 'The designer is disabled (set VENEER_DESIGNER_TOKEN)' });
-  if (!authorized(req, opts.designerToken)) return json(res, 401, { error: 'Designer token required' });
+  const access = designerAccess(req, opts);
+  if (access === 'off') return json(res, 403, { error: 'The designer is disabled (set VENEER_DESIGNER=local or VENEER_DESIGNER_TOKEN)' });
+  if (access === 'token' && !authorized(req, opts.designerToken!)) return json(res, 401, { error: 'Designer token required' });
 
   if (req.method === 'DELETE') {
     const removed = await store.remove(id);
@@ -65,6 +72,35 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
     if (err instanceof DefinitionError) return json(res, 400, { error: err.message });
     throw err;
   }
+}
+
+function designerAccess(req: http.IncomingMessage, opts: ApiOptions): DesignerAccess {
+  if (opts.designerLocal && isLocal(req)) return 'open';
+  return opts.designerToken ? 'token' : 'off';
+}
+
+/**
+ * True for a browser on this machine talking to Veneer directly. A request
+ * forwarded by a proxy is not local, whatever its source address. The Host and
+ * Origin checks stop other web pages reaching the API through DNS rebinding.
+ */
+function isLocal(req: http.IncomingMessage): boolean {
+  if (!isLoopbackAddress(req.socket.remoteAddress ?? '')) return false;
+  if (req.headers['x-forwarded-for'] !== undefined || req.headers.forwarded !== undefined) return false;
+  const host = req.headers.host ?? '';
+  if (!isLoopbackHost(host)) return false;
+  const origin = req.headers.origin;
+  if (origin === undefined) return true;
+  try { return new URL(origin).host === host; } catch { return false; }
+}
+
+function isLoopbackAddress(addr: string): boolean {
+  return addr === '::1' || /^(::ffff:)?127\./.test(addr);
+}
+
+function isLoopbackHost(host: string): boolean {
+  const name = host.startsWith('[') ? host.slice(0, host.indexOf(']') + 1) : host.replace(/:\d+$/, '');
+  return name === 'localhost' || name === '[::1]' || /^127\.\d+\.\d+\.\d+$/.test(name);
 }
 
 function authorized(req: http.IncomingMessage, token: string): boolean {

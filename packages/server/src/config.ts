@@ -24,8 +24,10 @@ export interface ServerConfig {
   staticDir?: string;
   /** Directory of screen definition JSON files. */
   screensDir: string;
-  /** Bearer token for saving definitions from the designer; unset disables it. */
+  /** Bearer token for saving definitions from the designer. */
   designerToken?: string;
+  /** Let browsers on this machine use the designer without the token (VENEER_DESIGNER=local). */
+  designerLocal?: boolean;
   log: { level: string; file?: string; maxBytes: number; keep: number };
 }
 
@@ -40,6 +42,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   if (env.VENEER_DESIGNER_TOKEN !== undefined && env.VENEER_DESIGNER_TOKEN !== '' && env.VENEER_DESIGNER_TOKEN.length < 12) {
     throw new Error('VENEER_DESIGNER_TOKEN must be at least 12 characters');
   }
+
+  const designer = env.VENEER_DESIGNER ?? '';
+  if (designer !== '' && designer !== 'local') throw new Error(`VENEER_DESIGNER must be "local" or empty, got "${designer}"`);
 
   const cert = env.VENEER_HTTPS_CERT, key = env.VENEER_HTTPS_KEY;
   if (Boolean(cert) !== Boolean(key)) throw new Error('Set both VENEER_HTTPS_CERT and VENEER_HTTPS_KEY, or neither');
@@ -57,6 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     ...(staticDir(env) ? { staticDir: staticDir(env)! } : {}),
     screensDir: env.VENEER_SCREENS_DIR || fileURLToPath(new URL('../../../screens', import.meta.url)),
     ...(env.VENEER_DESIGNER_TOKEN ? { designerToken: env.VENEER_DESIGNER_TOKEN } : {}),
+    designerLocal: designer === 'local',
     log: {
       level: env.VENEER_LOG_LEVEL || 'info',
       ...(env.VENEER_LOG_FILE ? { file: env.VENEER_LOG_FILE } : {}),

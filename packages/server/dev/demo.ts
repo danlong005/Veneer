@@ -7,10 +7,9 @@ import { createServer } from '../src/server.ts';
 import { DemoHost } from './demoHost.ts';
 
 const hostPort = await new DemoHost().listen();
-const DEMO_TOKEN = 'veneer-demo-designer';
 const config = loadConfig({
   VENEER_SCREENS_DIR: fileURLToPath(new URL('./screens', import.meta.url)),
-  VENEER_DESIGNER_TOKEN: DEMO_TOKEN,
+  VENEER_DESIGNER: 'local',
   ...process.env,
   VENEER_HOST: '127.0.0.1', VENEER_PORT: String(hostPort), VENEER_TLS: 'false',
 });
@@ -20,6 +19,6 @@ log.info('demo ready', {
   url: `http://${addr.address}:${addr.port}`,
   client: config.staticDir ?? 'not built (npm run build)',
   screens: config.screensDir,
-  designerToken: config.designerToken === DEMO_TOKEN ? DEMO_TOKEN : '(from VENEER_DESIGNER_TOKEN)',
+  designer: config.designerLocal ? 'no token needed from this machine' : 'off',
 });
 process.on('SIGINT', () => void server.close().then(() => process.exit(0)));

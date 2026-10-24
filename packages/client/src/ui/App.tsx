@@ -330,6 +330,7 @@ export function App() {
           existing={draftExisting}
           selection={selection}
           definitions={screens.screens}
+          tokenRequired={screens.tokenRequired}
           onPick={pickDefinition}
           onSaved={screens.reload}
           onClose={stopDesign}

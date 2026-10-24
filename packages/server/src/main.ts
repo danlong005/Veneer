@@ -45,6 +45,7 @@ log.info('veneer listening', {
   ibmi: `${config.host.host}:${config.host.port ?? (config.host.tls ? 992 : 23)}`,
   tls: Boolean(config.host.tls),
   screens: config.screensDir,
+  designer: [config.designerLocal && 'local', config.designerToken && 'token'].filter(Boolean).join('+') || 'off',
 });
 if (!config.https && config.listenHost !== '127.0.0.1' && config.listenHost !== 'localhost') {
   log.warn('serving plain HTTP on a network interface; sign-on passwords cross the network unencrypted. Set VENEER_HTTPS_CERT/KEY.');

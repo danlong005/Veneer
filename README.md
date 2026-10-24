@@ -143,14 +143,16 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
     converted to and from the host's format.
   - `button` adds an action button that presses a key, optionally filling fields first.
   - `title` replaces the page title.
-- **Designer:** set `VENEER_DESIGNER_TOKEN` and a **Design** button appears. Click any
+- **Designer:** a **Design** button appears when the designer is enabled. With
+  `VENEER_DESIGNER=local`, browsers on the server's own machine use it without a token;
+  `npm run dev` and `npm run demo` turn this on. For anyone else, set `VENEER_DESIGNER_TOKEN`,
+  which the designer asks for once per tab. The two can be combined. Click any
   text, field or table to change it, and see the result immediately. New customizations
   are recognised by this screen's ID. To attach another variant, such as the empty list,
   open it, pick the existing customization in the panel, and click **Add this screen**.
   **Save** writes the JSON file, and every connected browser picks up the change at once.
-  Without a token, definitions are read-only.
+  With neither setting, definitions are read-only.
 - **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2).
-  Its designer token is `veneer-demo-designer`.
 
 ## License
 
