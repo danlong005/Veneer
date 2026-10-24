@@ -1,10 +1,12 @@
-// /api: screen definitions for the client, and editing for the designer.
+// /api: screen definitions for the client, editing for the designer, and
+// /api/admin for the admin page.
 
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type http from 'node:http';
 import { DefinitionError, ID_PATTERN } from '@veneer/screens';
-import { log } from './log.ts';
+import { log, recentProblems } from './log.ts';
 import type { ScreenInventory } from './inventory.ts';
+import type { SessionManager } from './sessions.ts';
 import type { ScreenStore } from './store.ts';
 
 const MAX_BODY = 1024 * 1024;
@@ -16,10 +18,35 @@ export interface ApiOptions {
   designerToken?: string | undefined;
   /** Requests from this machine may change definitions without the token. */
   designerLocal?: boolean | undefined;
+  sessions?: SessionManager | undefined;
+  /** Bearer token for /api/admin. */
+  adminToken?: string | undefined;
+  /** Requests from this machine may use /api/admin without the token. */
+  adminLocal?: boolean | undefined;
+  /** Server facts for the admin page. */
+  info?: (() => Record<string, unknown>) | undefined;
 }
 
-/** How a request may use the designer: freely, with the token, or not at all. */
-type DesignerAccess = 'open' | 'token' | 'off';
+/** How a request may use the designer or admin page: freely, with the token, or not at all. */
+type Access = 'open' | 'token' | 'off';
+
+interface Role {
+  local: boolean | undefined;
+  token: string | undefined;
+  /** Why the role is off, and what a missing token is called. */
+  off: string;
+  tokenName: string;
+}
+
+const designerRole = (opts: ApiOptions): Role => ({
+  local: opts.designerLocal, token: opts.designerToken,
+  off: 'The designer is disabled (set VENEER_DESIGNER=local or VENEER_DESIGNER_TOKEN)', tokenName: 'Designer token',
+});
+
+const adminRole = (opts: ApiOptions): Role => ({
+  local: opts.adminLocal, token: opts.adminToken,
+  off: 'The admin page is disabled (set VENEER_ADMIN=local or VENEER_ADMIN_TOKEN)', tokenName: 'Admin token',
+});
 
 /** Handle an /api request. Returns false if the path is not an API route. */
 export function handleApi(req: http.IncomingMessage, res: http.ServerResponse, pathname: string, opts: ApiOptions): boolean {
@@ -35,8 +62,10 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   const { store } = opts;
   res.setHeader('Cache-Control', 'no-store');
 
+  if (pathname === '/api/admin' || pathname.startsWith('/api/admin/')) return admin(req, res, pathname, opts);
+
   if (pathname === '/api/config' && req.method === 'GET') {
-    const access = designerAccess(req, opts);
+    const access = accessFor(req, designerRole(opts));
     return json(res, 200, { designer: access !== 'off', tokenRequired: access === 'token' });
   }
   if (pathname === '/api/screens' && req.method === 'GET') {
@@ -46,7 +75,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   if (pathname === '/api/inventory') {
     if (req.method !== 'GET' && req.method !== 'DELETE') return json(res, 405, { error: 'Method not allowed' });
     // Designers only: it lists every screen the business uses.
-    if (!allowed(req, res, opts)) return;
+    if (!allowed(req, res, designerRole(opts))) return;
     if (req.method === 'DELETE') {
       opts.inventory?.clear();
       log.info('screen inventory cleared');
@@ -57,7 +86,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
 
   if (pathname === '/api/site') {
     if (req.method !== 'PUT') return json(res, 405, { error: 'Method not allowed' });
-    if (!allowed(req, res, opts)) return;
+    if (!allowed(req, res, designerRole(opts))) return;
     let body: unknown;
     try {
       body = JSON.parse(await readBody(req));
@@ -79,7 +108,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   const id = decodeURIComponent(m[1]!);
   if (!ID_PATTERN.test(id)) return json(res, 400, { error: 'Invalid screen id' });
   if (req.method !== 'PUT' && req.method !== 'DELETE') return json(res, 405, { error: 'Method not allowed' });
-  if (!allowed(req, res, opts)) return;
+  if (!allowed(req, res, designerRole(opts))) return;
 
   if (req.method === 'DELETE') {
     const removed = await store.remove(id);
@@ -104,18 +133,37 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   }
 }
 
-/** Check designer access for a change; on refusal, send the error and return false. */
-function allowed(req: http.IncomingMessage, res: http.ServerResponse, opts: ApiOptions): boolean {
-  const access = designerAccess(req, opts);
-  if (access === 'off') json(res, 403, { error: 'The designer is disabled (set VENEER_DESIGNER=local or VENEER_DESIGNER_TOKEN)' });
-  else if (access === 'token' && !authorized(req, opts.designerToken!)) json(res, 401, { error: 'Designer token required' });
+async function admin(req: http.IncomingMessage, res: http.ServerResponse, pathname: string, opts: ApiOptions): Promise<void> {
+  if (!allowed(req, res, adminRole(opts))) return;
+
+  if (pathname === '/api/admin/status') {
+    if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
+    return json(res, 200, {
+      server: opts.info?.() ?? {},
+      sessions: opts.sessions?.list() ?? [],
+      problems: recentProblems(),
+    });
+  }
+
+  const m = /^\/api\/admin\/sessions\/([^/]+)\/end$/.exec(pathname);
+  if (!m) return json(res, 404, { error: 'Not found' });
+  if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
+  const ended = opts.sessions?.end(decodeURIComponent(m[1]!), req.socket.remoteAddress ?? 'unknown') ?? false;
+  return ended ? void res.writeHead(204).end() : json(res, 404, { error: 'No such session' });
+}
+
+/** Check access for a role; on refusal, send the error and return false. */
+function allowed(req: http.IncomingMessage, res: http.ServerResponse, role: Role): boolean {
+  const access = accessFor(req, role);
+  if (access === 'off') json(res, 403, { error: role.off });
+  else if (access === 'token' && !authorized(req, role.token!)) json(res, 401, { error: `${role.tokenName} required` });
   else return true;
   return false;
 }
 
-function designerAccess(req: http.IncomingMessage, opts: ApiOptions): DesignerAccess {
-  if (opts.designerLocal && isLocal(req)) return 'open';
-  return opts.designerToken ? 'token' : 'off';
+function accessFor(req: http.IncomingMessage, role: Role): Access {
+  if (role.local && isLocal(req)) return 'open';
+  return role.token ? 'token' : 'off';
 }
 
 /**

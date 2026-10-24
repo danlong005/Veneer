@@ -3,12 +3,13 @@
 // period, during which a new socket can reattach with the resume token.
 
 import { randomBytes, randomUUID } from 'node:crypto';
-import { Session, type HostSettings } from '@veneer/tn5250';
+import { Session, type HostSettings, type ScreenSnapshot } from '@veneer/tn5250';
 import WebSocket from 'ws';
 import { DeviceNamePool } from './devices.ts';
 import type { ScreenInventory } from './inventory.ts';
 import { log } from './log.ts';
 import { CloseCode, parseClientMessage, type ClientMessage, type ServerMessage } from './protocol.ts';
+import { displayName, signOnUserField, submittedUser } from './signon.ts';
 
 export interface SessionManagerOptions {
   host: HostSettings;
@@ -23,6 +24,21 @@ export interface SessionManagerOptions {
   inventory?: ScreenInventory | undefined;
 }
 
+/** What the admin page shows about a session. */
+export interface SessionInfo {
+  id: string;
+  /** IBM i user, once signed on. */
+  user: string | null;
+  device: string | null;
+  remote: string;
+  connectedAt: string;
+  lastActivity: string;
+  hostConnected: boolean;
+  /** A browser is attached; otherwise the session waits for a reload until `graceEndsAt`. */
+  attached: boolean;
+  graceEndsAt: string | null;
+}
+
 /** Host records often arrive in quick bursts; coalesce them into one screen push. */
 const PUSH_DELAY_MS = 10;
 
@@ -31,16 +47,25 @@ export class BrowserSession {
   readonly resumeToken = randomBytes(32).toString('base64url');
   readonly host: Session;
   readonly deviceName: string | undefined;
+  readonly remote: string;
+  readonly createdAt = Date.now();
+  /** Display name read from the sign-on screen when IBM i assigned it. */
+  shownDevice: string | undefined;
+  /** User signed on, and the one submitted on the sign-on screen until the host accepts it. */
+  user: string | undefined;
+  pendingUser: string | undefined;
   socket: WebSocket | null = null;
   lastActivity = Date.now();
+  graceEndsAt: number | undefined;
   seq = 0;
   closed = false;
   graceTimer: NodeJS.Timeout | undefined;
   pushTimer: NodeJS.Timeout | undefined;
 
-  constructor(host: Session, deviceName: string | undefined) {
+  constructor(host: Session, deviceName: string | undefined, remote: string) {
     this.host = host;
     this.deviceName = deviceName;
+    this.remote = remote;
   }
 
   send(msg: ServerMessage): void {
@@ -98,7 +123,7 @@ export class SessionManager {
       return;
     }
     const host = new Session({ ...this.opts.host, ...(deviceName ? { deviceName } : {}) });
-    const bs = new BrowserSession(host, deviceName);
+    const bs = new BrowserSession(host, deviceName, remote);
     this.sessions.set(bs.resumeToken, bs);
     log.info('session created', { session: bs.id, remote, ...(deviceName ? { device: deviceName } : {}) });
 
@@ -127,6 +152,7 @@ export class SessionManager {
   private attach(bs: BrowserSession, socket: WebSocket, resumed: boolean, remote: string): void {
     clearTimeout(bs.graceTimer);
     bs.graceTimer = undefined;
+    bs.graceEndsAt = undefined;
     if (bs.socket && bs.socket !== socket) bs.socket.close(CloseCode.REPLACED, 'Session opened elsewhere');
     bs.socket = socket;
     bs.lastActivity = Date.now();
@@ -157,6 +183,7 @@ export class SessionManager {
         case 'hello':
           throw new Error('Already said hello');
         case 'submit':
+          bs.pendingUser = submittedUser(bs.host.snapshot(), msg.fields);
           bs.host.submit({
             aid: msg.aid,
             ...(msg.fields ? { fields: msg.fields } : {}),
@@ -187,6 +214,7 @@ export class SessionManager {
     bs.socket = null;
     if (this.opts.resumeGraceMs <= 0) return this.destroy(bs, CloseCode.GOING_AWAY, 'Socket closed');
     log.info('socket detached', { session: bs.id, graceMs: this.opts.resumeGraceMs });
+    bs.graceEndsAt = Date.now() + this.opts.resumeGraceMs;
     bs.graceTimer = setTimeout(() => this.destroy(bs, CloseCode.GOING_AWAY, 'Resume grace period expired'), this.opts.resumeGraceMs);
   }
 
@@ -202,8 +230,24 @@ export class SessionManager {
     if (bs.closed || !bs.socket) return;
     const screen = bs.host.snapshot();
     // A locked screen is the host still working; count the one the user gets.
-    if (!screen.keyboardLocked) this.opts.inventory?.record(bs.id, screen);
+    if (!screen.keyboardLocked) {
+      this.opts.inventory?.record(bs.id, screen);
+      this.trackSignOn(bs, screen);
+    }
     bs.send({ type: 'screen', seq: ++bs.seq, screen });
+  }
+
+  /** Leaving the sign-on screen means the submitted user signed on; returning to it, signed off. */
+  private trackSignOn(bs: BrowserSession, screen: ScreenSnapshot): void {
+    if (signOnUserField(screen)) {
+      bs.shownDevice ??= displayName(screen);
+      if (bs.user) log.info('signed off', { session: bs.id, user: bs.user });
+      bs.user = undefined;
+    } else if (bs.pendingUser) {
+      bs.user = bs.pendingUser;
+      log.info('signed on', { session: bs.id, user: bs.user });
+    }
+    bs.pendingUser = undefined;
   }
 
   private sweepIdle(): void {
@@ -231,6 +275,30 @@ export class SessionManager {
     if (bs.deviceName) this.devices?.release(bs.deviceName);
     this.opts.inventory?.forget(bs.id);
     log.info('session closed', { session: bs.id, reason });
+  }
+
+  list(): SessionInfo[] {
+    return [...this.sessions.values()].map((bs) => ({
+      id: bs.id,
+      user: bs.user ?? null,
+      device: bs.deviceName ?? bs.shownDevice ?? null,
+      remote: bs.remote,
+      connectedAt: new Date(bs.createdAt).toISOString(),
+      lastActivity: new Date(bs.lastActivity).toISOString(),
+      hostConnected: bs.host.connected,
+      attached: bs.socket !== null,
+      graceEndsAt: bs.graceEndsAt ? new Date(bs.graceEndsAt).toISOString() : null,
+    }));
+  }
+
+  /** End a session from the admin page. Returns false if there is no such session. */
+  end(id: string, by: string): boolean {
+    const bs = [...this.sessions.values()].find((s) => s.id === id);
+    if (!bs) return false;
+    log.info('session ended by admin', { session: bs.id, by, ...(bs.user ? { user: bs.user } : {}) });
+    bs.send({ type: 'error', message: 'Your session was ended by an administrator' });
+    this.destroy(bs, CloseCode.ENDED_BY_ADMIN, 'Ended by an administrator');
+    return true;
   }
 
   /** Send a message to every attached browser. */

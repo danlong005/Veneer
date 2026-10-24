@@ -40,6 +40,17 @@ export function createServer(config: ServerConfig): VeneerServer {
   const screens = new ScreenStore(config.screensDir);
   screens.on('changed', (version) => sessions.broadcast({ type: 'screens', version }));
 
+  const info = () => ({
+    version: VERSION,
+    node: process.version,
+    startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
+    uptimeSeconds: Math.round(process.uptime()),
+    ibmi: { host: config.host.host, port: config.host.port ?? (config.host.tls ? 992 : 23), tls: Boolean(config.host.tls) },
+    https: Boolean(config.https),
+    maxSessions: config.maxSessions,
+    deviceNamePrefix: config.deviceNamePrefix ?? null,
+  });
+
   const onRequest: http.RequestListener = (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -48,7 +59,11 @@ export function createServer(config: ServerConfig): VeneerServer {
     if (pathname === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', version: VERSION, uptimeSeconds: Math.round(process.uptime()), sessions: sessions.size }));
-    } else if (handleApi(req, res, pathname, { store: screens, inventory, designerToken: config.designerToken, designerLocal: config.designerLocal })) {
+    } else if (handleApi(req, res, pathname, {
+      store: screens, inventory, sessions, info,
+      designerToken: config.designerToken, designerLocal: config.designerLocal,
+      adminToken: config.adminToken, adminLocal: config.adminLocal,
+    })) {
       // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405).end();

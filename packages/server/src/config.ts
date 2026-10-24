@@ -30,6 +30,10 @@ export interface ServerConfig {
   designerToken?: string;
   /** Let browsers on this machine use the designer without the token (VENEER_DESIGNER=local). */
   designerLocal?: boolean;
+  /** Bearer token for the admin page (sessions, errors). */
+  adminToken?: string;
+  /** Let browsers on this machine use the admin page without the token (VENEER_ADMIN=local). */
+  adminLocal?: boolean;
   log: { level: string; file?: string; maxBytes: number; keep: number };
 }
 
@@ -47,6 +51,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
 
   const designer = env.VENEER_DESIGNER ?? '';
   if (designer !== '' && designer !== 'local') throw new Error(`VENEER_DESIGNER must be "local" or empty, got "${designer}"`);
+
+  const adminToken = env.VENEER_ADMIN_TOKEN ?? '';
+  if (adminToken !== '' && adminToken.length < 12) throw new Error('VENEER_ADMIN_TOKEN must be at least 12 characters');
+  // Designers must not be able to end sessions, so the two tokens must differ.
+  if (adminToken !== '' && adminToken === env.VENEER_DESIGNER_TOKEN) throw new Error('VENEER_ADMIN_TOKEN must differ from VENEER_DESIGNER_TOKEN');
+  const admin = env.VENEER_ADMIN ?? '';
+  if (admin !== '' && admin !== 'local') throw new Error(`VENEER_ADMIN must be "local" or empty, got "${admin}"`);
 
   const cert = env.VENEER_HTTPS_CERT, key = env.VENEER_HTTPS_KEY;
   if (Boolean(cert) !== Boolean(key)) throw new Error('Set both VENEER_HTTPS_CERT and VENEER_HTTPS_KEY, or neither');
@@ -66,6 +77,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     dataDir: env.VENEER_DATA_DIR || fileURLToPath(new URL('../../../data', import.meta.url)),
     ...(env.VENEER_DESIGNER_TOKEN ? { designerToken: env.VENEER_DESIGNER_TOKEN } : {}),
     designerLocal: designer === 'local',
+    ...(adminToken ? { adminToken } : {}),
+    adminLocal: admin === 'local',
     log: {
       level: env.VENEER_LOG_LEVEL || 'info',
       ...(env.VENEER_LOG_FILE ? { file: env.VENEER_LOG_FILE } : {}),

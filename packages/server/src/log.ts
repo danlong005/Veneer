@@ -21,6 +21,18 @@ export interface LogOptions {
   keep?: number;
 }
 
+/** A warning or error kept for the admin page. */
+export interface LogEntry {
+  time: string;
+  level: 'warn' | 'error';
+  msg: string;
+  fields?: Record<string, unknown>;
+}
+
+/** How many recent warnings and errors to keep in memory. */
+const RECENT_MAX = 200;
+const recent: LogEntry[] = [];
+
 let threshold = ORDER.info;
 let file: { path: string; maxBytes: number; keep: number; size: number } | null = null;
 
@@ -48,9 +60,19 @@ function rotate(f: NonNullable<typeof file>): void {
   f.size = 0;
 }
 
+/** Recent warnings and errors, newest first, whatever the log level. */
+export function recentProblems(): LogEntry[] {
+  return [...recent].reverse();
+}
+
 function write(level: Level, msg: string, fields?: Record<string, unknown>): void {
+  const time = new Date().toISOString();
+  if (level === 'warn' || level === 'error') {
+    recent.push({ time, level, msg, ...(fields ? { fields } : {}) });
+    if (recent.length > RECENT_MAX) recent.shift();
+  }
   if (ORDER[level] < threshold) return;
-  const line = JSON.stringify({ time: new Date().toISOString(), level, msg, ...fields }) + '\n';
+  const line = JSON.stringify({ time, level, msg, ...fields }) + '\n';
   if (!file) {
     (level === 'error' || level === 'warn' ? process.stderr : process.stdout).write(line);
     return;

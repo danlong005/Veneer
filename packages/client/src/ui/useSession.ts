@@ -23,7 +23,7 @@ export interface SessionApi {
 
 const TOKEN_KEY = 'veneer.resumeToken';
 /** Close codes after which reconnecting would not help. */
-const FINAL_CODES = new Set([1000, 1008, 4001, 4002, 4003, 4004]);
+const FINAL_CODES = new Set([1000, 1008, 4001, 4002, 4003, 4004, 4005]);
 const MAX_RETRIES = 8;
 
 function storage(): Storage | null {

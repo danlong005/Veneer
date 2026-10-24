@@ -10,6 +10,7 @@ const hostPort = await new DemoHost().listen();
 const config = loadConfig({
   VENEER_SCREENS_DIR: fileURLToPath(new URL('./screens', import.meta.url)),
   VENEER_DESIGNER: 'local',
+  VENEER_ADMIN: 'local',
   ...process.env,
   VENEER_HOST: '127.0.0.1', VENEER_PORT: String(hostPort), VENEER_TLS: 'false',
 });
@@ -20,5 +21,6 @@ log.info('demo ready', {
   client: config.staticDir ?? 'not built (npm run build)',
   screens: config.screensDir,
   designer: config.designerLocal ? 'no token needed from this machine' : 'off',
+  admin: config.adminLocal ? `http://${addr.address}:${addr.port}/admin` : 'off',
 });
 process.on('SIGINT', () => void server.close().then(() => process.exit(0)));

@@ -31,6 +31,7 @@ export const CloseCode = {
   HOST_CLOSED: 4002,
   SESSION_LIMIT: 4003,
   REPLACED: 4004,
+  ENDED_BY_ADMIN: 4005,
 } as const;
 
 const NAMED_AIDS = new Set(['Enter', 'Help', 'PageUp', 'PageDown', 'Print', 'Clear', 'RecordBackspace']);

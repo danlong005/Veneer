@@ -61,6 +61,24 @@ get VENEER001, VENEER002, … instead, so Veneer jobs are easy to spot in WRKACT
 are reused when sessions end, and the number width fills the 10-character limit (up to
 3 digits).
 
+### Admin page
+
+`/admin` shows who is connected and lets an operator fix stuck sessions without
+restarting the server:
+
+- **Active sessions**, refreshed every two seconds: the IBM i user (read from the sign-on
+  screen once the host accepts it), device name, browser address, when it connected, last
+  activity, and whether a browser is attached or the session is waiting for a page reload.
+- **End** closes the host connection, which ends the IBM i job and frees the device. The
+  user's browser shows that an administrator ended the session. Each end is logged.
+- **Recent warnings and errors** (the last 200, kept in memory whatever `VENEER_LOG_LEVEL`
+  is) and **server** facts: version, uptime, the IBM i host and whether TLS is on.
+
+Access works like the designer but is separate from it. `VENEER_ADMIN=local` opens the
+page to browsers on the server's own machine (`npm run dev` and `npm run demo` set it);
+everyone else needs `VENEER_ADMIN_TOKEN`, which the page asks for once per tab. The
+designer token never opens the admin page, and the two tokens must differ.
+
 ## Auto-transform
 
 The client renders each screen through a rule pipeline (`packages/client/src/transform`).

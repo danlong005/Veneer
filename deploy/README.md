@@ -30,7 +30,10 @@ file may contain the designer token, so make it readable only by the service.
 
 For the designer, `VENEER_DESIGNER=local` lets a browser on the server itself, or one
 connected through an SSH tunnel, use it without a token. Behind a reverse proxy, requests
-are never treated as local. Other people need `VENEER_DESIGNER_TOKEN`.
+are never treated as local. Other people need `VENEER_DESIGNER_TOKEN`. The admin page
+(`/admin`, active sessions and recent errors) works the same way with `VENEER_ADMIN=local`
+and `VENEER_ADMIN_TOKEN`; keep that token for operators only, since it can end anyone's
+session.
 
 After starting, check the server:
 
@@ -170,9 +173,10 @@ docker run -d --name veneer -p 8080:8080 \
 
 Notes:
 
-- **The designer needs `VENEER_DESIGNER_TOKEN` in Docker.** Through Docker's port
-  mapping, browser requests arrive from the Docker network, not from 127.0.0.1, so
-  `VENEER_DESIGNER=local` doesn't apply.
+- **The designer needs `VENEER_DESIGNER_TOKEN` in Docker,** and the admin page
+  `VENEER_ADMIN_TOKEN`. Through Docker's port mapping, browser requests arrive from the
+  Docker network, not from 127.0.0.1, so `VENEER_DESIGNER=local` and `VENEER_ADMIN=local`
+  don't apply.
 - **HTTPS:** mount the certificate files and set `VENEER_HTTPS_CERT` and
   `VENEER_HTTPS_KEY`, or put a reverse proxy in front.
 - `VENEER_HOST=localhost` means the container itself. Use the IBM i's name or address.
