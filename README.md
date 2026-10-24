@@ -30,7 +30,8 @@ npm run package       # release/veneer-<version>.tar.gz for deployment
 **Deploying:** `npm run package` builds a self-contained archive that runs on any machine with
 Node.js 20.12 or later, with no `npm install` and no internet access. [deploy/README.md](deploy/README.md)
 covers installing it as a service on IBM i (Service Commander, or `SBMJOB` started at IPL)
-and on Linux (systemd), plus upgrades, rollback and log files.
+and on Linux (systemd), plus upgrades, rollback and log files. To run it in Docker instead,
+`docker compose up --build` (see [Docker](deploy/README.md#docker)).
 
 In the CLI, `3=QSECOFR` stages a value for input field 3, and `enter`, `f3`, `pgdn`, etc.
 send it. `VENEER_TRACE=traces/name.jsonl npm run cli` records every raw 5250 record

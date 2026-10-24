@@ -1,9 +1,9 @@
 # Deploying Veneer
 
-Veneer ships as a self-contained archive, `veneer-<version>.tar.gz`. It contains the
-compiled server, the browser client and the production dependencies, so the target needs
-only **Node.js 20.12 or later**: no compiler, no `npm install`, and no internet access.
-Build it on a development machine:
+Veneer ships as a self-contained archive, `veneer-<version>.tar.gz`, or as a Docker image
+(see [Docker](#docker)). The archive holds the compiled server, the browser client and the
+production dependencies, so the target needs only **Node.js 20.12 or later**: no compiler,
+no `npm install`, and no internet access. Build it on a development machine:
 
 ```sh
 npm ci
@@ -134,6 +134,48 @@ journalctl -u veneer -f
 The unit expects `node` at `/usr/bin/node`; adjust `ExecStart` otherwise. The default port
 is 8080. Ports below 1024 need `AmbientCapabilities=CAP_NET_BIND_SERVICE`, or a reverse
 proxy in front.
+
+## Docker
+
+The image runs Veneer on Node.js 22 (Alpine) as a non-root user. It listens on port 8080
+and keeps screen customizations in the `/data/screens` volume. Settings are the usual
+`VENEER_*` environment variables; logs go to stdout (`docker logs`).
+
+With Compose, from a checkout of the repository:
+
+```sh
+cp .env.example .env      # set VENEER_HOST, VENEER_PORT, VENEER_TLS
+docker compose up --build -d
+docker compose logs -f
+```
+
+`compose.yaml` reads `.env`, publishes port 8080, and mounts `./screens` as the
+customizations folder so they can be committed to git. The container runs as user
+`node` (uid 1000); if your user has a different uid, make `./screens` writable for 1000
+(`sudo chown -R 1000 screens`) or the designer can't save.
+
+Or build and run the image directly:
+
+```sh
+docker build -t veneer .
+docker run -d --name veneer -p 8080:8080 \
+  -e VENEER_HOST=myibmi.example.com -e VENEER_PORT=992 -e VENEER_TLS=true \
+  -e VENEER_DESIGNER_TOKEN=a-long-secret-value \
+  -v veneer-screens:/data/screens \
+  veneer
+```
+
+Notes:
+
+- **The designer needs `VENEER_DESIGNER_TOKEN` in Docker.** Through Docker's port
+  mapping, browser requests arrive from the Docker network, not from 127.0.0.1, so
+  `VENEER_DESIGNER=local` doesn't apply.
+- **HTTPS:** mount the certificate files and set `VENEER_HTTPS_CERT` and
+  `VENEER_HTTPS_KEY`, or put a reverse proxy in front.
+- `VENEER_HOST=localhost` means the container itself. Use the IBM i's name or address.
+- The health check calls `/healthz` (`docker ps` shows the status). `docker stop` sends
+  SIGTERM, and Veneer ends its 5250 sessions before exiting; Compose allows 15 seconds.
+- To upgrade, rebuild (`docker compose up --build -d`); customizations stay in the volume.
 
 ## Upgrade and roll back
 

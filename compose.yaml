@@ -1,0 +1,23 @@
+# docker compose up --build    then open http://localhost:8080
+#
+# Settings come from .env (see .env.example); the ones below suit the container
+# and override it. Screen customizations are kept in ./screens on the host, as in
+# development, so they can be committed to git.
+services:
+  veneer:
+    build: .
+    image: veneer
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      VENEER_LISTEN_HOST: 0.0.0.0
+      VENEER_LISTEN_PORT: "8080"
+      VENEER_SCREENS_DIR: /data/screens
+    volumes:
+      - ./screens:/data/screens
+    # Ending sessions on shutdown can take up to 10 seconds.
+    stop_grace_period: 15s
+    restart: unless-stopped

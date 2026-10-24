@@ -1,0 +1,12 @@
+# Built inside the image; never copy local builds, settings or customizations in.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+release
+traces
+screens
+.env
+.git
+.claude
+Dockerfile
+compose.yaml

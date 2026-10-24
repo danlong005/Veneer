@@ -7,6 +7,7 @@
 //
 //   npm run package              build, then package
 //   npm run package -- --skip-build
+//   npm run package -- --no-archive  stop at release/veneer-<version>/ (the Docker build uses this)
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -48,6 +49,11 @@ for (const pkg of ['tn5250', 'screens', 'server', 'client']) {
 
 // Production dependencies only; workspace packages are linked from packages/.
 run('npm', ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], stage);
+
+if (process.argv.includes('--no-archive')) {
+  console.log(`\n${path.relative(root, stage)}`);
+  process.exit(0);
+}
 
 const archive = path.join(releaseDir, `${name}.tar.gz`);
 run('tar', ['-czf', archive, '-C', releaseDir, name]);
