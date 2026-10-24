@@ -1,0 +1,33 @@
+# systemd unit for Veneer. Install to /etc/systemd/system/veneer.service, then:
+#   systemctl daemon-reload && systemctl enable --now veneer
+[Unit]
+Description=Veneer 5250 web server
+Documentation=https://github.com/danlong005/Veneer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=veneer
+Group=veneer
+WorkingDirectory=/opt/veneer/current
+ExecStart=/usr/bin/node /opt/veneer/current/packages/server/dist/main.js --config /etc/veneer/veneer.env
+Restart=on-failure
+RestartSec=5
+# Veneer ends its IBM i sessions on SIGTERM so the devices are released.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Hardening: read-only system, writable only where Veneer keeps data.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadWritePaths=/var/lib/veneer /var/log/veneer
+
+[Install]
+WantedBy=multi-user.target

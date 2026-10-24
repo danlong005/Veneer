@@ -10,6 +10,7 @@ import { log } from './log.ts';
 import { SessionManager } from './sessions.ts';
 import { serveStatic } from './static.ts';
 import { ScreenStore } from './store.ts';
+import { VERSION } from './version.ts';
 
 const HEARTBEAT_MS = 30_000;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -41,7 +42,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     const pathname = new URL(req.url ?? '/', 'http://x').pathname;
     if (pathname === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', sessions: sessions.size }));
+      res.end(JSON.stringify({ status: 'ok', version: VERSION, uptimeSeconds: Math.round(process.uptime()), sessions: sessions.size }));
     } else if (handleApi(req, res, pathname, { store: screens, designerToken: config.designerToken })) {
       // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {

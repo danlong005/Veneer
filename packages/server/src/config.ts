@@ -26,6 +26,7 @@ export interface ServerConfig {
   screensDir: string;
   /** Bearer token for saving definitions from the designer; unset disables it. */
   designerToken?: string;
+  log: { level: string; file?: string; maxBytes: number; keep: number };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -56,6 +57,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     ...(staticDir(env) ? { staticDir: staticDir(env)! } : {}),
     screensDir: env.VENEER_SCREENS_DIR || fileURLToPath(new URL('../../../screens', import.meta.url)),
     ...(env.VENEER_DESIGNER_TOKEN ? { designerToken: env.VENEER_DESIGNER_TOKEN } : {}),
+    log: {
+      level: env.VENEER_LOG_LEVEL || 'info',
+      ...(env.VENEER_LOG_FILE ? { file: env.VENEER_LOG_FILE } : {}),
+      maxBytes: int(env, 'VENEER_LOG_MAX_MB', 10) * 1024 * 1024,
+      keep: int(env, 'VENEER_LOG_KEEP', 5),
+    },
   };
 }
 

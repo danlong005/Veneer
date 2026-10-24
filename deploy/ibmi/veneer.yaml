@@ -1,0 +1,15 @@
+# Service Commander definition (https://github.com/ThePrez/ServiceCommander-IBMi).
+# Copy to /QOpenSys/etc/sc/services/veneer.yaml, then: sc start veneer
+# Check the keys against your Service Commander version.
+name: Veneer 5250 web server
+dir: /QOpenSys/opt/veneer/current
+start_cmd: /QOpenSys/opt/veneer/current/deploy/ibmi/veneer.sh
+check_alive: '8080'
+check_alive_timeout: '60'
+batch_mode: 'true'
+sbmjob_jobname: VENEER
+sbmjob_opts: 'USER(VENEER) JOBQ(QSYSNOMAX) ALWMLTTHD(*YES)'
+environment_vars:
+  - VENEER_CONFIG=/QOpenSys/etc/veneer/veneer.env
+groups:
+  - veneer

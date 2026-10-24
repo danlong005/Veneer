@@ -24,10 +24,13 @@ npm run demo          # fake IBM i + server + client on http://127.0.0.1:8080 (a
                       # VENEER_DEMO_DELAY_MS=700 npm run demo simulates a slow host
 npm run dev           # session server against your IBM i, restarts on change
 npm run dev:client    # Vite dev server on :5173 with hot reload; proxies /ws to :8080
+npm run package       # release/veneer-<version>.tar.gz for deployment
 ```
 
-For production, run `npm run build` and then `npm start`. The server serves the built
-client from `packages/client/dist`.
+**Deploying:** `npm run package` builds a self-contained archive that runs on any machine with
+Node.js 20.12 or later, with no `npm install` and no internet access. [deploy/README.md](deploy/README.md)
+covers installing it as a service on IBM i (Service Commander, or `SBMJOB` started at IPL)
+and on Linux (systemd), plus upgrades, rollback and log files.
 
 In the CLI, `3=QSECOFR` stages a value for input field 3, and `enter`, `f3`, `pgdn`, etc.
 send it. `VENEER_TRACE=traces/name.jsonl npm run cli` records every raw 5250 record
