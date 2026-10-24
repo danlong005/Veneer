@@ -1,6 +1,7 @@
 // Screen definitions on disk: one <id>.json per screen, so they can be
 // versioned in git. Invalid files are skipped with a warning. Site-wide CSS and
-// JavaScript live beside them in global.css and global.js.
+// JavaScript live beside them: global.css, global.js (page load) and
+// global-screen.js (every screen).
 
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
@@ -11,7 +12,7 @@ import { log } from './log.ts';
 export class ScreenStore extends EventEmitter<{ changed: [number] }> {
   readonly dir: string;
   private readonly screens = new Map<string, ScreenDefinition>();
-  site: SiteCustomization = { css: '', script: '' };
+  site: SiteCustomization = { css: '', scripts: { load: '', screen: '' } };
   /** Increases on every change, so clients can tell they are stale. */
   version = 0;
 
@@ -22,7 +23,10 @@ export class ScreenStore extends EventEmitter<{ changed: [number] }> {
 
   async load(): Promise<void> {
     this.screens.clear();
-    this.site = { css: await this.readSite('global.css'), script: await this.readSite('global.js') };
+    this.site = {
+      css: await this.readSite('global.css'),
+      scripts: { load: await this.readSite('global.js'), screen: await this.readSite('global-screen.js') },
+    };
     let names: string[];
     try {
       names = await fs.readdir(this.dir);
@@ -59,12 +63,13 @@ export class ScreenStore extends EventEmitter<{ changed: [number] }> {
     return def;
   }
 
-  /** Write global.css and global.js; an empty one is deleted. */
+  /** Write the site files; an empty one is deleted. */
   async saveSite(input: unknown): Promise<SiteCustomization> {
     const site = validateSite(input);
     await fs.mkdir(this.dir, { recursive: true });
     await this.writeSite('global.css', site.css);
-    await this.writeSite('global.js', site.script);
+    await this.writeSite('global.js', site.scripts.load);
+    await this.writeSite('global-screen.js', site.scripts.screen);
     this.site = site;
     this.bump();
     return site;

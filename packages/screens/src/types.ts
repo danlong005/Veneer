@@ -57,8 +57,12 @@ export type Change =
   | { op: 'role'; at: Target; role: Role }
   | { op: 'widget'; field: string; widget: Widget }
   | { op: 'button'; label: string; action: ButtonAction }
-  /** Custom HTML drawn over the screen at a position, `width` x `height` cells. */
-  | { op: 'html'; at: Target; html: string; width: number; height: number };
+  /**
+   * Custom HTML drawn over the screen at a position, `width` x `height` cells.
+   * `css` is scoped to the box (nested rules reach inside it); `script` runs
+   * each time the screen is drawn, with `element` set to the box.
+   */
+  | { op: 'html'; at: Target; html: string; width: number; height: number; css?: string; script?: string };
 
 export interface ScreenDefinition {
   /** File name and URL id: lowercase letters, digits and dashes. */
@@ -70,15 +74,25 @@ export interface ScreenDefinition {
   changes: Change[];
   /** CSS added to the page while this screen is shown. */
   css?: string;
-  /**
-   * JavaScript run each time this screen is shown, as the body of
-   * `function (veneer, screen)`. It may return a cleanup function.
-   */
-  script?: string;
+  /** JavaScript run on screen events (see SCREEN_EVENTS). */
+  scripts?: Partial<Record<ScreenEvent, string>>;
 }
 
-/** Site-wide CSS and JavaScript, on every page (global.css and global.js). */
+/**
+ * When a screen's scripts run: `load` when the screen opens (coming from a
+ * different screen), `show` every time it is drawn (paging, errors too).
+ * Scripts are the body of `function (veneer, screen, element)` and may return
+ * a cleanup function, called when the screen closes (`load`) or is redrawn (`show`).
+ */
+export const SCREEN_EVENTS = ['load', 'show'] as const;
+export type ScreenEvent = (typeof SCREEN_EVENTS)[number];
+
+/** When site-wide scripts run: `load` once when the page loads, `screen` after every screen. */
+export const SITE_EVENTS = ['load', 'screen'] as const;
+export type SiteEvent = (typeof SITE_EVENTS)[number];
+
+/** Site-wide CSS and JavaScript (global.css, global.js and global-screen.js). */
 export interface SiteCustomization {
   css: string;
-  script: string;
+  scripts: Record<SiteEvent, string>;
 }

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { matches, screenId } from '@veneer/screens';
 import {
   addScreenId, formatOptions, isHidden, newDefinition, originalText, parseOptions, removeScreenId, resolveSelection,
-  htmlAt, setCode, setHidden, setHtml, setRole, setText, setWidget, slug, textOf, widgetOf,
+  freeSpot, htmlAt, htmlOf, setCss, setScript, setHidden, setHtml, setRole, setText, setWidget, slug, textOf, widgetOf,
 } from '../src/designer/edit.ts';
 import { customize } from '../src/transform/customize.ts';
 import { transform } from '../src/transform/index.ts';
@@ -75,9 +75,25 @@ test('custom HTML is added, moved and removed; code is set and cleared', () => {
   assert.equal(htmlAt(def, { row: 4, col: 40 })?.html, 'b', 'moved');
   assert.equal(setHtml(def, { row: 4, col: 40 }, null).changes.length, 0);
 
-  const withCss = setCode(def, 'css', '.a {}');
+  const withCss = setCss(def, '.a {}');
   assert.equal(withCss.css, '.a {}');
-  assert.ok(!('css' in setCode(withCss, 'css', '')));
+  assert.ok(!('css' in setCss(withCss, '')));
+  const both = setScript(setScript(def, 'load', 'a'), 'show', 'b');
+  assert.deepEqual(both.scripts, { load: 'a', show: 'b' });
+  assert.deepEqual(setScript(both, 'load', '').scripts, { show: 'b' });
+  assert.ok(!('scripts' in setScript(setScript(both, 'load', ''), 'show', '')), 'no empty scripts object');
+});
+
+test('Add HTML picks a blank row not already holding HTML', () => {
+  const snap = orderEntry();
+  const def = newDefinition(snap, transform(snap));
+  const first = freeSpot(snap, def);
+  assert.equal(snap.lines[first.row - 1]!.trim(), '');
+  const next = freeSpot(snap, setHtml(def, first, { at: first, html: 'x', width: 10, height: 1 }));
+  assert.ok(next.row > first.row);
+  const tall = freeSpot(snap, def, 2);
+  assert.equal(snap.lines[tall.row]!.trim(), '', 'both rows blank');
+  assert.equal(htmlOf(setHtml(def, first, { at: first, html: 'x', width: 10, height: 1 })).length, 1);
 });
 
 test('option lists round-trip through value=Label lines', () => {

@@ -1,7 +1,7 @@
 // The view model produced by the auto-transform pipeline. Every item keeps
 // its 5250 row/column so the layout stays faithful to the original screen.
 
-import type { Role, Widget } from '@veneer/screens';
+import type { Role, ScreenEvent, Widget } from '@veneer/screens';
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
 
 export type { Role, Widget };
@@ -91,6 +91,9 @@ export interface TableItem extends Placed {
 export interface HtmlItem extends Placed {
   kind: 'html';
   html: string;
+  /** CSS scoped to the box, and JavaScript run with the box (see custom/runtime.ts). */
+  css?: string;
+  script?: string;
   /** Rows covered. */
   height: number;
 }
@@ -132,6 +135,6 @@ export interface ScreenView {
   definition?: { id: string; name: string };
   /** The definition's CSS and JavaScript (see custom/runtime.ts). */
   css?: string;
-  script?: string;
+  scripts?: Partial<Record<ScreenEvent, string>>;
   snapshot: ScreenSnapshot;
 }

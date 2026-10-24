@@ -32,15 +32,17 @@ test('validates and cleans definitions', () => {
       { op: 'hide', at: { row: 3, col: 2 } },
       { op: 'widget', field: '7:22', widget: { type: 'select', options: [{ value: 'TX', label: 'Texas' }] } },
       { op: 'button', label: 'Exit', action: { aid: 'F3' } },
-      { op: 'html', at: { row: 5, col: 50 }, html: '<b>Note</b>', width: 20, height: 3 },
+      { op: 'html', at: { row: 5, col: 50 }, html: '<b>Note</b>', width: 20, height: 3, css: 'color: red;', script: '' },
     ],
     css: '.sheet { color: red }',
-    script: '',
+    scripts: { load: 'veneer.setField("6:53", "X")', show: '' },
   });
   assert.equal(clean.title, 'New order');
   assert.equal(clean.changes.length, 4);
   assert.equal(clean.css, '.sheet { color: red }');
-  assert.ok(!('script' in clean), 'empty script dropped');
+  assert.deepEqual(clean.scripts, { load: 'veneer.setField("6:53", "X")' }, 'empty scripts dropped');
+  assert.deepEqual(validateDefinition({ ...clean, scripts: undefined, script: 'old' }).scripts, { show: 'old' }, 'an old `script` runs on show');
+  assert.deepEqual(clean.changes[3], { op: 'html', at: { row: 5, col: 50 }, html: '<b>Note</b>', width: 20, height: 3, css: 'color: red;' });
   assert.ok(!('extra' in clean));
 });
 
@@ -55,13 +57,15 @@ test('rejects bad definitions with a useful path', () => {
     [{ ...base, changes: [{ op: 'widget', field: '7:22', widget: { type: 'date', format: 'bogus' } }] }, /format/],
     [{ ...base, changes: [{ op: 'explode' }] }, /op/],
     [{ ...base, changes: [{ op: 'html', at: { row: 1, col: 1 }, html: 'x', width: 0, height: 1 }] }, /changes\[0\]\.width/],
-    [{ ...base, script: 'x'.repeat(70_000) }, /script: must be a string/],
+    [{ ...base, scripts: { show: 'x'.repeat(70_000) } }, /scripts\.show: must be a string/],
+    [{ ...base, scripts: { click: 'x' } }, /scripts\.click: must be one of load, show/],
   ];
   for (const [input, message] of cases) assert.throws(() => validateDefinition(input), message);
 });
 
 test('validates site-wide CSS and JavaScript', () => {
-  assert.deepEqual(validateSite({ css: 'body {}' }), { css: 'body {}', script: '' });
+  assert.deepEqual(validateSite({ css: 'body {}', scripts: { screen: 'x' } }), { css: 'body {}', scripts: { load: '', screen: 'x' } });
+  assert.throws(() => validateSite({ scripts: { unload: 'x' } }), /scripts\.unload/);
   assert.throws(() => validateSite({ css: 1 }), /css: must be a string/);
 });
 

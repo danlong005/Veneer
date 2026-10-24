@@ -169,15 +169,18 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
             return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} design={design} />;
           case 'html':
             // Written by the site's designers, who are trusted like the site's own code.
-            return (
+            return [
               <div
                 key={key}
                 className={`custom-html${designClass(design, item.row, item.col, item.hidden)}`}
                 style={{ ...at(item.row, item.col, top, item.width), height: `calc(${item.height} * var(--rh))` }}
                 data-at={`${item.row}:${item.col}`}
+                data-html={`${item.row}:${item.col}`}
                 dangerouslySetInnerHTML={{ __html: item.html }}
-              />
-            );
+              />,
+              // CSS nesting scopes the box's CSS to it.
+              item.css && <style key={`${key}-css`}>{`[data-html="${item.row}:${item.col}"] {\n${item.css}\n}`}</style>,
+            ];
         }
       })}
     </>

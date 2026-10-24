@@ -29,7 +29,7 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
   };
   if (def.title) out.title = def.title;
   if (def.css) out.css = def.css;
-  if (def.script) out.script = def.script;
+  if (def.scripts) out.scripts = def.scripts;
   const all = () => [...out.items, ...(out.window?.items ?? [])];
 
   for (const change of def.changes) {
@@ -64,7 +64,11 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
         out.buttons.push({ label: change.label, action: change.action });
         break;
       case 'html': {
-        const item: HtmlItem = { kind: 'html', row: change.at.row, col: change.at.col, width: change.width, height: change.height, html: change.html };
+        const item: HtmlItem = {
+          kind: 'html', row: change.at.row, col: change.at.col, width: change.width, height: change.height, html: change.html,
+          ...(change.css ? { css: change.css } : {}),
+          ...(change.script ? { script: change.script } : {}),
+        };
         // Inside an active window it goes in the window, above the dimmed screen.
         const w = out.window;
         if (w && item.row >= w.top && item.row <= w.bottom && item.col >= w.left && item.col <= w.right) w.items.push(item);

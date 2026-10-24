@@ -32,7 +32,7 @@ export function useScreens(version: number): ScreensApi {
         setDesigner(c.designer);
         setTokenRequired(c.tokenRequired ?? true);
         setScreens(l.screens);
-        setSite(l.site ?? { css: '', script: '' });
+        setSite(l.site ?? { css: '', scripts: { load: '', screen: '' } });
       })
       .catch((err: Error) => console.warn('Could not load screen definitions:', err.message));
     return () => { cancelled = true; };

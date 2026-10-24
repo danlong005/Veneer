@@ -52,7 +52,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
     }
     try {
       const site = await store.saveSite(body);
-      log.info('site customization saved', { css: site.css.length, script: site.script.length });
+      log.info('site customization saved', { css: site.css.length, load: site.scripts.load.length, screen: site.scripts.screen.length });
       return json(res, 200, site);
     } catch (err) {
       if (err instanceof DefinitionError) return json(res, 400, { error: err.message });

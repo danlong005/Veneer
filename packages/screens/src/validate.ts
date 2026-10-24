@@ -1,6 +1,6 @@
 // Strict validation of screen definitions from files or the designer API.
 
-import { DATE_FORMATS, ROLES, type Change, type SiteCustomization, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
+import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, type Change, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const AID = /^(Enter|Help|PageUp|PageDown|Print|Clear|RecordBackspace|F([1-9]|1\d|2[0-4]))$/;
@@ -112,6 +112,8 @@ function change(v: unknown, path: string): Change {
         html: str(o.html, `${path}.html`, MAX_HTML),
         width: int(o.width, `${path}.width`, 1, 132),
         height: int(o.height, `${path}.height`, 1, 27),
+        ...(o.css !== undefined && o.css !== '' ? { css: str(o.css, `${path}.css`, MAX_CSS) } : {}),
+        ...(o.script !== undefined && o.script !== '' ? { script: str(o.script, `${path}.script`, MAX_SCRIPT) } : {}),
       };
     default:
       fail(`${path}.op`, 'must be hide, text, role, widget, button or html');
@@ -146,12 +148,28 @@ export function validateDefinition(input: unknown): ScreenDefinition {
   };
   if (o.title !== undefined) def.title = str(o.title, 'title', 100);
   if (o.css !== undefined && o.css !== '') def.css = str(o.css, 'css', MAX_CSS);
-  if (o.script !== undefined && o.script !== '') def.script = str(o.script, 'script', MAX_SCRIPT);
+  const scripts: Partial<Record<ScreenEvent, string>> = {};
+  // Older definitions had one `script`, run each time the screen was drawn.
+  if (o.script !== undefined && o.script !== '') scripts.show = str(o.script, 'script', MAX_SCRIPT);
+  if (o.scripts !== undefined) {
+    for (const [event, code] of Object.entries(obj(o.scripts, 'scripts'))) {
+      if (!(SCREEN_EVENTS as readonly string[]).includes(event)) fail(`scripts.${event.slice(0, 20)}`, `must be one of ${SCREEN_EVENTS.join(', ')}`);
+      if (code !== '') scripts[event as ScreenEvent] = str(code, `scripts.${event}`, MAX_SCRIPT);
+    }
+  }
+  if (Object.keys(scripts).length > 0) def.scripts = scripts;
   return def;
 }
 
 /** Validate site-wide CSS and JavaScript from the designer API. */
 export function validateSite(input: unknown): SiteCustomization {
   const o = obj(input, 'site');
-  return { css: str(o.css ?? '', 'css', MAX_CSS), script: str(o.script ?? '', 'script', MAX_SCRIPT) };
+  const s = obj(o.scripts ?? {}, 'scripts');
+  for (const event of Object.keys(s)) {
+    if (!(SITE_EVENTS as readonly string[]).includes(event)) fail(`scripts.${event.slice(0, 20)}`, `must be one of ${SITE_EVENTS.join(', ')}`);
+  }
+  return {
+    css: str(o.css ?? '', 'css', MAX_CSS),
+    scripts: { load: str(s.load ?? '', 'scripts.load', MAX_SCRIPT), screen: str(s.screen ?? '', 'scripts.screen', MAX_SCRIPT) },
+  };
 }

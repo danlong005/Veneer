@@ -49,13 +49,14 @@ test('changes reach items inside a pop-up window', () => {
 
 test('custom HTML is placed on the screen, or in the window it falls inside; CSS and script carry over', () => {
   const v = customize(transform(orderEntry()), {
-    ...def, css: '.x {}', script: 'return 1',
-    changes: [{ op: 'html', at: { row: 4, col: 3 }, html: '<b>Hi</b>', width: 10, height: 2 }],
+    ...def, css: '.x {}', scripts: { load: 'return 1' },
+    changes: [{ op: 'html', at: { row: 4, col: 3 }, html: '<b>Hi</b>', width: 10, height: 2, css: 'color: red;', script: 'element' }],
   });
   assert.equal(v.css, '.x {}');
-  assert.equal(v.script, 'return 1');
+  assert.deepEqual(v.scripts, { load: 'return 1' });
   const html = itemAt(v.items, { row: 5, col: 5 });
   assert.equal(html?.kind, 'html', 'covers its second row and wins over the label beneath');
+  assert.equal(html?.kind === 'html' && `${html.css}|${html.script}`, 'color: red;|element');
 
   const w = customize(transform(promptWindow()), {
     id: 'w', name: 'W', match: { text: [{ row: 8, col: 30, text: 'Select Printer' }] },

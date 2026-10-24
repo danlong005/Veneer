@@ -1,6 +1,6 @@
 // Pure helpers the designer uses to build and edit screen definitions.
 
-import { screenId, type ButtonAction, type Change, type Role, type ScreenDefinition, type Target, type TextMatch, type Widget } from '@veneer/screens';
+import { screenId, type ButtonAction, type Change, type Role, type ScreenDefinition, type ScreenEvent, type Target, type TextMatch, type Widget } from '@veneer/screens';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
 import { itemAt } from '../transform/customize.ts';
 import type { Item, ScreenView } from '../transform/types.ts';
@@ -101,10 +101,35 @@ export function setHtml(def: ScreenDefinition, at: Target, next: Omit<Html, 'op'
   return htmlAt(def, at) || !next ? { ...def, changes } : { ...def, changes: [...changes, { op: 'html', ...next }] };
 }
 
-/** Set or clear (empty string) the definition's CSS or script. */
-export function setCode(def: ScreenDefinition, key: 'css' | 'script', code: string): ScreenDefinition {
-  const { [key]: _omit, ...rest } = def;
-  return code === '' ? rest : { ...rest, [key]: code };
+export function htmlOf(def: ScreenDefinition): Html[] {
+  return def.changes.filter((c): c is Html => c.op === 'html');
+}
+
+/**
+ * Where "Add HTML" puts a new box `height` rows tall: the first run of blank
+ * screen rows below the title not already holding custom HTML, else row 2.
+ */
+export function freeSpot(snap: ScreenSnapshot, def: ScreenDefinition, height = 1): Target {
+  const free = (row: number) => (snap.lines[row - 1] ?? '').trim() === ''
+    && !htmlOf(def).some((h) => row >= h.at.row && row < h.at.row + h.height);
+  for (let row = 3; row + height - 1 <= snap.rows - 2; row++) {
+    if (Array.from({ length: height }, (_, i) => row + i).every(free)) return { row, col: 2 };
+  }
+  return { row: 2, col: 2 };
+}
+
+/** Set or clear (empty string) the definition's CSS. */
+export function setCss(def: ScreenDefinition, css: string): ScreenDefinition {
+  const { css: _omit, ...rest } = def;
+  return css === '' ? rest : { ...rest, css };
+}
+
+/** Set or clear (empty string) the script for one screen event. */
+export function setScript(def: ScreenDefinition, event: ScreenEvent, code: string): ScreenDefinition {
+  const { [event]: _omit, ...others } = def.scripts ?? {};
+  const scripts = code === '' ? others : { ...others, [event]: code };
+  const { scripts: _old, ...rest } = def;
+  return Object.keys(scripts).length > 0 ? { ...rest, scripts } : rest;
 }
 
 export function buttonsOf(def: ScreenDefinition): Array<ChangeOf<'button'>> {

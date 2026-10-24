@@ -88,15 +88,18 @@ test('saves site-wide CSS and JavaScript to global.css and global.js', async () 
     body: JSON.stringify(body),
   });
   assert.equal((await save({ css: 'x' }, null)).status, 401);
-  assert.equal((await save({ css: 'body { color: red }', script: 'console.log(1)' })).status, 200);
+  const scripts = { load: 'console.log(1)', screen: 'console.log(2)' };
+  assert.equal((await save({ css: 'body { color: red }', scripts })).status, 200);
   assert.equal(fs.readFileSync(path.join(dir, 'global.css'), 'utf8'), 'body { color: red }\n');
   assert.equal(fs.readFileSync(path.join(dir, 'global.js'), 'utf8'), 'console.log(1)\n');
+  assert.equal(fs.readFileSync(path.join(dir, 'global-screen.js'), 'utf8'), 'console.log(2)\n');
   const list = await (await fetch(`http://${base}/api/screens`)).json();
-  assert.deepEqual(list.site, { css: 'body { color: red }', script: 'console.log(1)' });
+  assert.deepEqual(list.site, { css: 'body { color: red }', scripts });
 
-  assert.equal((await save({ css: '', script: '' })).status, 200);
+  assert.equal((await save({ css: '', scripts: {} })).status, 200);
   assert.ok(!fs.existsSync(path.join(dir, 'global.css')), 'empty file removed');
   assert.ok(!fs.existsSync(path.join(dir, 'global.js')));
+  assert.ok(!fs.existsSync(path.join(dir, 'global-screen.js')));
 });
 
 test('rejects invalid definitions with the reason', async () => {

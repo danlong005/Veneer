@@ -1,7 +1,7 @@
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { matchScreen, screenId, type ScreenDefinition, type Target } from '@veneer/screens';
-import { connectHost, emitScreen, runScreenScript, runSiteScript } from '../custom/runtime.ts';
+import { connectHost, notifyScreen, runScript, runSiteScript, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
 import { newDefinition, resolveSelection } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
@@ -146,32 +146,64 @@ export function App() {
     });
   }, []);
 
-  // global.js runs once, when it first loads; a changed one runs after a page reload.
+  // The site's page-load script (global.js) runs once, when it first loads; a
+  // changed one runs after a page reload.
   const siteScriptRan = useRef(false);
   useEffect(() => {
     if (siteScriptRan.current || !screens.site) return;
     siteScriptRan.current = true;
-    if (screens.site.script) runSiteScript(screens.site.script);
+    if (screens.site.scripts.load) runSiteScript(screens.site.scripts.load);
   }, [screens.site]);
 
-  // After each screen is drawn: its definition's script, then veneer.on('screen') handlers.
-  // Paused while designing; the design panel can test the draft's script.
-  const screenScript = view?.script;
+  // After each screen is drawn, run its scripts (SCREEN_EVENTS): the page's
+  // `load` script when a different screen opens, then the page's `show`
+  // script, its HTML boxes' scripts and the site's every-screen script, then
+  // veneer.on('screen') handlers. Paused while designing; the design panel can
+  // test a draft's scripts.
+  const pageScripts = view?.scripts;
+  const siteScreenScript = screens.site?.scripts.screen;
+  const boxScripts = useMemo(() => JSON.stringify(
+    [...(view?.items ?? []), ...(view?.window?.items ?? [])].flatMap((i) => (i.kind === 'html' && i.script ? [[`${i.row}:${i.col}`, i.script]] : [])),
+  ), [view]);
+  // The open screen (id + definition) and the cleanup its `load` script returned.
+  const opened = useRef<{ key: string; cleanup?: (() => void) | undefined } | null>(null);
+  const closeOpened = () => {
+    opened.current?.cleanup?.();
+    opened.current = null;
+  };
   useEffect(() => {
-    if (!snap || !sheet.current || mode !== 'modern' || designing) return;
-    const result = screenScript ? runScreenScript(screenScript, sheet.current, `"${view?.definition?.name}"`) : {};
-    emitScreen({
-      id: screenId(snap),
-      ...(view?.definition ? { definition: view.definition.id } : {}),
+    const root = sheet.current;
+    if (!snap || !root || mode !== 'modern' || designing) {
+      closeOpened();
+      return;
+    }
+    const id = screenId(snap);
+    const definition = view?.definition;
+    setScreen({
+      id,
+      ...(definition ? { definition: definition.id } : {}),
       rows: snap.rows,
       cols: snap.cols,
       lines: snap.lines,
       fields: snap.fields.filter((f) => !f.bypass).map((f) => ({ id: f.id, row: f.row, col: f.col, length: f.length, value: f.value })),
-    }, sheet.current);
-    return result.cleanup;
-    // A new screen, script or mode re-runs it; typing does not.
+    }, root);
+    const label = (event: string) => `the ${event} script of "${definition?.name}"`;
+    const key = `${id}|${definition?.id ?? ''}`;
+    if (opened.current?.key !== key) {
+      closeOpened();
+      opened.current = { key, cleanup: pageScripts?.load ? runScript(pageScripts.load, label('load')).cleanup : undefined };
+    }
+    const cleanups = [pageScripts?.show ? runScript(pageScripts.show, label('show')).cleanup : undefined];
+    for (const [at, code] of JSON.parse(boxScripts) as Array<[string, string]>) {
+      const box = root.querySelector<HTMLElement>(`[data-html="${at}"]`);
+      if (box) cleanups.push(runScript(code, `the script of HTML at ${at} on "${definition?.name}"`, box).cleanup);
+    }
+    if (siteScreenScript) cleanups.push(runScript(siteScreenScript, 'global-screen.js').cleanup);
+    notifyScreen();
+    return () => { for (const c of cleanups) c?.(); };
+    // A new screen, script or mode re-runs them; typing does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seq, screenScript, mode, designing]);
+  }, [seq, pageScripts, siteScreenScript, boxScripts, mode, designing]);
 
   // Each new screen: once it unlocks, replay type-ahead and place the cursor.
   useEffect(() => {
@@ -375,8 +407,9 @@ export function App() {
           existing={draftExisting}
           selection={selection}
           definitions={screens.screens}
-          site={screens.site ?? { css: '', script: '' }}
+          site={screens.site ?? { css: '', scripts: { load: '', screen: '' } }}
           onSelect={setSelectedAt}
+          clickedAt={selectedAt}
           tokenRequired={screens.tokenRequired}
           onPick={pickDefinition}
           onSaved={screens.reload}

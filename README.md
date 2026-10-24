@@ -146,7 +146,10 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
 - **Designer:** a **Design** button appears when the designer is enabled. With
   `VENEER_DESIGNER=local`, browsers on the server's own machine use it without a token;
   `npm run dev` and `npm run demo` turn this on. For anyone else, set `VENEER_DESIGNER_TOKEN`,
-  which the designer asks for once per tab. The two can be combined. Click any
+  which the designer asks for once per tab. The two can be combined. The design panel has
+  three tabs: **Site-wide** (CSS and JavaScript for every page), **Page** (this screen's
+  customization: name, title, how it's recognised, buttons, CSS and JavaScript) and
+  **Selected** (the item last clicked on the screen). Click any
   text, field or table to change it, and see the result immediately. New customizations
   are recognised by this screen's ID. To attach another variant, such as the empty list,
   open it, pick the existing customization in the panel, and click **Add this screen**.
@@ -158,31 +161,46 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
 
 Designers can add their own code where the built-in changes aren't enough:
 
-| | Per screen (in its definition) | Site-wide (`global.css`, `global.js` in the screens folder) |
-| --- | --- | --- |
-| HTML | `html` change: a box at a row and column, `width` × `height` cells. In the designer, click an empty spot, then **Add HTML here**. | |
-| CSS | `css`: added while the screen is shown | On every page |
-| JavaScript | `script`: runs each time the screen is drawn | Runs once when the page loads |
+| | Site-wide (in the screens folder) | Per page (in its definition) | Per HTML box |
+| --- | --- | --- | --- |
+| HTML | | `html` changes: a box at a row and column, `width` × `height` cells | `html` |
+| CSS | `global.css`, on every page | `css`, while the screen is shown | `css`, scoped to the box |
+| JavaScript | `global.js` on **page load** (once); `global-screen.js` on **every screen** | `scripts.load` when the screen **opens**; `scripts.show` on **every redraw** | `script`, on every redraw |
+
+In the designer, the **Site-wide** and **Page** tabs each have a CSS box and an **Event**
+picker over one JavaScript box (events that have a script are marked ●). Add HTML from the
+Page tab's **HTML** section, or click an empty spot on the screen. Click an HTML box to edit
+its HTML, CSS and JavaScript on the **Selected** tab.
 
 ```json
 { "op": "html", "at": { "row": 5, "col": 46 }, "width": 28, "height": 2,
-  "html": "<div class=\"promo\">Need help? <a href=\"tel:1234\">Call x1234</a></div>" }
+  "html": "<button class=\"help\">Need help?</button>",
+  "css": "button { font-weight: 600; }",
+  "script": "element.querySelector('.help').onclick = () => veneer.press('F1');" }
 ```
 
-Scripts get a `veneer` object (also `window.veneer`):
+A box's CSS is nested inside the box: plain declarations style the box, and rules like
+`button { … }` style what's in it. "Opens" means arriving from a different screen;
+"redraw" includes paging and error messages on the same screen.
 
-- `veneer.screen`: the screen showing, as `{ id, definition, rows, cols, lines, fields }`.
+Every script is the body of `function (veneer, screen, element)`. `screen` describes the
+screen showing (`{ id, definition, rows, cols, lines, fields }`). `element` is the page
+element holding the screen, or the box for an HTML box's script. Functions a script declares
+(`function doMessage() { … }`) can be called from the HTML, as in `onclick="doMessage()"`, while
+the script is active. A script may return a
+function to undo what it set up: an "opens" script's runs when the screen closes, the
+others' before the next redraw. `veneer` (also `window.veneer`) offers:
+
+- `veneer.screen`: the screen showing.
 - `veneer.on('screen', (screen, element) => …)`: called after each screen is drawn. It
   returns a function that unsubscribes.
 - `veneer.getField('6:53')`, `veneer.setField('6:53', 'X')`: read a field, or type into it.
 - `veneer.press('F3')`, `veneer.press('Enter', { '6:53': 'X' })`: press a key, optionally
   filling fields first.
 
-A screen's script is the body of `function (veneer, screen)`, where `screen` is the
-element holding the screen. It may return a function, which runs when the screen goes
-away. The app root carries `data-screen="<definition id>"`, so site CSS can target one
-screen. Scripts pause while designing; **Test script** runs the draft once. A changed
-`global.js` runs after a page reload.
+The app root carries `data-screen="<definition id>"`, so site CSS can target one screen.
+Scripts pause while designing; **Test script** runs the draft once. A changed page-load
+script runs after a page reload.
 
 **Custom code runs with the page's full rights**, like Veneer's own code: it can read
 everything users type, passwords included. Give designer access only to people you'd
