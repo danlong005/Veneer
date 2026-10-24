@@ -9,6 +9,7 @@ import {
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { runScript } from '../custom/runtime.ts';
+import { InventoryDialog } from './InventoryDialog.tsx';
 import type { ScreenView } from '../transform/types.ts';
 import {
   addScreenId, buttonsOf, formatOptions, freeSpot, htmlAt, htmlOf, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
@@ -143,6 +144,8 @@ export function DesignPanel(props: Props) {
     setStatus(result.error ? { kind: 'error', text: `Script error: ${result.error}` } : { kind: 'ok', text: 'Script ran. Scripts run by themselves when you leave design mode.' });
   };
 
+  const [inventory, setInventory] = useState(false);
+
   // Clicking something on the screen shows it in the Selected tab.
   const [tab, setTab] = useState<Tab>('page');
   useEffect(() => { if (props.clickedAt) setTab('selected'); }, [props.clickedAt]);
@@ -154,7 +157,10 @@ export function DesignPanel(props: Props) {
     <aside className="design-panel" aria-label="Screen designer">
       <header className="dp-head">
         <h2>Design</h2>
-        <button type="button" className="ghost" onClick={props.onClose}>Done</button>
+        <div className="dp-head-actions">
+          <button type="button" className="ghost" onClick={() => setInventory(true)} title="Every screen Veneer has shown">Screens</button>
+          <button type="button" className="ghost" onClick={props.onClose}>Done</button>
+        </div>
       </header>
 
       <div className="dp-tabs" role="tablist" aria-label="Designer sections">
@@ -407,6 +413,14 @@ export function DesignPanel(props: Props) {
             </div>
         )}
       </footer>
+      {inventory && (
+        <InventoryDialog
+          auth={tokenRequired ? `Bearer ${token}` : undefined}
+          definitions={props.definitions}
+          currentId={print.id}
+          onClose={() => setInventory(false)}
+        />
+      )}
     </aside>
   );
 }

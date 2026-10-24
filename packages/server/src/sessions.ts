@@ -6,6 +6,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { Session, type HostSettings } from '@veneer/tn5250';
 import WebSocket from 'ws';
 import { DeviceNamePool } from './devices.ts';
+import type { ScreenInventory } from './inventory.ts';
 import { log } from './log.ts';
 import { CloseCode, parseClientMessage, type ClientMessage, type ServerMessage } from './protocol.ts';
 
@@ -18,6 +19,8 @@ export interface SessionManagerOptions {
   deviceNamePrefix?: string | undefined;
   /** How long a new socket has to send its hello message. */
   helloTimeoutMs?: number;
+  /** Records each screen sessions show. */
+  inventory?: ScreenInventory | undefined;
 }
 
 /** Host records often arrive in quick bursts; coalesce them into one screen push. */
@@ -197,7 +200,10 @@ export class SessionManager {
 
   private push(bs: BrowserSession): void {
     if (bs.closed || !bs.socket) return;
-    bs.send({ type: 'screen', seq: ++bs.seq, screen: bs.host.snapshot() });
+    const screen = bs.host.snapshot();
+    // A locked screen is the host still working; count the one the user gets.
+    if (!screen.keyboardLocked) this.opts.inventory?.record(bs.id, screen);
+    bs.send({ type: 'screen', seq: ++bs.seq, screen });
   }
 
   private sweepIdle(): void {
@@ -223,6 +229,7 @@ export class SessionManager {
     bs.socket = null;
     bs.host.close();
     if (bs.deviceName) this.devices?.release(bs.deviceName);
+    this.opts.inventory?.forget(bs.id);
     log.info('session closed', { session: bs.id, reason });
   }
 

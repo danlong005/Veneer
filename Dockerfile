@@ -21,13 +21,14 @@ FROM node:22-alpine
 ENV NODE_ENV=production \
     VENEER_LISTEN_HOST=0.0.0.0 \
     VENEER_LISTEN_PORT=8080 \
-    VENEER_SCREENS_DIR=/data/screens
+    VENEER_SCREENS_DIR=/data/screens \
+    VENEER_DATA_DIR=/data/state
 WORKDIR /app
 # The program stays owned by root, so the service user can't change it.
 COPY --from=build /app /app
-RUN mkdir -p /data/screens && chown node:node /data/screens
+RUN mkdir -p /data/screens /data/state && chown node:node /data/screens /data/state
 USER node
-VOLUME /data/screens
+VOLUME ["/data/screens", "/data/state"]
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD ["node", "deploy/docker/healthcheck.mjs"]
 # Veneer ends its 5250 sessions on SIGTERM (releasing their devices) within 10 seconds.

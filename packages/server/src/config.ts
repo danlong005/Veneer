@@ -24,6 +24,8 @@ export interface ServerConfig {
   staticDir?: string;
   /** Directory of screen definition JSON files. */
   screensDir: string;
+  /** Directory for what Veneer records itself (the screen inventory); unset keeps it in memory. */
+  dataDir?: string;
   /** Bearer token for saving definitions from the designer. */
   designerToken?: string;
   /** Let browsers on this machine use the designer without the token (VENEER_DESIGNER=local). */
@@ -61,6 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     allowedOrigins: (env.VENEER_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     ...(staticDir(env) ? { staticDir: staticDir(env)! } : {}),
     screensDir: env.VENEER_SCREENS_DIR || fileURLToPath(new URL('../../../screens', import.meta.url)),
+    dataDir: env.VENEER_DATA_DIR || fileURLToPath(new URL('../../../data', import.meta.url)),
     ...(env.VENEER_DESIGNER_TOKEN ? { designerToken: env.VENEER_DESIGNER_TOKEN } : {}),
     designerLocal: designer === 'local',
     log: {

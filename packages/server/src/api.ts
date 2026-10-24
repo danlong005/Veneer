@@ -4,12 +4,14 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type http from 'node:http';
 import { DefinitionError, ID_PATTERN } from '@veneer/screens';
 import { log } from './log.ts';
+import type { ScreenInventory } from './inventory.ts';
 import type { ScreenStore } from './store.ts';
 
 const MAX_BODY = 1024 * 1024;
 
 export interface ApiOptions {
   store: ScreenStore;
+  inventory?: ScreenInventory | undefined;
   /** Bearer token required to change definitions. */
   designerToken?: string | undefined;
   /** Requests from this machine may change definitions without the token. */
@@ -39,6 +41,18 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   }
   if (pathname === '/api/screens' && req.method === 'GET') {
     return json(res, 200, { version: store.version, screens: store.list(), site: store.site });
+  }
+
+  if (pathname === '/api/inventory') {
+    if (req.method !== 'GET' && req.method !== 'DELETE') return json(res, 405, { error: 'Method not allowed' });
+    // Designers only: it lists every screen the business uses.
+    if (!allowed(req, res, opts)) return;
+    if (req.method === 'DELETE') {
+      opts.inventory?.clear();
+      log.info('screen inventory cleared');
+      return void res.writeHead(204).end();
+    }
+    return json(res, 200, { screens: opts.inventory?.list() ?? [] });
   }
 
   if (pathname === '/api/site') {

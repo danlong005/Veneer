@@ -10,3 +10,4 @@ screens
 .claude
 Dockerfile
 compose.yaml
+data

@@ -102,6 +102,14 @@ test('saves site-wide CSS and JavaScript to global.css and global.js', async () 
   assert.ok(!fs.existsSync(path.join(dir, 'global-screen.js')));
 });
 
+test('the screen inventory is for designers only', async () => {
+  assert.equal((await fetch(`http://${base}/api/inventory`)).status, 401);
+  const res = await fetch(`http://${base}/api/inventory`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  assert.equal(res.status, 200);
+  assert.ok(Array.isArray((await res.json()).screens));
+  assert.equal((await fetch(`http://${base}/api/inventory`, { method: 'DELETE', headers: { Authorization: `Bearer ${TOKEN}` } })).status, 204);
+});
+
 test('rejects invalid definitions with the reason', async () => {
   const bad = await put('order-entry', { ...definition, changes: [{ op: 'hide', at: { row: 0, col: 1 } }] });
   assert.equal(bad.status, 400);

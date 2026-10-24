@@ -267,6 +267,36 @@ kbd {
 .dialog p { margin: 0 0 18px; color: var(--text-muted); }
 .dialog .primary { border-radius: 8px; padding: 9px 16px; cursor: pointer; }
 .dialog .ghost { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.dp-head-actions { display: flex; gap: 6px; }
+
+/* The screen inventory. */
+.dialog.wide { width: min(980px, 100%); max-height: min(86vh, 900px); display: flex; flex-direction: column; gap: 12px; }
+.inv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.inv-head p { margin: 0; }
+.inv-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.inv-tools input[type="search"], .inv-tools select {
+  font: inherit; font-size: 13.5px; color: var(--text); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+}
+.inv-tools input[type="search"] { flex: 1; min-width: 180px; }
+.inv-scroll { overflow: auto; border: 1px solid var(--border); border-radius: 10px; min-height: 0; flex: 1; }
+.inv-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.inv-table th {
+  position: sticky; top: 0; background: var(--surface-2); text-align: left; font-size: 12px; font-weight: 650;
+  color: var(--text-muted); padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.inv-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.inv-table tbody tr:last-child td { border-bottom: 0; }
+.inv-table tbody tr:hover { background: var(--row-hover); }
+.inv-table tr.current { background: var(--accent-soft); }
+.inv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.inv-table code { font-size: 12px; color: var(--text-muted); }
+.inv-table .dp-tag { margin-left: 8px; }
+.inv-tag { color: var(--accent); background: var(--accent-soft); }
+.inv-muted { color: var(--text-muted); }
+.inv-empty { padding: 24px; text-align: center; color: var(--text-muted); }
+.inv-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12.5px; }
+
 
 @media (max-width: 640px) {
   .topbar { padding: 10px 16px; }

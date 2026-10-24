@@ -18,6 +18,7 @@ Installs are laid out so that upgrades never touch configuration or customizatio
 | Active version (symlink) | `/QOpenSys/opt/veneer/current` | `/opt/veneer/current` |
 | Configuration | `/QOpenSys/etc/veneer/veneer.env` | `/etc/veneer/veneer.env` |
 | Screen customizations | `/QOpenSys/etc/veneer/screens` | `/var/lib/veneer/screens` |
+| Recorded data (screen inventory) | `/QOpenSys/var/lib/veneer` | `/var/lib/veneer/data` |
 | Logs | `/QOpenSys/var/log/veneer/veneer.log` | the systemd journal (`journalctl -u veneer`) |
 
 The configuration file uses the same settings as `.env` in development; the archive
@@ -55,7 +56,7 @@ from a 5250 command line.
 2. Unpack the archive and create the directories (PASE `tar` may not read gzip directly):
 
    ```sh
-   mkdir -p /QOpenSys/opt/veneer /QOpenSys/etc/veneer/screens /QOpenSys/var/log/veneer
+   mkdir -p /QOpenSys/opt/veneer /QOpenSys/etc/veneer/screens /QOpenSys/var/log/veneer /QOpenSys/var/lib/veneer
    cd /QOpenSys/opt/veneer
    gzip -dc /tmp/veneer-0.1.0.tar.gz | tar -xf -
    ln -sfn veneer-0.1.0 current
@@ -72,6 +73,7 @@ from a 5250 command line.
    VENEER_HTTPS_CERT=/QOpenSys/etc/veneer/cert.pem
    VENEER_HTTPS_KEY=/QOpenSys/etc/veneer/key.pem
    VENEER_SCREENS_DIR=/QOpenSys/etc/veneer/screens
+   VENEER_DATA_DIR=/QOpenSys/var/lib/veneer
    VENEER_LOG_FILE=/QOpenSys/var/log/veneer/veneer.log
    ```
 
@@ -81,7 +83,7 @@ from a 5250 command line.
 4. Give the service profile access:
 
    ```sh
-   chown -R VENEER /QOpenSys/etc/veneer /QOpenSys/var/log/veneer
+   chown -R VENEER /QOpenSys/etc/veneer /QOpenSys/var/log/veneer /QOpenSys/var/lib/veneer
    chmod 700 /QOpenSys/etc/veneer
    ```
 
@@ -124,7 +126,7 @@ sudo ln -sfn veneer-0.1.0 /opt/veneer/current
 sudo cp /opt/veneer/current/veneer.env.example /etc/veneer/veneer.env
 sudo chown -R veneer:veneer /var/lib/veneer /var/log/veneer
 sudo chown root:veneer /etc/veneer/veneer.env && sudo chmod 640 /etc/veneer/veneer.env
-# edit /etc/veneer/veneer.env; set VENEER_SCREENS_DIR=/var/lib/veneer/screens
+# edit /etc/veneer/veneer.env; set VENEER_SCREENS_DIR=/var/lib/veneer/screens and VENEER_DATA_DIR=/var/lib/veneer/data
 sudo cp /opt/veneer/current/deploy/linux/veneer.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now veneer
@@ -137,8 +139,9 @@ proxy in front.
 
 ## Docker
 
-The image runs Veneer on Node.js 22 (Alpine) as a non-root user. It listens on port 8080
-and keeps screen customizations in the `/data/screens` volume. Settings are the usual
+The image runs Veneer on Node.js 22 (Alpine) as a non-root user. It listens on port 8080,
+keeps screen customizations in the `/data/screens` volume and what it records (the screen
+inventory) in `/data/state`. Settings are the usual
 `VENEER_*` environment variables; logs go to stdout (`docker logs`).
 
 With Compose, from a checkout of the repository:

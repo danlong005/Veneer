@@ -389,7 +389,7 @@ function useNudge(design: Props['design']) {
       const d = latest.current;
       const by = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
       if (!d?.selected || !by || e.altKey || e.ctrlKey || e.metaKey) return;
-      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return;
+      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]') || document.querySelector('.overlay')) return;
       e.preventDefault();
       d.onMove(d.selected, { rows: by[0]!, cols: by[1]! });
     };

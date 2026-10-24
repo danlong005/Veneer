@@ -16,8 +16,14 @@ services:
       VENEER_LISTEN_HOST: 0.0.0.0
       VENEER_LISTEN_PORT: "8080"
       VENEER_SCREENS_DIR: /data/screens
+      VENEER_DATA_DIR: /data/state
     volumes:
       - ./screens:/data/screens
+      - veneer-state:/data/state
     # Ending sessions on shutdown can take up to 10 seconds.
     stop_grace_period: 15s
     restart: unless-stopped
+
+volumes:
+  # What Veneer records itself, such as the screen inventory.
+  veneer-state:

@@ -173,6 +173,12 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   open it, pick the existing customization in the panel, and click **Add this screen**.
   **Save** writes the JSON file, and every connected browser picks up the change at once.
   With neither setting, definitions are read-only.
+- **Screen inventory:** the designer's **Screens** button lists every screen Veneer has
+  shown, across all users, by screen ID: its title, input field count, how many times
+  people opened it (paging and redraws don't count), when it was last seen, and which
+  customization recognises it. Sort by most visited and tick **Not customized yet** to see
+  which screens to customize next. Only the screen's shape is recorded, never what was on
+  it. It is kept in `inventory.json` in `VENEER_DATA_DIR` (default `data/`, not in git).
 - **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2).
 
 ### Custom HTML, CSS and JavaScript

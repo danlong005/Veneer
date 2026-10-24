@@ -3,9 +3,11 @@
 import http from 'node:http';
 import https from 'node:https';
 import type { AddressInfo } from 'node:net';
+import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { handleApi } from './api.ts';
 import type { ServerConfig } from './config.ts';
+import { ScreenInventory } from './inventory.ts';
 import { log } from './log.ts';
 import { SessionManager } from './sessions.ts';
 import { serveStatic } from './static.ts';
@@ -19,13 +21,16 @@ export interface VeneerServer {
   readonly http: http.Server;
   readonly sessions: SessionManager;
   readonly screens: ScreenStore;
+  readonly inventory: ScreenInventory;
   /** Load screen definitions, then start listening. */
   listen(): Promise<AddressInfo>;
   close(): Promise<void>;
 }
 
 export function createServer(config: ServerConfig): VeneerServer {
+  const inventory = new ScreenInventory(config.dataDir ? path.join(config.dataDir, 'inventory.json') : undefined);
   const sessions = new SessionManager({
+    inventory,
     host: config.host,
     idleTimeoutMs: config.idleTimeoutMs,
     resumeGraceMs: config.resumeGraceMs,
@@ -43,7 +48,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     if (pathname === '/healthz') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', version: VERSION, uptimeSeconds: Math.round(process.uptime()), sessions: sessions.size }));
-    } else if (handleApi(req, res, pathname, { store: screens, designerToken: config.designerToken, designerLocal: config.designerLocal })) {
+    } else if (handleApi(req, res, pathname, { store: screens, inventory, designerToken: config.designerToken, designerLocal: config.designerLocal })) {
       // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405).end();
@@ -90,8 +95,10 @@ export function createServer(config: ServerConfig): VeneerServer {
     http: server,
     sessions,
     screens,
+    inventory,
     listen: async () => {
       await screens.load();
+      await inventory.load();
       return listenOn();
     },
     close: () => new Promise((resolve) => {
@@ -100,7 +107,7 @@ export function createServer(config: ServerConfig): VeneerServer {
       sessions.closeAll();
       for (const ws of wss.clients) ws.terminate();
       wss.close();
-      server.close(() => resolve());
+      server.close(() => void inventory.flush().then(() => resolve()));
       server.closeAllConnections?.();
     }),
   };
