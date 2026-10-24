@@ -1,12 +1,16 @@
 // Strict validation of screen definitions from files or the designer API.
 
-import { DATE_FORMATS, ROLES, type Change, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
+import { DATE_FORMATS, ROLES, type Change, type SiteCustomization, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const AID = /^(Enter|Help|PageUp|PageDown|Print|Clear|RecordBackspace|F([1-9]|1\d|2[0-4]))$/;
 const FIELD_ID = /^\d{1,3}:\d{1,3}$/;
 const SCREEN_ID = /^[0-9a-f]{8,32}$/;
 const MAX_CHANGES = 500;
+/** Limits for custom code, in characters. */
+export const MAX_CSS = 64 * 1024;
+export const MAX_SCRIPT = 64 * 1024;
+export const MAX_HTML = 16 * 1024;
 
 export class DefinitionError extends Error {
   override name = 'DefinitionError';
@@ -101,8 +105,16 @@ function change(v: unknown, path: string): Change {
       }
       return { op: 'button', label: str(o.label, `${path}.label`, 60), action };
     }
+    case 'html':
+      return {
+        op: 'html',
+        at: target(o.at, `${path}.at`),
+        html: str(o.html, `${path}.html`, MAX_HTML),
+        width: int(o.width, `${path}.width`, 1, 132),
+        height: int(o.height, `${path}.height`, 1, 27),
+      };
     default:
-      fail(`${path}.op`, 'must be hide, text, role, widget or button');
+      fail(`${path}.op`, 'must be hide, text, role, widget, button or html');
   }
 }
 
@@ -133,5 +145,13 @@ export function validateDefinition(input: unknown): ScreenDefinition {
     changes: arr(o.changes ?? [], 'changes', MAX_CHANGES).map((x, i) => change(x, `changes[${i}]`)),
   };
   if (o.title !== undefined) def.title = str(o.title, 'title', 100);
+  if (o.css !== undefined && o.css !== '') def.css = str(o.css, 'css', MAX_CSS);
+  if (o.script !== undefined && o.script !== '') def.script = str(o.script, 'script', MAX_SCRIPT);
   return def;
+}
+
+/** Validate site-wide CSS and JavaScript from the designer API. */
+export function validateSite(input: unknown): SiteCustomization {
+  const o = obj(input, 'site');
+  return { css: str(o.css ?? '', 'css', MAX_CSS), script: str(o.script ?? '', 'script', MAX_SCRIPT) };
 }

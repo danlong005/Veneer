@@ -38,15 +38,18 @@ export function originalText(snap: ScreenSnapshot, item: { row: number; col: num
 
 export type Selection =
   | { kind: 'field'; at: Target; field: FieldSnapshot; item?: Item }
-  | { kind: 'item'; at: Target; item: Item };
+  | { kind: 'item'; at: Target; item: Item }
+  | { kind: 'empty'; at: Target };
 
-/** Resolve a clicked position: an input field first, else the item covering it. */
+/** Resolve a clicked position: custom HTML or an input field first, else the item covering it, else the empty cell. */
 export function resolveSelection(view: ScreenView, snap: ScreenSnapshot, at: Target): Selection | null {
-  const field = snap.fields.find((f) => !f.bypass && f.row === at.row && f.col === at.col);
   const items = [...view.items, ...(view.window?.items ?? [])];
   const item = itemAt(items, at);
+  if (item?.kind === 'html') return { kind: 'item', at: { row: item.row, col: item.col }, item };
+  const field = snap.fields.find((f) => !f.bypass && f.row === at.row && f.col === at.col);
   if (field) return { kind: 'field', at, field, ...(item?.kind === 'field' ? { item } : {}) };
-  return item ? { kind: 'item', at: { row: item.row, col: item.col }, item } : null;
+  if (item) return { kind: 'item', at: { row: item.row, col: item.col }, item };
+  return at.row <= snap.rows && at.col <= snap.cols ? { kind: 'empty', at } : null;
 }
 
 // ---- reading and writing changes -------------------------------------------
@@ -83,6 +86,25 @@ export function widgetOf(def: ScreenDefinition, field: string): Widget | undefin
 export function setWidget(def: ScreenDefinition, field: string, widget: Widget | null): ScreenDefinition {
   const changes = def.changes.filter((c) => !(c.op === 'widget' && c.field === field));
   return { ...def, changes: widget ? [...changes, { op: 'widget', field, widget }] : changes };
+}
+
+type Html = ChangeOf<'html'>;
+
+export function htmlAt(def: ScreenDefinition, at: Target): Html | undefined {
+  return def.changes.find((c): c is Html => c.op === 'html' && same(c.at, at));
+}
+
+/** Add, replace (same position) or with `next` null remove custom HTML. */
+export function setHtml(def: ScreenDefinition, at: Target, next: Omit<Html, 'op'> | null): ScreenDefinition {
+  const changes = def.changes.map((c) => (c.op === 'html' && same(c.at, at) && next ? { op: 'html' as const, ...next } : c))
+    .filter((c) => !(c.op === 'html' && same(c.at, at) && !next));
+  return htmlAt(def, at) || !next ? { ...def, changes } : { ...def, changes: [...changes, { op: 'html', ...next }] };
+}
+
+/** Set or clear (empty string) the definition's CSS or script. */
+export function setCode(def: ScreenDefinition, key: 'css' | 'script', code: string): ScreenDefinition {
+  const { [key]: _omit, ...rest } = def;
+  return code === '' ? rest : { ...rest, [key]: code };
 }
 
 export function buttonsOf(def: ScreenDefinition): Array<ChangeOf<'button'>> {

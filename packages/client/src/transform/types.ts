@@ -87,7 +87,15 @@ export interface TableItem extends Placed {
   more: boolean;
 }
 
-export type Item = TextItem | FieldItem | LinkItem | TableItem;
+/** Custom HTML from a screen definition, drawn over the screen. */
+export interface HtmlItem extends Placed {
+  kind: 'html';
+  html: string;
+  /** Rows covered. */
+  height: number;
+}
+
+export type Item = TextItem | FieldItem | LinkItem | TableItem | HtmlItem;
 
 export interface FunctionKey {
   aid: AidName;
@@ -122,5 +130,8 @@ export interface ScreenView {
   buttons: Array<{ label: string; action: Action }>;
   /** The screen definition applied, if any. */
   definition?: { id: string; name: string };
+  /** The definition's CSS and JavaScript (see custom/runtime.ts). */
+  css?: string;
+  script?: string;
   snapshot: ScreenSnapshot;
 }

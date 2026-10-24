@@ -47,6 +47,24 @@ test('changes reach items inside a pop-up window', () => {
   assert.ok(v.window!.items.some((i) => i.kind === 'text' && i.text === 'Printer name'));
 });
 
+test('custom HTML is placed on the screen, or in the window it falls inside; CSS and script carry over', () => {
+  const v = customize(transform(orderEntry()), {
+    ...def, css: '.x {}', script: 'return 1',
+    changes: [{ op: 'html', at: { row: 4, col: 3 }, html: '<b>Hi</b>', width: 10, height: 2 }],
+  });
+  assert.equal(v.css, '.x {}');
+  assert.equal(v.script, 'return 1');
+  const html = itemAt(v.items, { row: 5, col: 5 });
+  assert.equal(html?.kind, 'html', 'covers its second row and wins over the label beneath');
+
+  const w = customize(transform(promptWindow()), {
+    id: 'w', name: 'W', match: { text: [{ row: 8, col: 30, text: 'Select Printer' }] },
+    changes: [{ op: 'html', at: { row: 12, col: 22 }, html: 'in', width: 5, height: 1 }, { op: 'html', at: { row: 2, col: 2 }, html: 'out', width: 5, height: 1 }],
+  });
+  assert.ok(w.window!.items.some((i) => i.kind === 'html' && i.html === 'in'));
+  assert.ok(w.items.some((i) => i.kind === 'html' && i.html === 'out'));
+});
+
 test('no definition leaves the view untouched', () => {
   const view = transform(orderEntry());
   assert.equal(customize(view, undefined), view);

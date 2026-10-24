@@ -6,7 +6,7 @@ import { DefinitionError, ID_PATTERN } from '@veneer/screens';
 import { log } from './log.ts';
 import type { ScreenStore } from './store.ts';
 
-const MAX_BODY = 256 * 1024;
+const MAX_BODY = 1024 * 1024;
 
 export interface ApiOptions {
   store: ScreenStore;
@@ -38,7 +38,26 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
     return json(res, 200, { designer: access !== 'off', tokenRequired: access === 'token' });
   }
   if (pathname === '/api/screens' && req.method === 'GET') {
-    return json(res, 200, { version: store.version, screens: store.list() });
+    return json(res, 200, { version: store.version, screens: store.list(), site: store.site });
+  }
+
+  if (pathname === '/api/site') {
+    if (req.method !== 'PUT') return json(res, 405, { error: 'Method not allowed' });
+    if (!allowed(req, res, opts)) return;
+    let body: unknown;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch (err) {
+      return json(res, 400, { error: (err as Error).message.startsWith('Body') ? (err as Error).message : 'Body is not valid JSON' });
+    }
+    try {
+      const site = await store.saveSite(body);
+      log.info('site customization saved', { css: site.css.length, script: site.script.length });
+      return json(res, 200, site);
+    } catch (err) {
+      if (err instanceof DefinitionError) return json(res, 400, { error: err.message });
+      throw err;
+    }
   }
 
   const m = /^\/api\/screens\/([^/]+)$/.exec(pathname);
@@ -46,10 +65,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   const id = decodeURIComponent(m[1]!);
   if (!ID_PATTERN.test(id)) return json(res, 400, { error: 'Invalid screen id' });
   if (req.method !== 'PUT' && req.method !== 'DELETE') return json(res, 405, { error: 'Method not allowed' });
-
-  const access = designerAccess(req, opts);
-  if (access === 'off') return json(res, 403, { error: 'The designer is disabled (set VENEER_DESIGNER=local or VENEER_DESIGNER_TOKEN)' });
-  if (access === 'token' && !authorized(req, opts.designerToken!)) return json(res, 401, { error: 'Designer token required' });
+  if (!allowed(req, res, opts)) return;
 
   if (req.method === 'DELETE') {
     const removed = await store.remove(id);
@@ -72,6 +88,15 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
     if (err instanceof DefinitionError) return json(res, 400, { error: err.message });
     throw err;
   }
+}
+
+/** Check designer access for a change; on refusal, send the error and return false. */
+function allowed(req: http.IncomingMessage, res: http.ServerResponse, opts: ApiOptions): boolean {
+  const access = designerAccess(req, opts);
+  if (access === 'off') json(res, 403, { error: 'The designer is disabled (set VENEER_DESIGNER=local or VENEER_DESIGNER_TOKEN)' });
+  else if (access === 'token' && !authorized(req, opts.designerToken!)) json(res, 401, { error: 'Designer token required' });
+  else return true;
+  return false;
 }
 
 function designerAccess(req: http.IncomingMessage, opts: ApiOptions): DesignerAccess {

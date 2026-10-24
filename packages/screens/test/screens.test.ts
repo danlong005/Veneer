@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Attr, HostStream, Terminal, buildRecord, getCodepage, snapshot } from '@veneer/tn5250';
-import { hostToIso, isoToHost, matchScreen, validateDefinition, type ScreenDefinition } from '../src/index.ts';
+import { hostToIso, isoToHost, matchScreen, validateDefinition, validateSite, type ScreenDefinition } from '../src/index.ts';
 
 const cp = getCodepage(37);
 function screen(build: (s: HostStream) => HostStream) {
@@ -32,10 +32,15 @@ test('validates and cleans definitions', () => {
       { op: 'hide', at: { row: 3, col: 2 } },
       { op: 'widget', field: '7:22', widget: { type: 'select', options: [{ value: 'TX', label: 'Texas' }] } },
       { op: 'button', label: 'Exit', action: { aid: 'F3' } },
+      { op: 'html', at: { row: 5, col: 50 }, html: '<b>Note</b>', width: 20, height: 3 },
     ],
+    css: '.sheet { color: red }',
+    script: '',
   });
   assert.equal(clean.title, 'New order');
-  assert.equal(clean.changes.length, 3);
+  assert.equal(clean.changes.length, 4);
+  assert.equal(clean.css, '.sheet { color: red }');
+  assert.ok(!('script' in clean), 'empty script dropped');
   assert.ok(!('extra' in clean));
 });
 
@@ -49,8 +54,15 @@ test('rejects bad definitions with a useful path', () => {
     [{ ...base, changes: [{ op: 'button', label: 'x', action: { aid: 'F99' } }] }, /aid/],
     [{ ...base, changes: [{ op: 'widget', field: '7:22', widget: { type: 'date', format: 'bogus' } }] }, /format/],
     [{ ...base, changes: [{ op: 'explode' }] }, /op/],
+    [{ ...base, changes: [{ op: 'html', at: { row: 1, col: 1 }, html: 'x', width: 0, height: 1 }] }, /changes\[0\]\.width/],
+    [{ ...base, script: 'x'.repeat(70_000) }, /script: must be a string/],
   ];
   for (const [input, message] of cases) assert.throws(() => validateDefinition(input), message);
+});
+
+test('validates site-wide CSS and JavaScript', () => {
+  assert.deepEqual(validateSite({ css: 'body {}' }), { css: 'body {}', script: '' });
+  assert.throws(() => validateSite({ css: 1 }), /css: must be a string/);
 });
 
 test('converts host dates to and from ISO', () => {

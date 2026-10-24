@@ -4,6 +4,7 @@
 import type { Target } from '@veneer/screens';
 import type { CSSProperties, MouseEvent, WheelEvent } from 'react';
 import { useRef } from 'react';
+import { heightOf } from '../transform/customize.ts';
 import type { Action, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
 
@@ -24,16 +25,25 @@ function designClass(design: Props['design'], row: number, col: number, hidden?:
   return `${hidden ? ' ghost' : ''}${selected ? ' selected' : ''}`;
 }
 
-/** In design mode, swallow the click and report the item's position instead. */
-function selectInDesign(design: Props['design']) {
-  return (e: MouseEvent) => {
+/**
+ * In design mode, swallow the click and report the item's position instead, or
+ * for empty space, the cell clicked (where custom HTML can be added).
+ */
+function selectInDesign(design: Props['design'], top: number, rows: number, cols: number) {
+  return (e: MouseEvent<HTMLElement>) => {
     if (!design) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-at]');
     e.preventDefault();
     e.stopPropagation();
-    if (!el) return;
-    const [row, col] = el.dataset.at!.split(':').map(Number) as [number, number];
-    design.onSelect({ row, col });
+    if (el) {
+      const [row, col] = el.dataset.at!.split(':').map(Number) as [number, number];
+      design.onSelect({ row, col });
+      return;
+    }
+    const box = e.currentTarget.getBoundingClientRect();
+    const row = top + Math.floor(((e.clientY - box.top) / box.height) * rows);
+    const col = 1 + Math.floor(((e.clientX - box.left) / box.width) * cols);
+    if (row >= 1 && col >= 1 && col <= cols) design.onSelect({ row, col });
   };
 }
 
@@ -50,7 +60,7 @@ const at = (row: number, col: number, origin: Origin, width?: number): CSSProper
 });
 
 function extent(view: ScreenView): { top: number; bottom: number } {
-  const rows = view.items.flatMap((i) => [i.row, i.kind === 'table' ? i.row + i.height - 1 : i.row]);
+  const rows = view.items.flatMap((i) => [i.row, i.row + heightOf(i) - 1]);
   if (view.window) rows.push(view.window.top - 1, view.window.bottom + 1);
   if (rows.length === 0) return { top: 1, bottom: 1 };
   return { top: Math.min(...rows), bottom: Math.max(...rows) };
@@ -60,7 +70,7 @@ export function ModernScreen(props: Props) {
   const { view } = props;
   const { top, bottom } = extent(view);
   const origin = { row: top, col: 1 };
-  const select = selectInDesign(props.design);
+  const select = selectInDesign(props.design, top, bottom - top + 1, view.cols);
   return (
     <div
       className={`canvas${props.design ? ' designing' : ''}`}
@@ -157,6 +167,17 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
             );
           case 'table':
             return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} design={design} />;
+          case 'html':
+            // Written by the site's designers, who are trusted like the site's own code.
+            return (
+              <div
+                key={key}
+                className={`custom-html${designClass(design, item.row, item.col, item.hidden)}`}
+                style={{ ...at(item.row, item.col, top, item.width), height: `calc(${item.height} * var(--rh))` }}
+                data-at={`${item.row}:${item.col}`}
+                dangerouslySetInnerHTML={{ __html: item.html }}
+              />
+            );
         }
       })}
     </>

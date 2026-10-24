@@ -1,6 +1,7 @@
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { matchScreen, type ScreenDefinition, type Target } from '@veneer/screens';
+import { matchScreen, screenId, type ScreenDefinition, type Target } from '@veneer/screens';
+import { connectHost, emitScreen, runScreenScript, runSiteScript } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
 import { newDefinition, resolveSelection } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
@@ -130,6 +131,48 @@ export function App() {
 
   const onAction = useCallback((a: Action) => submit(a.aid, a.fields), [submit]);
 
+  // Custom JavaScript (custom/runtime.ts) reads and types into fields and presses keys.
+  const sheet = useRef<HTMLFormElement>(null);
+  const latest = useRef({ snap, edits, submit });
+  latest.current = { snap, edits, submit };
+  useEffect(() => {
+    connectHost({
+      getField: (id) => {
+        const { snap: s, edits: e } = latest.current;
+        return e[id] ?? s?.fields.find((f) => f.id === id)?.value;
+      },
+      setField: (id, value) => setEdits((e) => ({ ...e, [id]: value })),
+      press: (aid, fields) => latest.current.submit(aid, fields),
+    });
+  }, []);
+
+  // global.js runs once, when it first loads; a changed one runs after a page reload.
+  const siteScriptRan = useRef(false);
+  useEffect(() => {
+    if (siteScriptRan.current || !screens.site) return;
+    siteScriptRan.current = true;
+    if (screens.site.script) runSiteScript(screens.site.script);
+  }, [screens.site]);
+
+  // After each screen is drawn: its definition's script, then veneer.on('screen') handlers.
+  // Paused while designing; the design panel can test the draft's script.
+  const screenScript = view?.script;
+  useEffect(() => {
+    if (!snap || !sheet.current || mode !== 'modern' || designing) return;
+    const result = screenScript ? runScreenScript(screenScript, sheet.current, `"${view?.definition?.name}"`) : {};
+    emitScreen({
+      id: screenId(snap),
+      ...(view?.definition ? { definition: view.definition.id } : {}),
+      rows: snap.rows,
+      cols: snap.cols,
+      lines: snap.lines,
+      fields: snap.fields.filter((f) => !f.bypass).map((f) => ({ id: f.id, row: f.row, col: f.col, length: f.length, value: f.value })),
+    }, sheet.current);
+    return result.cleanup;
+    // A new screen, script or mode re-runs it; typing does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seq, screenScript, mode, designing]);
+
   // Each new screen: once it unlocks, replay type-ahead and place the cursor.
   useEffect(() => {
     if (!snap) return;
@@ -238,7 +281,9 @@ export function App() {
   const busy = typingAhead;
 
   return (
-    <div className={`app${designing ? ' designing' : ''}`}>
+    <div className={`app${designing ? ' designing' : ''}`} data-screen={view?.definition?.id}>
+      {screens.site?.css && <style>{screens.site.css}</style>}
+      {mode === 'modern' && view?.css && <style>{view.css}</style>}
       <div className={`busy-bar${busy ? ' on' : ''}`} aria-hidden />
       <header className="topbar">
         <div className="brand" aria-label="Veneer">V</div>
@@ -282,7 +327,7 @@ export function App() {
         <Toast error={notice} />
 
         {snap && view ? (
-          <form className="sheet" onSubmit={(e) => e.preventDefault()} autoComplete="off">
+          <form className="sheet" ref={sheet} onSubmit={(e) => e.preventDefault()} autoComplete="off">
             {mode === 'modern' && view.buttons.length > 0 && (
               <div className="screen-actions">
                 {view.buttons.map((b, i) => (
@@ -330,6 +375,8 @@ export function App() {
           existing={draftExisting}
           selection={selection}
           definitions={screens.screens}
+          site={screens.site ?? { css: '', script: '' }}
+          onSelect={setSelectedAt}
           tokenRequired={screens.tokenRequired}
           onPick={pickDefinition}
           onSaved={screens.reload}

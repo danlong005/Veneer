@@ -2,19 +2,20 @@
 // found by their screen position, so changes survive data changing on screen.
 
 import type { ScreenDefinition, Target } from '@veneer/screens';
-import type { Item, ScreenView } from './types.ts';
+import type { HtmlItem, Item, ScreenView } from './types.ts';
 
 export interface CustomizeOptions {
   /** Designer mode: keep hidden items (marked hidden) so they can be selected. */
   design?: boolean;
 }
 
-/** The item covering a target cell. */
+/** Rows an item covers. */
+export const heightOf = (i: Item) => (i.kind === 'table' || i.kind === 'html' ? i.height : 1);
+
+/** The item covering a target cell. Custom HTML is drawn on top, so it wins. */
 export function itemAt(items: readonly Item[], at: Target): Item | undefined {
-  return items.find((i) => {
-    const height = i.kind === 'table' ? i.height : 1;
-    return at.row >= i.row && at.row < i.row + height && at.col >= i.col && at.col < i.col + i.width;
-  });
+  const covers = (i: Item) => at.row >= i.row && at.row < i.row + heightOf(i) && at.col >= i.col && at.col < i.col + i.width;
+  return items.find((i) => i.kind === 'html' && covers(i)) ?? items.find(covers);
 }
 
 export function customize(view: ScreenView, def: ScreenDefinition | undefined, opts: CustomizeOptions = {}): ScreenView {
@@ -27,6 +28,8 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
     definition: { id: def.id, name: def.name },
   };
   if (def.title) out.title = def.title;
+  if (def.css) out.css = def.css;
+  if (def.script) out.script = def.script;
   const all = () => [...out.items, ...(out.window?.items ?? [])];
 
   for (const change of def.changes) {
@@ -60,6 +63,14 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
       case 'button':
         out.buttons.push({ label: change.label, action: change.action });
         break;
+      case 'html': {
+        const item: HtmlItem = { kind: 'html', row: change.at.row, col: change.at.col, width: change.width, height: change.height, html: change.html };
+        // Inside an active window it goes in the window, above the dimmed screen.
+        const w = out.window;
+        if (w && item.row >= w.top && item.row <= w.bottom && item.col >= w.left && item.col <= w.right) w.items.push(item);
+        else out.items.push(item);
+        break;
+      }
     }
   }
 

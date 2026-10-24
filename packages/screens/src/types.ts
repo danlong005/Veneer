@@ -56,7 +56,9 @@ export type Change =
   | { op: 'text'; at: Target; text: string }
   | { op: 'role'; at: Target; role: Role }
   | { op: 'widget'; field: string; widget: Widget }
-  | { op: 'button'; label: string; action: ButtonAction };
+  | { op: 'button'; label: string; action: ButtonAction }
+  /** Custom HTML drawn over the screen at a position, `width` x `height` cells. */
+  | { op: 'html'; at: Target; html: string; width: number; height: number };
 
 export interface ScreenDefinition {
   /** File name and URL id: lowercase letters, digits and dashes. */
@@ -66,4 +68,17 @@ export interface ScreenDefinition {
   /** Replaces the detected page title. */
   title?: string;
   changes: Change[];
+  /** CSS added to the page while this screen is shown. */
+  css?: string;
+  /**
+   * JavaScript run each time this screen is shown, as the body of
+   * `function (veneer, screen)`. It may return a cleanup function.
+   */
+  script?: string;
+}
+
+/** Site-wide CSS and JavaScript, on every page (global.css and global.js). */
+export interface SiteCustomization {
+  css: string;
+  script: string;
 }

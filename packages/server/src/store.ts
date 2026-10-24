@@ -1,15 +1,17 @@
 // Screen definitions on disk: one <id>.json per screen, so they can be
-// versioned in git. Invalid files are skipped with a warning.
+// versioned in git. Invalid files are skipped with a warning. Site-wide CSS and
+// JavaScript live beside them in global.css and global.js.
 
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { DefinitionError, ID_PATTERN, validateDefinition, type ScreenDefinition } from '@veneer/screens';
+import { DefinitionError, ID_PATTERN, validateDefinition, validateSite, type ScreenDefinition, type SiteCustomization } from '@veneer/screens';
 import { log } from './log.ts';
 
 export class ScreenStore extends EventEmitter<{ changed: [number] }> {
   readonly dir: string;
   private readonly screens = new Map<string, ScreenDefinition>();
+  site: SiteCustomization = { css: '', script: '' };
   /** Increases on every change, so clients can tell they are stale. */
   version = 0;
 
@@ -20,6 +22,7 @@ export class ScreenStore extends EventEmitter<{ changed: [number] }> {
 
   async load(): Promise<void> {
     this.screens.clear();
+    this.site = { css: await this.readSite('global.css'), script: await this.readSite('global.js') };
     let names: string[];
     try {
       names = await fs.readdir(this.dir);
@@ -54,6 +57,34 @@ export class ScreenStore extends EventEmitter<{ changed: [number] }> {
     this.screens.set(def.id, def);
     this.bump();
     return def;
+  }
+
+  /** Write global.css and global.js; an empty one is deleted. */
+  async saveSite(input: unknown): Promise<SiteCustomization> {
+    const site = validateSite(input);
+    await fs.mkdir(this.dir, { recursive: true });
+    await this.writeSite('global.css', site.css);
+    await this.writeSite('global.js', site.script);
+    this.site = site;
+    this.bump();
+    return site;
+  }
+
+  private async readSite(name: string): Promise<string> {
+    try {
+      return await fs.readFile(path.join(this.dir, name), 'utf8');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return '';
+      throw err;
+    }
+  }
+
+  private async writeSite(name: string, text: string): Promise<void> {
+    const file = path.join(this.dir, name);
+    if (text === '') return fs.rm(file, { force: true });
+    const tmp = `${file}.${process.pid}.tmp`;
+    await fs.writeFile(tmp, text.endsWith('\n') ? text : text + '\n');
+    await fs.rename(tmp, file);
   }
 
   async remove(id: string): Promise<boolean> {

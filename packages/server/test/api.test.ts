@@ -81,6 +81,24 @@ test('saves, lists and deletes definitions, notifying connected browsers', async
   ws.close();
 });
 
+test('saves site-wide CSS and JavaScript to global.css and global.js', async () => {
+  const save = (body: unknown, token: string | null = TOKEN) => fetch(`http://${base}/api/site`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  assert.equal((await save({ css: 'x' }, null)).status, 401);
+  assert.equal((await save({ css: 'body { color: red }', script: 'console.log(1)' })).status, 200);
+  assert.equal(fs.readFileSync(path.join(dir, 'global.css'), 'utf8'), 'body { color: red }\n');
+  assert.equal(fs.readFileSync(path.join(dir, 'global.js'), 'utf8'), 'console.log(1)\n');
+  const list = await (await fetch(`http://${base}/api/screens`)).json();
+  assert.deepEqual(list.site, { css: 'body { color: red }', script: 'console.log(1)' });
+
+  assert.equal((await save({ css: '', script: '' })).status, 200);
+  assert.ok(!fs.existsSync(path.join(dir, 'global.css')), 'empty file removed');
+  assert.ok(!fs.existsSync(path.join(dir, 'global.js')));
+});
+
 test('rejects invalid definitions with the reason', async () => {
   const bad = await put('order-entry', { ...definition, changes: [{ op: 'hide', at: { row: 0, col: 1 } }] });
   assert.equal(bad.status, 400);

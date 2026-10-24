@@ -154,6 +154,40 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   With neither setting, definitions are read-only.
 - **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2).
 
+### Custom HTML, CSS and JavaScript
+
+Designers can add their own code where the built-in changes aren't enough:
+
+| | Per screen (in its definition) | Site-wide (`global.css`, `global.js` in the screens folder) |
+| --- | --- | --- |
+| HTML | `html` change: a box at a row and column, `width` × `height` cells. In the designer, click an empty spot, then **Add HTML here**. | |
+| CSS | `css`: added while the screen is shown | On every page |
+| JavaScript | `script`: runs each time the screen is drawn | Runs once when the page loads |
+
+```json
+{ "op": "html", "at": { "row": 5, "col": 46 }, "width": 28, "height": 2,
+  "html": "<div class=\"promo\">Need help? <a href=\"tel:1234\">Call x1234</a></div>" }
+```
+
+Scripts get a `veneer` object (also `window.veneer`):
+
+- `veneer.screen`: the screen showing, as `{ id, definition, rows, cols, lines, fields }`.
+- `veneer.on('screen', (screen, element) => …)`: called after each screen is drawn. It
+  returns a function that unsubscribes.
+- `veneer.getField('6:53')`, `veneer.setField('6:53', 'X')`: read a field, or type into it.
+- `veneer.press('F3')`, `veneer.press('Enter', { '6:53': 'X' })`: press a key, optionally
+  filling fields first.
+
+A screen's script is the body of `function (veneer, screen)`, where `screen` is the
+element holding the screen. It may return a function, which runs when the screen goes
+away. The app root carries `data-screen="<definition id>"`, so site CSS can target one
+screen. Scripts pause while designing; **Test script** runs the draft once. A changed
+`global.js` runs after a page reload.
+
+**Custom code runs with the page's full rights**, like Veneer's own code: it can read
+everything users type, passwords included. Give designer access only to people you'd
+trust to change the site's code, and review definitions in git like code.
+
 ## License
 
 [MIT](LICENSE) © 2026 Daniel Long

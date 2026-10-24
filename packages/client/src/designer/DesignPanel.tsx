@@ -2,14 +2,16 @@
 // previews live, and saves it through /api/screens.
 
 import {
-  DATE_FORMATS, ID_PATTERN, ROLES, fingerprint, matches, type DateFormat, type Role, type ScreenDefinition, type Widget,
+  DATE_FORMATS, ID_PATTERN, ROLES, fingerprint, matches, type DateFormat, type Role, type ScreenDefinition, type SiteCustomization,
+  type Target, type Widget,
 } from '@veneer/screens';
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { runScreenScript } from '../custom/runtime.ts';
 import type { ScreenView } from '../transform/types.ts';
 import {
-  addScreenId, buttonsOf, formatOptions, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
-  setHidden, setRole, setText, setWidget, textOf, widgetOf, type Selection,
+  addScreenId, buttonsOf, formatOptions, htmlAt, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
+  setCode, setHidden, setHtml, setRole, setText, setWidget, textOf, widgetOf, type Selection,
 } from './edit.ts';
 
 const TOKEN_KEY = 'veneer.designerToken';
@@ -34,6 +36,10 @@ interface Props {
   onPick: (def: ScreenDefinition | null) => void;
   /** False when the server lets this browser save without the token. */
   tokenRequired: boolean;
+  /** Site-wide CSS and JavaScript as saved. */
+  site: SiteCustomization;
+  /** Select a screen position (after moving custom HTML). */
+  onSelect: (at: Target) => void;
   onSaved: () => void;
   onClose: () => void;
 }
@@ -60,16 +66,16 @@ export function DesignPanel(props: Props) {
     try { sessionStorage.setItem(TOKEN_KEY, t); } catch { /* ignore */ }
   };
 
-  async function request(method: 'PUT' | 'DELETE'): Promise<boolean> {
+  async function request(method: 'PUT' | 'DELETE', url = `/api/screens/${encodeURIComponent(draft.id)}`, payload: unknown = draft): Promise<boolean> {
     setBusy(true);
     try {
-      const res = await fetch(`/api/screens/${encodeURIComponent(draft.id)}`, {
+      const res = await fetch(url, {
         method,
         headers: {
           ...(tokenRequired ? { Authorization: `Bearer ${token}` } : {}),
           ...(method === 'PUT' ? { 'Content-Type': 'application/json' } : {}),
         },
-        ...(method === 'PUT' ? { body: JSON.stringify(draft) } : {}),
+        ...(method === 'PUT' ? { body: JSON.stringify(payload) } : {}),
       });
       if (res.ok) return true;
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -95,6 +101,29 @@ export function DesignPanel(props: Props) {
       props.onSaved();
       props.onClose();
     }
+  };
+
+  // Site-wide code is edited and saved separately from the screen.
+  const [siteDraft, setSiteDraft] = useState(props.site);
+  useEffect(() => { setSiteDraft(props.site); }, [props.site]);
+  const siteDirty = siteDraft.css !== props.site.css || siteDraft.script !== props.site.script;
+  const saveSite = async () => {
+    if (await request('PUT', '/api/site', siteDraft)) {
+      setStatus({ kind: 'ok', text: siteDraft.script !== props.site.script ? 'Site saved. Reload the page to run the new global.js.' : 'Site saved.' });
+      props.onSaved();
+    }
+  };
+
+  // "Test script" runs the draft's script once on the screen; the next test or closing the panel undoes it.
+  const testCleanup = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => testCleanup.current?.(), []);
+  const testScript = () => {
+    testCleanup.current?.();
+    const el = document.querySelector<HTMLElement>('form.sheet');
+    if (!el || !draft.script) return;
+    const result = runScreenScript(draft.script, el, `"${draft.name}" (test)`);
+    testCleanup.current = result.cleanup;
+    setStatus(result.error ? { kind: 'error', text: `Script error: ${result.error}` } : { kind: 'ok', text: 'Script ran. Scripts run by themselves when you leave design mode.' });
   };
 
   const buttons = buttonsOf(draft);
@@ -184,7 +213,7 @@ export function DesignPanel(props: Props) {
             : screenIds.length === 0 && draft.match.text.length === 0 ? 'Add a screen ID or a text rule.'
             : '✗ Does not match this screen'}
         </p>
-        {selection?.kind === 'item' && selection.item.kind !== 'table' && (() => {
+        {selection?.kind === 'item' && selection.item.kind !== 'table' && selection.item.kind !== 'html' && (() => {
           const m = originalText(snap, selection.item);
           return m && !draft.match.text.some((x) => x.row === m.row && x.col === m.col) ? (
             <button type="button" className="ghost" onClick={() => setDraft({ ...draft, match: { ...draft.match, text: [...draft.match.text, m] } })}>
@@ -196,8 +225,8 @@ export function DesignPanel(props: Props) {
 
       <section>
         <h3>Selected</h3>
-        {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} /> : (
-          <p className="dp-hint">Click any text, field or table on the screen.</p>
+        {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} cols={snap.cols} onSelect={props.onSelect} /> : (
+          <p className="dp-hint">Click any text, field or table on the screen, or an empty spot to add HTML.</p>
         )}
       </section>
 
@@ -225,6 +254,39 @@ export function DesignPanel(props: Props) {
         </button>
       </section>
 
+      <section>
+        <h3>Screen CSS and JavaScript</h3>
+        <label className="dp-row">CSS, while this screen is shown
+          <textarea className="dp-code" rows={5} spellCheck={false} value={draft.css ?? ''}
+            placeholder={`[data-screen="${draft.id}"] .text { … }`}
+            onChange={(e) => setDraft(setCode(draft, 'css', e.target.value))} />
+        </label>
+        <label className="dp-row">JavaScript, each time this screen is shown
+          <textarea className="dp-code" rows={6} spellCheck={false} value={draft.script ?? ''}
+            placeholder={"// veneer.getField('6:53'), veneer.setField(id, value), veneer.press('F3')\n// screen = this screen's element; return a function to clean up"}
+            onChange={(e) => setDraft(setCode(draft, 'script', e.target.value))} />
+        </label>
+        <button type="button" className="ghost" disabled={!draft.script} onClick={testScript}>Test script</button>
+      </section>
+
+      <section>
+        <h3>Site-wide</h3>
+        <p className="dp-hint">On every page, for every screen. Saved as global.css and global.js.</p>
+        <label className="dp-row">CSS
+          <textarea className="dp-code" rows={5} spellCheck={false} value={siteDraft.css}
+            onChange={(e) => setSiteDraft({ ...siteDraft, css: e.target.value })} />
+        </label>
+        <label className="dp-row">JavaScript, once when the page loads
+          <textarea className="dp-code" rows={6} spellCheck={false} value={siteDraft.script}
+            placeholder={"veneer.on('screen', (screen, element) => { … })"}
+            onChange={(e) => setSiteDraft({ ...siteDraft, script: e.target.value })} />
+        </label>
+        <div className="dp-actions">
+          <button type="button" disabled={busy || !siteDirty || !canSave} onClick={saveSite}>Save site</button>
+          {siteDirty && <button type="button" className="ghost" disabled={busy} onClick={() => setSiteDraft(props.site)}>Revert</button>}
+        </div>
+      </section>
+
       <footer className="dp-foot">
         {tokenRequired && (
           <>
@@ -247,8 +309,28 @@ export function DesignPanel(props: Props) {
   );
 }
 
-function SelectionEditor({ draft, setDraft, selection }: { draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; selection: Selection }) {
+function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
+  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; selection: Selection; cols: number; onSelect: (at: Target) => void;
+}) {
   const at = selection.at;
+  if (selection.kind === 'empty') {
+    return (
+      <>
+        <p className="dp-desc">Empty space at <code>{at.row},{at.col}</code></p>
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => setDraft(setHtml(draft, at, { at, html: '<div>New content</div>', width: Math.min(20, cols - at.col + 1), height: 2 }))}
+        >
+          Add HTML here
+        </button>
+      </>
+    );
+  }
+  if (selection.kind === 'item' && selection.item.kind === 'html') {
+    const html = htmlAt(draft, at);
+    return html ? <HtmlEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} html={html} cols={cols} onSelect={onSelect} /> : null;
+  }
   const hidden = isHidden(draft, at);
   const hideToggle = (
     <label className="dp-check">
@@ -303,6 +385,40 @@ function SelectionEditor({ draft, setDraft, selection }: { draft: ScreenDefiniti
           </select>
         </label>
       )}
+    </>
+  );
+}
+
+function HtmlEditor({ draft, setDraft, html, cols, onSelect }: {
+  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; html: NonNullable<ReturnType<typeof htmlAt>>; cols: number;
+  onSelect: (at: Target) => void;
+}) {
+  const update = (next: Partial<typeof html>) => {
+    const { op: _op, ...current } = html;
+    const merged = { ...current, ...next };
+    setDraft(setHtml(draft, html.at, merged));
+    if (next.at) onSelect(next.at);
+  };
+  const num = (value: string, min: number, max: number) => Math.min(max, Math.max(min, Math.trunc(Number(value)) || min));
+  return (
+    <>
+      <p className="dp-desc">Custom HTML at <code>{html.at.row},{html.at.col}</code></p>
+      <label className="dp-row">HTML
+        <textarea className="dp-code" rows={6} spellCheck={false} value={html.html} onChange={(e) => update({ html: e.target.value })} />
+      </label>
+      <div className="dp-pair">
+        <label className="dp-row">Row<input type="number" min={1} max={27} value={html.at.row}
+          onChange={(e) => update({ at: { ...html.at, row: num(e.target.value, 1, 27) } })} /></label>
+        <label className="dp-row">Column<input type="number" min={1} max={cols} value={html.at.col}
+          onChange={(e) => update({ at: { ...html.at, col: num(e.target.value, 1, cols) } })} /></label>
+      </div>
+      <div className="dp-pair">
+        <label className="dp-row">Width (columns)<input type="number" min={1} max={cols} value={html.width}
+          onChange={(e) => update({ width: num(e.target.value, 1, cols) })} /></label>
+        <label className="dp-row">Height (rows)<input type="number" min={1} max={27} value={html.height}
+          onChange={(e) => update({ height: num(e.target.value, 1, 27) })} /></label>
+      </div>
+      <button type="button" className="ghost danger" onClick={() => setDraft(setHtml(draft, html.at, null))}>Remove HTML</button>
     </>
   );
 }

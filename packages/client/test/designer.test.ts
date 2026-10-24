@@ -3,8 +3,9 @@ import { test } from 'node:test';
 import { matches, screenId } from '@veneer/screens';
 import {
   addScreenId, formatOptions, isHidden, newDefinition, originalText, parseOptions, removeScreenId, resolveSelection,
-  setHidden, setRole, setText, setWidget, slug, textOf, widgetOf,
+  htmlAt, setCode, setHidden, setHtml, setRole, setText, setWidget, slug, textOf, widgetOf,
 } from '../src/designer/edit.ts';
+import { customize } from '../src/transform/customize.ts';
 import { transform } from '../src/transform/index.ts';
 import { mainMenu, orderEntry, workWithJobs } from './screens.ts';
 
@@ -52,6 +53,31 @@ test('resolves clicks to fields first, then items', () => {
   assert.equal(label?.kind, 'item');
   assert.deepEqual(label?.at, { row: 4, col: 3 }, 'normalised to the item start');
   assert.deepEqual(originalText(snap, { row: 4, col: 3, width: 8 }), { row: 4, col: 3, text: 'Customer' });
+});
+
+test('empty space selects the cell; custom HTML is selected over what it covers', () => {
+  const snap = orderEntry();
+  const view = transform(snap);
+  assert.deepEqual(resolveSelection(view, snap, { row: 20, col: 60 }), { kind: 'empty', at: { row: 20, col: 60 } });
+  const def = setHtml(newDefinition(snap, view), { row: 5, col: 18 }, { at: { row: 5, col: 18 }, html: 'x', width: 8, height: 1 });
+  const sel = resolveSelection(customize(view, def, { design: true }), snap, { row: 5, col: 20 });
+  assert.equal(sel?.kind === 'item' && sel.item.kind, 'html', 'not the input field under it');
+});
+
+test('custom HTML is added, moved and removed; code is set and cleared', () => {
+  const snap = orderEntry();
+  const at = { row: 3, col: 40 };
+  let def = setHtml(newDefinition(snap, transform(snap)), at, { at, html: 'a', width: 5, height: 1 });
+  def = setHtml(def, at, { at, html: 'b', width: 5, height: 1 });
+  assert.equal(def.changes.length, 1, 'same position replaces');
+  def = setHtml(def, at, { at: { row: 4, col: 40 }, html: 'b', width: 5, height: 1 });
+  assert.equal(htmlAt(def, at), undefined);
+  assert.equal(htmlAt(def, { row: 4, col: 40 })?.html, 'b', 'moved');
+  assert.equal(setHtml(def, { row: 4, col: 40 }, null).changes.length, 0);
+
+  const withCss = setCode(def, 'css', '.a {}');
+  assert.equal(withCss.css, '.a {}');
+  assert.ok(!('css' in setCode(withCss, 'css', '')));
 });
 
 test('option lists round-trip through value=Label lines', () => {
