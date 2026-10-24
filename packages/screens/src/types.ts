@@ -45,11 +45,23 @@ export type Widget =
   | { type: 'checkbox'; on: string; off: string }
   | { type: 'date'; format: DateFormat };
 
-export interface ButtonAction {
+/** Press a key, optionally typing into fields first. */
+export interface KeyAction {
   aid: AidName;
   /** Field values to type before pressing the key, by field id ("row:col"). */
   fields?: Record<string, string>;
 }
+
+/**
+ * Open a web page in a new tab. `{row:col}` in the URL is replaced by the
+ * field or screen text at that position, `{row:col:length}` by exactly that
+ * many characters (see links.ts). Only http(s), with a fixed host.
+ */
+export interface UrlAction {
+  url: string;
+}
+
+export type ButtonAction = KeyAction | UrlAction;
 
 export type Change =
   | { op: 'hide'; at: Target }

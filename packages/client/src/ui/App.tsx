@@ -1,6 +1,6 @@
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { matchScreen, screenId, type ScreenDefinition, type Target } from '@veneer/screens';
+import { fillUrl, matchScreen, screenId, type ScreenDefinition, type Target } from '@veneer/screens';
 import { download, fileBase } from '../export/download.ts';
 import { ListExporter, listOf, type Progress, type Step } from '../export/exporter.ts';
 import { toCsv, toXlsx } from '../export/sheet.ts';
@@ -160,6 +160,13 @@ export function App() {
   }), [edits, submit]);
 
   const onAction = useCallback((a: Action) => submit(a.aid, a.fields), [submit]);
+
+  // Link buttons: fill the URL from the screen, including edits not sent yet.
+  const openUrl = (template: string) => {
+    const url = snap ? fillUrl(template, snap, edits) : undefined;
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    else setNotice({ id: Date.now(), message: 'This button does not have a valid web address.' });
+  };
 
   // Export: page through the whole list (export/exporter.ts), then download it.
   const exporting = useRef<{ ex: ListExporter; format: ExportFormat; name: string } | null>(null);
@@ -442,8 +449,9 @@ export function App() {
           <form className="sheet" ref={sheet} onSubmit={(e) => e.preventDefault()} autoComplete="off">
             {mode === 'modern' && view.buttons.length > 0 && (
               <div className="screen-actions">
-                {view.buttons.map((b, i) => (
-                  <button key={i} type="button" disabled={!canSubmit} onClick={() => onAction(b.action)}>{b.label}</button>
+                {view.buttons.map(({ label, action }, i) => ('url' in action
+                  ? <button key={i} type="button" className="link-button" title="Opens in a new tab" onClick={() => openUrl(action.url)}>{label}</button>
+                  : <button key={i} type="button" disabled={!canSubmit} onClick={() => onAction(action)}>{label}</button>
                 ))}
               </div>
             )}

@@ -1,6 +1,7 @@
 // Strict validation of screen definitions from files or the designer API.
 
-import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, type Change, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
+import { isWebTemplate, placeholders } from './links.ts';
+import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, type Change, type KeyAction, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const AID = /^(Enter|Help|PageUp|PageDown|Print|Clear|RecordBackspace|F([1-9]|1\d|2[0-4]))$/;
@@ -30,6 +31,15 @@ function obj(v: unknown, path: string): Obj {
 function str(v: unknown, path: string, max = 200): string {
   if (typeof v !== 'string' || v.length > max) fail(path, `must be a string of at most ${max} characters`);
   return v;
+}
+
+function urlTemplate(v: unknown, path: string): string {
+  const url = str(v, path, 2000);
+  if (!isWebTemplate(url)) fail(path, 'must start with http:// or https:// and a host name (no placeholders in the host)');
+  for (const p of placeholders(url)) {
+    if (p.row < 1 || p.row > 27 || p.col < 1 || p.col > 132 || p.length === 0) fail(path, `{${p.row}:${p.col}} is not a screen position`);
+  }
+  return url;
 }
 
 function int(v: unknown, path: string, min: number, max: number): number {
@@ -92,9 +102,11 @@ function change(v: unknown, path: string): Change {
     }
     case 'button': {
       const a = obj(o.action, `${path}.action`);
+      const label = str(o.label, `${path}.label`, 60);
+      if (a.url !== undefined) return { op: 'button', label, action: { url: urlTemplate(a.url, `${path}.action.url`) } };
       const aid = str(a.aid, `${path}.action.aid`, 20);
       if (!AID.test(aid)) fail(`${path}.action.aid`, 'must be an AID key such as Enter or F3');
-      const action: Extract<Change, { op: 'button' }>['action'] = { aid: aid as never };
+      const action: KeyAction = { aid: aid as never };
       if (a.fields !== undefined) {
         const f = obj(a.fields, `${path}.action.fields`);
         action.fields = {};
@@ -103,7 +115,7 @@ function change(v: unknown, path: string): Change {
           action.fields[id] = str(value, `${path}.action.fields["${id}"]`, 132);
         }
       }
-      return { op: 'button', label: str(o.label, `${path}.label`, 60), action };
+      return { op: 'button', label, action };
     }
     case 'move':
       return { op: 'move', at: target(o.at, `${path}.at`), to: target(o.to, `${path}.to`) };

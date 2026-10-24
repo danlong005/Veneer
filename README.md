@@ -153,7 +153,8 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
     { "op": "widget", "field": "7:22", "widget": { "type": "select", "options": [{ "value": "TX", "label": "Texas" }] } },
     { "op": "widget", "field": "10:22", "widget": { "type": "date", "format": "YYYYMMDD" } },
     { "op": "widget", "field": "11:22", "widget": { "type": "checkbox", "on": "Y", "off": "N" } },
-    { "op": "button", "label": "Back to menu", "action": { "aid": "F12" } }
+    { "op": "button", "label": "Back to menu", "action": { "aid": "F12" } },
+    { "op": "button", "label": "Customer in CRM", "action": { "url": "https://crm.example.com/customers/{6:22}" } }
   ]
 }
 ```
@@ -177,7 +178,13 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   - `role` restyles text (`emphasis`, `muted`, `danger`, …).
   - `widget` turns a field into a dropdown, checkbox or date picker. Values are
     converted to and from the host's format.
-  - `button` adds an action button that presses a key, optionally filling fields first.
+  - `button` adds an action button that presses a key, optionally filling fields first,
+    or opens a web page in a new tab. In a `url`, `{6:22}` is replaced by the field starting
+    at row 6, column 22 (including what the user has typed), or else the screen text there
+    up to the next double space. `{6:22:10}` takes exactly 10 characters. Values are
+    URL-encoded, and only `http://` and `https://` addresses with a fixed host name are
+    allowed. In the designer, choose **Open URL** as the button's action. **Insert
+    selected** adds the selected item's position, and a preview shows the address.
   - `title` replaces the page title.
   - `move` draws an item somewhere else: `{ "op": "move", "at": { "row": 6, "col": 4 }, "to": { "row": 6, "col": 44 } }`.
     In the designer, drag any item (a table moves as a whole), or select it and use the arrow

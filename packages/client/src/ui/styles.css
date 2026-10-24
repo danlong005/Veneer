@@ -157,6 +157,7 @@ button.ghost:hover { background: var(--surface-2); }
   border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft);
   border-radius: 8px; padding: 6px 12px; font-size: 13.5px; font-weight: 600; cursor: pointer;
 }
+.screen-actions .link-button::after { content: " ↗"; font-weight: 400; }
 .custom-badge {
   font-size: 11.5px; font-weight: 600; color: var(--accent-2);
   border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px;
@@ -391,7 +392,13 @@ kbd {
 .dp-ok { margin: 0; color: #1f8a5b; font-weight: 600; }
 .dp-warn { margin: 0; color: var(--danger); font-weight: 600; }
 .dp-hint, .dp-desc { margin: 0; color: var(--text-muted); }
-.dp-button { display: grid; grid-template-columns: minmax(0, 1fr) 88px auto; gap: 6px; align-items: center; }
+.dp-button { display: grid; grid-template-columns: minmax(0, 1fr) 108px auto; gap: 6px; align-items: center; }
+.dp-url { grid-column: 1 / -1; display: grid; gap: 4px; padding-left: 10px; border-left: 2px solid var(--border); margin-bottom: 4px; }
+.dp-url input { font-family: var(--mono); font-size: 12px; }
+.dp-url-row { display: flex; gap: 6px; }
+.dp-url-row input { flex: 1; min-width: 0; }
+.dp-preview { margin: 0; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.dp-preview a { color: var(--accent); }
 .dp-foot { padding: 12px 16px 16px; display: grid; gap: 8px; margin-top: auto; }
 .dp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .dp-actions .primary { border: 0; background: var(--accent); color: #fff; border-radius: 8px; padding: 7px 14px; font-weight: 600; cursor: pointer; }

@@ -2,7 +2,7 @@
 // previews live, and saves it through /api/screens.
 
 import {
-  DATE_FORMATS, ID_PATTERN, ROLES, fingerprint, matches, type DateFormat, type Role, type ScreenDefinition, type ScreenEvent,
+  DATE_FORMATS, ID_PATTERN, ROLES, fillUrl, fingerprint, matches, type ButtonAction, type DateFormat, type Role, type ScreenDefinition, type ScreenEvent,
   type SiteCustomization, type SiteEvent,
   type Target, type Widget,
 } from '@veneer/screens';
@@ -17,6 +17,36 @@ import {
 } from './edit.ts';
 
 const TOKEN_KEY = 'veneer.designerToken';
+/** The button-action choice for opening a web page instead of pressing a key. */
+const URL_ACTION = 'url';
+
+/** Switch a button between pressing a key and opening a URL, keeping what still applies. */
+function actionFor(current: ButtonAction, choice: string): ButtonAction {
+  if (choice === URL_ACTION) return 'url' in current ? current : { url: 'https://' };
+  return 'url' in current ? { aid: choice as AidName } : { ...current, aid: choice as AidName };
+}
+
+/** The URL template of a link button, with a preview filled from the current screen. */
+function UrlEditor({ url, snap, at, onChange }: { url: string; snap: ScreenSnapshot; at: Target | undefined; onChange: (url: string) => void }) {
+  const preview = fillUrl(url, snap);
+  return (
+    <div className="dp-url">
+      <div className="dp-url-row">
+        <input value={url} aria-label="URL" spellCheck={false} placeholder="https://example.com/orders?id={6:22}" onChange={(e) => onChange(e.target.value)} />
+        <button
+          type="button" className="ghost" disabled={!at} onClick={() => at && onChange(`${url}{${at.row}:${at.col}}`)}
+          title="Add the selected field or text to the URL"
+        >Insert selected</button>
+      </div>
+      <p className="dp-preview">
+        {preview
+          ? <>Opens <a href={preview} target="_blank" rel="noopener noreferrer">{preview}</a> (with fields as the host sent them; what users type is used when they click)</>
+          : 'Needs http:// or https:// and a host name. {row:col} adds the field or text there; {row:col:length} a fixed width.'}
+      </p>
+    </div>
+  );
+}
+
 const AIDS: AidName[] = [
   'Enter', 'PageUp', 'PageDown', 'Help', 'Print',
   ...Array.from({ length: 24 }, (_, i) => `F${i + 1}` as AidName),
@@ -151,6 +181,8 @@ export function DesignPanel(props: Props) {
   useEffect(() => { if (props.clickedAt) setTab('selected'); }, [props.clickedAt]);
 
   const buttons = buttonsOf(draft);
+  const setButton = (i: number, button: { label: string; action: ButtonAction }) =>
+    setDraft(setButtons(draft, buttons.map((x, j) => (j === i ? button : x))));
   const idValid = ID_PATTERN.test(draft.id);
 
   return (
@@ -295,16 +327,23 @@ export function DesignPanel(props: Props) {
                 <input
                   value={b.label}
                   aria-label="Button label"
-                  onChange={(e) => setDraft(setButtons(draft, buttons.map((x, j) => (j === i ? { ...x, label: e.target.value } : x))))}
+                  onChange={(e) => setButton(i, { ...b, label: e.target.value })}
                 />
                 <select
-                  value={b.action.aid}
-                  aria-label="Key to press"
-                  onChange={(e) => setDraft(setButtons(draft, buttons.map((x, j) => (j === i ? { ...x, action: { ...x.action, aid: e.target.value as AidName } } : x))))}
+                  value={'url' in b.action ? URL_ACTION : b.action.aid}
+                  aria-label="What the button does"
+                  onChange={(e) => setButton(i, { ...b, action: actionFor(b.action, e.target.value) })}
                 >
                   {AIDS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  <option value={URL_ACTION}>Open URL</option>
                 </select>
                 <button type="button" className="dp-x" aria-label="Remove button" onClick={() => setDraft(setButtons(draft, buttons.filter((_, j) => j !== i)))}>×</button>
+                {'url' in b.action && (
+                  <UrlEditor
+                    url={b.action.url} snap={snap} at={selection?.at}
+                    onChange={(url) => setButton(i, { ...b, action: { url } })}
+                  />
+                )}
               </div>
             ))}
             <button type="button" className="ghost" onClick={() => setDraft(setButtons(draft, [...buttons, { label: 'New button', action: { aid: 'Enter' } }]))}>

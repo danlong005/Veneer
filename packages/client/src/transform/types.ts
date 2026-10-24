@@ -1,7 +1,7 @@
 // The view model produced by the auto-transform pipeline. Every item keeps
 // its 5250 row/column so the layout stays faithful to the original screen.
 
-import type { Role, ScreenEvent, Widget } from '@veneer/screens';
+import type { ButtonAction, Role, ScreenEvent, Widget } from '@veneer/screens';
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
 
 export type { Role, Widget };
@@ -135,8 +135,8 @@ export interface ScreenView {
   message?: { text: string; kind: 'error' | 'info' };
   /** Set when a pop-up window is active; `items` are then the dimmed background. */
   window?: WindowView;
-  /** Buttons added by a customization, shown above the screen. */
-  buttons: Array<{ label: string; action: Action }>;
+  /** Buttons added by a customization, shown above the screen: press a key, or open a web page. */
+  buttons: Array<{ label: string; action: ButtonAction }>;
   /** The screen definition applied, if any. */
   definition?: { id: string; name: string };
   /** The definition's CSS and JavaScript (see custom/runtime.ts). */
