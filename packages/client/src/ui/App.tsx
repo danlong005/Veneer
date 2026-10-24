@@ -1,13 +1,17 @@
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { matchScreen, screenId, type ScreenDefinition, type Target } from '@veneer/screens';
+import { download, fileBase } from '../export/download.ts';
+import { ListExporter, listOf, type Progress, type Step } from '../export/exporter.ts';
+import { toCsv, toXlsx } from '../export/sheet.ts';
 import { connectHost, notifyScreen, runScript, runSiteScript, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
-import { newDefinition, resolveSelection } from '../designer/edit.ts';
+import { htmlAt, moveOf, newDefinition, resolveSelection, setHtml, setMove } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
 import { transform } from '../transform/index.ts';
 import type { Action, FunctionKey } from '../transform/types.ts';
 import { ClassicScreen } from './ClassicScreen.tsx';
+import { ExportMenu, type ExportFormat } from './ExportMenu.tsx';
 import type { FieldBinding } from './fieldInput.tsx';
 import { keyAction, keyHint, typedKey } from './keys.ts';
 import { checkFields } from './fieldRules.ts';
@@ -65,6 +69,32 @@ export function App() {
     if (!confirmDiscard()) return;
     setDraft(null);
     setSelectedAt(null);
+  };
+  // Dragging and arrow keys in the designer. HTML boxes change their own
+  // position; other items get a `move` change.
+  const moveItem = (at: Target, by: { rows: number; cols: number }) => {
+    if (!draft || !snap) return;
+    const clamp = (t: Target): Target => ({
+      row: Math.min(snap.rows, Math.max(1, t.row + by.rows)),
+      col: Math.min(snap.cols, Math.max(1, t.col + by.cols)),
+    });
+    const html = htmlAt(draft, at);
+    if (html) {
+      const { op: _op, ...rest } = html;
+      const to = clamp(at);
+      setDraft(setHtml(draft, at, { ...rest, at: to }));
+      setSelectedAt(to);
+      return;
+    }
+    setDraft(setMove(draft, at, clamp(moveOf(draft, at) ?? at)));
+  };
+  const resizeHtml = (at: Target, size: { width: number; height: number }) => {
+    const html = draft && snap ? htmlAt(draft, at) : undefined;
+    if (!draft || !snap || !html) return;
+    const { op: _op, ...rest } = html;
+    setDraft(setHtml(draft, at, {
+      ...rest, width: Math.min(snap.cols, Math.max(1, size.width)), height: Math.min(snap.rows, Math.max(1, size.height)),
+    }));
   };
   const pickDefinition = (def: ScreenDefinition | null) => {
     if (!snap || !baseView || !confirmDiscard()) return;
@@ -130,6 +160,37 @@ export function App() {
   }), [edits, submit]);
 
   const onAction = useCallback((a: Action) => submit(a.aid, a.fields), [submit]);
+
+  // Export: page through the whole list (export/exporter.ts), then download it.
+  const exporting = useRef<{ ex: ListExporter; format: ExportFormat; name: string } | null>(null);
+  const [exportProgress, setExportProgress] = useState<Progress | null>(null);
+  const exportStep = (step: Step, from: ScreenSnapshot) => {
+    const job = exporting.current;
+    if (!job) return;
+    if ('send' in step) {
+      setExportProgress(job.ex.progress);
+      sendAid(step.send, {}, from.cursor);
+      return;
+    }
+    exporting.current = null;
+    setExportProgress(null);
+    if (step.error) setNotice({ id: Date.now(), message: step.error });
+    if (!step.sheet) return;
+    if (job.format === 'csv') download(`${job.name}.csv`, toCsv(step.sheet), 'text/csv;charset=utf-8');
+    else download(`${job.name}.xlsx`, toXlsx(step.sheet, view?.title ?? 'List'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  };
+  const startExport = (format: ExportFormat) => {
+    const table = view && listOf(view);
+    if (!snap || !table || !canSubmit || exporting.current) return;
+    if (Object.keys(edits).length > 0) {
+      setNotice({ id: Date.now(), message: 'Press Enter or clear your changes before exporting.' });
+      return;
+    }
+    const ex = new ListExporter(table, screenId(snap));
+    exporting.current = { ex, format, name: fileBase(view.title) };
+    exportStep(ex.start(), snap);
+  };
+  const cancelExport = () => exporting.current?.ex.cancel();
 
   // Custom JavaScript (custom/runtime.ts) reads and types into fields and presses keys.
   const sheet = useRef<HTMLFormElement>(null);
@@ -209,6 +270,14 @@ export function App() {
   useEffect(() => {
     if (!snap) return;
     clickedCursor.current = null;
+    // An error while exporting is the host refusing a page key (top or bottom
+    // of the list); the next key resets it, as on a 5250.
+    if (snap.error && exporting.current && view) {
+      awaitingNow.current = false;
+      setAwaitingSeq(null);
+      exportStep(exporting.current.ex.onScreen(view, screenId(snap), true), snap);
+      return;
+    }
     if (snap.error) {
       // As on a 5250, an error discards anything typed ahead.
       queue.current = [];
@@ -223,6 +292,10 @@ export function App() {
     awaitingNow.current = false;
     setNotice(null);
     setAwaitingSeq(null);
+    if (exporting.current && view) {
+      exportStep(exporting.current.ex.onScreen(view, screenId(snap)), snap);
+      return;
+    }
     const start = { edits: {}, caret: caretAtCursor(snap) };
     const result: ReplayResult = queue.current.length > 0 ? replay(snap, start, queue.current) : { state: start, rest: [] };
     queue.current = result.rest;
@@ -263,6 +336,12 @@ export function App() {
   // Keyboard: Enter, F1-F24, PageUp/PageDown, Esc = Reset; queued while the host is busy.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // While exporting, the keyboard is the exporter's; Esc cancels.
+      if (exporting.current) {
+        e.preventDefault();
+        if (e.key === 'Escape') exporting.current.ex.cancel();
+        return;
+      }
       // While designing, keys belong to the design panel, not the host.
       if (designingNow.current) return;
       if (typingAheadNow.current || awaitingNow.current) {
@@ -283,6 +362,7 @@ export function App() {
     };
     // Text that arrives without a usable keydown (mobile keyboards, IMEs, paste).
     const onBeforeInput = (e: InputEvent) => {
+      if (exporting.current) { e.preventDefault(); return; }
       if (!typingAheadNow.current && !awaitingNow.current) return;
       e.preventDefault();
       if (e.inputType !== 'insertText' || !e.data) return;
@@ -318,7 +398,7 @@ export function App() {
       {mode === 'modern' && view?.css && <style>{view.css}</style>}
       <div className={`busy-bar${busy ? ' on' : ''}`} aria-hidden />
       <header className="topbar">
-        <div className="brand" aria-label="Veneer">V</div>
+        <img className="brand" src="/veneer-mark.png" alt="Veneer" />
         <div className="titles">
           <h1>{(mode === 'modern' && view?.title) || 'Veneer'}</h1>
           {mode === 'modern' && view && view.meta.length > 0 && (
@@ -370,7 +450,7 @@ export function App() {
             {mode === 'modern'
               ? <ModernScreen view={view} binding={binding} locked={!canSubmit} onAction={onAction}
                   onCursor={(row, col) => { clickedCursor.current = { row, col }; }}
-                  design={designing ? { selected: selection?.at ?? null, onSelect: setSelectedAt } : undefined} />
+                  design={designing ? { selected: selection?.at ?? null, onSelect: setSelectedAt, onMove: moveItem, onResize: resizeHtml } : undefined} />
               : <ClassicScreen snap={snap} binding={binding} />}
           </form>
         ) : (
@@ -394,6 +474,7 @@ export function App() {
               <button type="button" disabled={!canSubmit} onClick={() => submit('PageDown')}><kbd>PgDn</kbd>Next</button>
             </>
           )}
+          {hasTable && mode === 'modern' && !designing && <ExportMenu disabled={!canSubmit} onExport={startExport} />}
         </footer>
       )}
 
@@ -415,6 +496,20 @@ export function App() {
           onSaved={screens.reload}
           onClose={stopDesign}
         />
+      )}
+
+      {exportProgress && (
+        <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="export-title">
+          <div className="dialog">
+            <h2 id="export-title">Exporting list</h2>
+            <p role="status">
+              {exportProgress.phase === 'rewinding' ? 'Going to the top of the list…'
+                : exportProgress.phase === 'paging' ? `Page ${exportProgress.pages}, ${exportProgress.rows} rows so far…`
+                : `${exportProgress.rows} rows. Going back to where you were…`}
+            </p>
+            <button type="button" className="ghost" disabled={exportProgress.phase === 'returning'} onClick={cancelExport}>Cancel (Esc)</button>
+          </div>
+        </div>
       )}
 
       {session.state === 'closed' && (

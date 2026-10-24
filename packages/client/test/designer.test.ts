@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { matches, screenId } from '@veneer/screens';
 import {
   addScreenId, formatOptions, isHidden, newDefinition, originalText, parseOptions, removeScreenId, resolveSelection,
-  freeSpot, htmlAt, htmlOf, setCss, setScript, setHidden, setHtml, setRole, setText, setWidget, slug, textOf, widgetOf,
+  freeSpot, htmlAt, htmlOf, moveOf, setCss, setMove, setScript, setHidden, setHtml, setRole, setText, setWidget, slug, textOf, widgetOf,
 } from '../src/designer/edit.ts';
 import { customize } from '../src/transform/customize.ts';
 import { transform } from '../src/transform/index.ts';
@@ -94,6 +94,17 @@ test('Add HTML picks a blank row not already holding HTML', () => {
   const tall = freeSpot(snap, def, 2);
   assert.equal(snap.lines[tall.row]!.trim(), '', 'both rows blank');
   assert.equal(htmlOf(setHtml(def, first, { at: first, html: 'x', width: 10, height: 1 })).length, 1);
+});
+
+test('moves are set, replaced and removed', () => {
+  const snap = orderEntry();
+  const at = { row: 4, col: 3 };
+  let def = setMove(newDefinition(snap, transform(snap)), at, { row: 2, col: 5 });
+  def = setMove(def, at, { row: 3, col: 5 });
+  assert.deepEqual(moveOf(def, at), { row: 3, col: 5 });
+  assert.equal(def.changes.length, 1);
+  assert.equal(setMove(def, at, at).changes.length, 0, 'moving home removes the change');
+  assert.equal(setMove(def, at, null).changes.length, 0);
 });
 
 test('option lists round-trip through value=Label lines', () => {

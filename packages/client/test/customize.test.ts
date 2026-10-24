@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { matchScreen, type ScreenDefinition } from '@veneer/screens';
 import { customize, itemAt } from '../src/transform/customize.ts';
 import { transform, type FieldItem, type TextItem } from '../src/transform/index.ts';
-import { orderEntry, promptWindow } from './screens.ts';
+import { orderEntry, promptWindow, workWithJobs } from './screens.ts';
 
 const def: ScreenDefinition = {
   id: 'order-entry',
@@ -64,6 +64,31 @@ test('custom HTML is placed on the screen, or in the window it falls inside; CSS
   });
   assert.ok(w.window!.items.some((i) => i.kind === 'html' && i.html === 'in'));
   assert.ok(w.items.some((i) => i.kind === 'html' && i.html === 'out'));
+});
+
+test('moves draw items elsewhere; other changes and the designer still find them at home', () => {
+  const v = customize(transform(orderEntry()), {
+    ...def,
+    changes: [
+      { op: 'move', at: { row: 4, col: 3 }, to: { row: 2, col: 60 } },
+      { op: 'text', at: { row: 4, col: 3 }, text: 'Customer number' },
+    ],
+  });
+  const label = itemAt(v.items, { row: 4, col: 3 }) as TextItem;
+  assert.equal(label.text, 'Customer number', 'text change applied though listed after the move');
+  assert.deepEqual([label.row, label.col, label.home], [2, 60, { row: 4, col: 3 }]);
+  assert.equal(v.items.indexOf(label), v.items.findIndex((i) => i.row >= 2), 'tab order follows the new place');
+});
+
+test('moving a table moves its rows and columns with it', () => {
+  const view = transform(workWithJobs());
+  const table = view.items.find((i) => i.kind === 'table')!;
+  const v = customize(view, { id: 'j', name: 'J', match: { text: [{ row: 1, col: 1, text: 'x' }] },
+    changes: [{ op: 'move', at: { row: table.row, col: table.col }, to: { row: table.row + 1, col: table.col + 2 } }] });
+  const moved = v.items.find((i) => i.kind === 'table')!;
+  assert.ok(moved.kind === 'table' && table.kind === 'table');
+  assert.equal(moved.rows[0]!.row - moved.row, table.rows[0]!.row - table.row, 'rows keep their place in the table');
+  assert.equal(moved.columns[1]!.col - moved.col, table.columns[1]!.col - table.col);
 });
 
 test('no definition leaves the view untouched', () => {

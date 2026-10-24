@@ -2,7 +2,7 @@
 
 import { screenId, type ButtonAction, type Change, type Role, type ScreenDefinition, type ScreenEvent, type Target, type TextMatch, type Widget } from '@veneer/screens';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
-import { itemAt } from '../transform/customize.ts';
+import { homeOf, itemAt } from '../transform/customize.ts';
 import type { Item, ScreenView } from '../transform/types.ts';
 
 const same = (a: Target, b: Target) => a.row === b.row && a.col === b.col;
@@ -45,10 +45,10 @@ export type Selection =
 export function resolveSelection(view: ScreenView, snap: ScreenSnapshot, at: Target): Selection | null {
   const items = [...view.items, ...(view.window?.items ?? [])];
   const item = itemAt(items, at);
-  if (item?.kind === 'html') return { kind: 'item', at: { row: item.row, col: item.col }, item };
+  if (item?.kind === 'html') return { kind: 'item', at: homeOf(item), item };
   const field = snap.fields.find((f) => !f.bypass && f.row === at.row && f.col === at.col);
   if (field) return { kind: 'field', at, field, ...(item?.kind === 'field' ? { item } : {}) };
-  if (item) return { kind: 'item', at: { row: item.row, col: item.col }, item };
+  if (item) return { kind: 'item', at: homeOf(item), item };
   return at.row <= snap.rows && at.col <= snap.cols ? { kind: 'empty', at } : null;
 }
 
@@ -99,6 +99,17 @@ export function setHtml(def: ScreenDefinition, at: Target, next: Omit<Html, 'op'
   const changes = def.changes.map((c) => (c.op === 'html' && same(c.at, at) && next ? { op: 'html' as const, ...next } : c))
     .filter((c) => !(c.op === 'html' && same(c.at, at) && !next));
   return htmlAt(def, at) || !next ? { ...def, changes } : { ...def, changes: [...changes, { op: 'html', ...next }] };
+}
+
+/** Where a customization moved the item at `at`, if it did. */
+export function moveOf(def: ScreenDefinition, at: Target): Target | undefined {
+  return def.changes.find((c): c is ChangeOf<'move'> => c.op === 'move' && same(c.at, at))?.to;
+}
+
+/** Move the item at `at` to `to`; null, or its own place, puts it back. */
+export function setMove(def: ScreenDefinition, at: Target, to: Target | null): ScreenDefinition {
+  const changes = def.changes.filter((c) => !(c.op === 'move' && same(c.at, at)));
+  return { ...def, changes: to && !same(to, at) ? [...changes, { op: 'move', at, to }] : changes };
 }
 
 export function htmlOf(def: ScreenDefinition): Html[] {

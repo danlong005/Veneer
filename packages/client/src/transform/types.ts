@@ -14,6 +14,12 @@ export interface Placed {
   width: number;
   /** Hidden by a customization; only drawn (ghosted) in the designer. */
   hidden?: boolean;
+  /**
+   * Where the host put the item, when a customization moved it (row/col are
+   * then where it is drawn). Customizations and the designer refer to items by
+   * this position.
+   */
+  home?: { row: number; col: number };
 }
 
 export interface Action {

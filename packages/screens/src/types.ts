@@ -57,6 +57,8 @@ export type Change =
   | { op: 'role'; at: Target; role: Role }
   | { op: 'widget'; field: string; widget: Widget }
   | { op: 'button'; label: string; action: ButtonAction }
+  /** Draw the item at `at` with its top-left cell at `to` instead (layout only). */
+  | { op: 'move'; at: Target; to: Target }
   /**
    * Custom HTML drawn over the screen at a position, `width` x `height` cells.
    * `css` is scoped to the box (nested rules reach inside it); `script` runs

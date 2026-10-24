@@ -105,6 +105,8 @@ function change(v: unknown, path: string): Change {
       }
       return { op: 'button', label: str(o.label, `${path}.label`, 60), action };
     }
+    case 'move':
+      return { op: 'move', at: target(o.at, `${path}.at`), to: target(o.to, `${path}.to`) };
     case 'html':
       return {
         op: 'html',
@@ -116,7 +118,7 @@ function change(v: unknown, path: string): Change {
         ...(o.script !== undefined && o.script !== '' ? { script: str(o.script, `${path}.script`, MAX_SCRIPT) } : {}),
       };
     default:
-      fail(`${path}.op`, 'must be hide, text, role, widget, button or html');
+      fail(`${path}.op`, 'must be hide, text, role, widget, button, move or html');
   }
 }
 

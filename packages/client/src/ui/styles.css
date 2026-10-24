@@ -75,11 +75,7 @@ button, input, select { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 14px;
   padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
 }
-.brand {
-  width: 32px; height: 32px; border-radius: 8px; flex: none;
-  display: grid; place-items: center; font-weight: 700;
-  background: var(--accent); color: #fff;
-}
+.brand { width: 32px; height: 32px; border-radius: 8px; flex: none; display: block; }
 .titles { min-width: 0; flex: 1; }
 .titles h1 { margin: 0; font-size: 17px; font-weight: 650; color: var(--text-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
@@ -230,6 +226,13 @@ button:disabled { cursor: default; opacity: 0.55; }
   padding: 7px 12px; font-size: 13.5px;
 }
 .keybar button:hover:not(:disabled) { background: var(--surface-2); }
+/* Export: a menu that opens upward from the keybar. */
+.export-menu { position: relative; }
+.export-pop {
+  position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 30; min-width: 150px; padding: 4px;
+  display: grid; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+}
+.keybar .export-pop button { border: 0; justify-content: flex-start; text-align: left; width: 100%; }
 .keybar button.primary, .dialog .primary {
   background: var(--accent); color: #fff; border-color: transparent; font-weight: 600;
 }
@@ -263,6 +266,7 @@ kbd {
 .dialog h2 { margin: 0 0 8px; font-size: 18px; }
 .dialog p { margin: 0 0 18px; color: var(--text-muted); }
 .dialog .primary { border-radius: 8px; padding: 9px 16px; cursor: pointer; }
+.dialog .ghost { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
 
 @media (max-width: 640px) {
   .topbar { padding: 10px 16px; }
@@ -282,6 +286,13 @@ kbd {
 .canvas.designing { cursor: crosshair; }
 .canvas.designing .custom-html { outline: 1px dashed var(--accent-2); }
 .canvas.designing .custom-html * { pointer-events: none; }
+.canvas.designing [data-at] { touch-action: none; }
+.canvas.designing .dragging { opacity: 0.85; z-index: 5; outline: 2px dashed var(--accent-2) !important; cursor: grabbing; }
+/* The corner handle on the selected HTML box. */
+.canvas .resize-handle {
+  width: 12px; height: 12px; margin: -7px 0 0 -7px; z-index: 6; cursor: nwse-resize; touch-action: none;
+  background: var(--surface); border: 2px solid var(--accent-2); border-radius: 3px;
+}
 
 .design-panel {
   position: fixed; top: 0; right: 0; bottom: 0; width: 360px; z-index: 15;

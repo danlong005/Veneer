@@ -2,9 +2,9 @@
 // layouts stay faithful while widgets replace recognised patterns.
 
 import type { Target } from '@veneer/screens';
-import type { CSSProperties, MouseEvent, WheelEvent } from 'react';
-import { useRef } from 'react';
-import { heightOf } from '../transform/customize.ts';
+import type { CSSProperties, MouseEvent, PointerEvent, WheelEvent } from 'react';
+import { useEffect, useRef } from 'react';
+import { heightOf, homeOf } from '../transform/customize.ts';
 import type { Action, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
 
@@ -14,14 +14,30 @@ interface Props {
   locked: boolean;
   onAction: (action: Action) => void;
   onCursor: (row: number, col: number) => void;
-  /** Designer mode: clicks select items instead of acting on them. */
-  design?: { selected: Target | null; onSelect: (at: Target) => void } | undefined;
+  /**
+   * Designer mode: clicks select items instead of acting on them, and items
+   * can be dragged (or nudged with the arrow keys) to move them. Items are
+   * named by where the host put them (Item.home).
+   */
+  design?: {
+    selected: Target | null;
+    onSelect: (at: Target) => void;
+    onMove: (at: Target, by: { rows: number; cols: number }) => void;
+    /** Resize custom HTML, in cells. */
+    onResize: (at: Target, size: { width: number; height: number }) => void;
+  } | undefined;
 }
 
-/** Classes for an item in design mode. */
-function designClass(design: Props['design'], row: number, col: number, hidden?: boolean): string {
+const atKey = (t: Target) => `${t.row}:${t.col}`;
+const parseAt = (s: string): Target => {
+  const [row, col] = s.split(':').map(Number) as [number, number];
+  return { row, col };
+};
+
+/** Classes for an item in design mode; `home` is where the host put it. */
+function designClass(design: Props['design'], home: Target, hidden?: boolean): string {
   if (!design) return '';
-  const selected = design.selected?.row === row && design.selected.col === col;
+  const selected = design.selected?.row === home.row && design.selected.col === home.col;
   return `${hidden ? ' ghost' : ''}${selected ? ' selected' : ''}`;
 }
 
@@ -36,8 +52,7 @@ function selectInDesign(design: Props['design'], top: number, rows: number, cols
     e.preventDefault();
     e.stopPropagation();
     if (el) {
-      const [row, col] = el.dataset.at!.split(':').map(Number) as [number, number];
-      design.onSelect({ row, col });
+      design.onSelect(parseAt(el.dataset.at!));
       return;
     }
     const box = e.currentTarget.getBoundingClientRect();
@@ -67,16 +82,27 @@ function extent(view: ScreenView): { top: number; bottom: number } {
 }
 
 export function ModernScreen(props: Props) {
-  const { view } = props;
+  const { view, design } = props;
   const { top, bottom } = extent(view);
   const origin = { row: top, col: 1 };
-  const select = selectInDesign(props.design, top, bottom - top + 1, view.cols);
+  const select = selectInDesign(design, top, bottom - top + 1, view.cols);
+  const drag = useDrag(design, bottom - top + 1, view.cols);
+  useNudge(design);
   return (
     <div
-      className={`canvas${props.design ? ' designing' : ''}`}
+      ref={drag.ref}
+      className={`canvas${design ? ' designing' : ''}`}
       style={{ '--cols': view.cols, height: `calc(${bottom - top + 1} * var(--rh))` } as CSSProperties}
-      onClickCapture={props.design ? select : undefined}
-      onMouseDownCapture={props.design ? (e) => e.preventDefault() : undefined}
+      onClickCapture={design ? (e) => {
+        if (!drag.swallowClick()) return select(e);
+        e.preventDefault();
+        e.stopPropagation();
+      } : undefined}
+      onMouseDownCapture={design ? (e) => e.preventDefault() : undefined}
+      onPointerDown={design ? drag.down : undefined}
+      onPointerMove={design ? drag.move : undefined}
+      onPointerUp={design ? drag.up : undefined}
+      onPointerCancel={design ? drag.cancel : undefined}
     >
       {view.window ? (
         <>
@@ -119,16 +145,17 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
   return (
     <>
       {items.map((item) => {
-        const key = `${item.kind}-${item.row}-${item.col}`;
+        const home = homeOf(item);
+        const key = `${item.kind}-${home.row}-${home.col}`;
         switch (item.kind) {
           case 'text':
             return (
               <span
                 key={key}
-                className={`text role-${item.role}${item.reverse ? ' reverse' : ''}${item.underline ? ' underline' : ''}${designClass(design, item.row, item.col, item.hidden)}`}
+                className={`text role-${item.role}${item.reverse ? ' reverse' : ''}${item.underline ? ' underline' : ''}${designClass(design, home, item.hidden)}`}
                 style={at(item.row, item.col, top)}
-                data-at={`${item.row}:${item.col}`}
-                onClick={() => onCursor(item.row, item.col)}
+                data-at={atKey(home)}
+                onClick={() => onCursor(home.row, home.col)}
               >
                 {item.text}
               </span>
@@ -143,8 +170,8 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
                 label={item.label}
                 widget={item.widget}
                 readOnly={Boolean(design)}
-                dataAt={`${item.row}:${item.col}`}
-                className={`${item.command ? 'command' : ''}${designClass(design, item.row, item.col, item.hidden)}`}
+                dataAt={atKey(home)}
+                className={`${item.command ? 'command' : ''}${designClass(design, home, item.hidden)}`}
                 style={at(item.row, item.col, top, width)}
               />
             );
@@ -154,9 +181,9 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
               <button
                 key={key}
                 type="button"
-                className={`${item.key ? 'menu-link' : 'more-link'}${designClass(design, item.row, item.col, item.hidden)}`}
+                className={`${item.key ? 'menu-link' : 'more-link'}${designClass(design, home, item.hidden)}`}
                 style={at(item.row, item.col, top)}
-                data-at={`${item.row}:${item.col}`}
+                data-at={atKey(home)}
                 disabled={locked}
                 onClick={() => onAction(item.action)}
               >
@@ -167,20 +194,32 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
             );
           case 'table':
             return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} design={design} />;
-          case 'html':
+          case 'html': {
+            const selected = design?.selected?.row === item.row && design.selected.col === item.col;
             // Written by the site's designers, who are trusted like the site's own code.
             return [
               <div
                 key={key}
-                className={`custom-html${designClass(design, item.row, item.col, item.hidden)}`}
+                className={`custom-html${designClass(design, home, item.hidden)}`}
                 style={{ ...at(item.row, item.col, top, item.width), height: `calc(${item.height} * var(--rh))` }}
-                data-at={`${item.row}:${item.col}`}
-                data-html={`${item.row}:${item.col}`}
+                data-at={atKey(home)}
+                data-html={atKey(home)}
+                data-size={`${item.width}:${item.height}`}
                 dangerouslySetInnerHTML={{ __html: item.html }}
               />,
+              selected && (
+                <div
+                  key={`${key}-resize`}
+                  className="resize-handle"
+                  data-resize={atKey(home)}
+                  title="Drag to resize"
+                  style={at(item.row + item.height, item.col + item.width, top)}
+                />
+              ),
               // CSS nesting scopes the box's CSS to it.
               item.css && <style key={`${key}-css`}>{`[data-html="${item.row}:${item.col}"] {\n${item.css}\n}`}</style>,
             ];
+          }
         }
       })}
     </>
@@ -204,9 +243,9 @@ function Table({ table, origin, binding, locked, onAction, design }: {
   });
   return (
     <div
-      className={`table${designClass(design, table.row, table.col, table.hidden)}`}
+      className={`table${designClass(design, homeOf(table), table.hidden)}`}
       role="table"
-      data-at={`${table.row}:${table.col}`}
+      data-at={atKey(homeOf(table))}
       style={{ ...at(table.row, table.col, origin, table.width), height: `calc(${table.height} * var(--rh))` }}
       onWheel={onWheel}
     >
@@ -238,7 +277,7 @@ function Table({ table, origin, binding, locked, onAction, design }: {
                   widget={c.widget}
                   readOnly={Boolean(design)}
                   dataAt={`${c.field.row}:${c.field.col}`}
-                  className={designClass(design, c.field.row, c.field.col)}
+                  className={designClass(design, { row: c.field.row, col: c.field.col })}
                   label={table.columns.find((col) => col.col === c.col)?.header}
                   style={c.options ? undefined : { width: `calc(${Math.max(c.field.length, 1)} * var(--cw) + 1.2em)` }}
                 />
@@ -251,4 +290,110 @@ function Table({ table, origin, binding, locked, onAction, design }: {
       ))}
     </div>
   );
+}
+
+/**
+ * Designer dragging: drag an item to move it, or a custom HTML box's corner
+ * handle to resize it. Positions snap to screen cells. The element follows the
+ * pointer with a transform; on release the change goes to the designer, and the
+ * next render draws the item in its new place. A press without movement is a
+ * click, which selects.
+ */
+function useDrag(design: Props['design'], rows: number, cols: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const state = useRef<{
+    el: HTMLElement; at: Target; mode: 'move' | 'resize'; x: number; y: number; cw: number; rh: number;
+    size: { width: number; height: number }; style: string; active: boolean; dr: number; dc: number;
+  } | null>(null);
+  const swallow = useRef(false);
+
+  const reset = (s: NonNullable<typeof state.current>) => {
+    s.el.setAttribute('style', s.style);
+    s.el.classList.remove('dragging');
+  };
+  return {
+    ref,
+    /** True (once) if the click that follows a drag should be ignored. */
+    swallowClick: () => {
+      const v = swallow.current;
+      swallow.current = false;
+      return v;
+    },
+    down: (e: PointerEvent<HTMLDivElement>) => {
+      const canvas = ref.current;
+      if (!design || !canvas || e.button !== 0) return;
+      const target = e.target as HTMLElement;
+      const handle = target.closest<HTMLElement>('[data-resize]');
+      let el = handle
+        ? canvas.querySelector<HTMLElement>(`[data-html="${handle.dataset.resize}"]`)
+        : target.closest<HTMLElement>('[data-at]');
+      // A field or cell inside a table moves the whole table.
+      if (el && !handle) el = el.closest<HTMLElement>('.table') ?? el;
+      if (!el?.dataset.at) return;
+      const box = canvas.getBoundingClientRect();
+      const [w, h] = (el.dataset.size ?? '1:1').split(':').map(Number) as [number, number];
+      state.current = {
+        el, at: parseAt(el.dataset.at), mode: handle ? 'resize' : 'move', x: e.clientX, y: e.clientY,
+        cw: box.width / cols, rh: box.height / rows, size: { width: w, height: h },
+        style: el.getAttribute('style') ?? '', active: false, dr: 0, dc: 0,
+      };
+    },
+    move: (e: PointerEvent<HTMLDivElement>) => {
+      const s = state.current;
+      if (!s) return;
+      const dx = e.clientX - s.x;
+      const dy = e.clientY - s.y;
+      if (!s.active && Math.hypot(dx, dy) < 4) return;
+      // Capture only once it's a drag, so a plain click still lands on the item.
+      if (!s.active) ref.current?.setPointerCapture(e.pointerId);
+      s.active = true;
+      s.el.classList.add('dragging');
+      s.dc = Math.round(dx / s.cw);
+      s.dr = Math.round(dy / s.rh);
+      if (s.mode === 'move') {
+        s.el.style.transform = `translate(${s.dc * s.cw}px, ${s.dr * s.rh}px)`;
+      } else {
+        s.el.style.width = `calc(${Math.max(1, s.size.width + s.dc)} * var(--cw))`;
+        s.el.style.height = `calc(${Math.max(1, s.size.height + s.dr)} * var(--rh))`;
+      }
+    },
+    up: () => {
+      const s = state.current;
+      state.current = null;
+      if (!s?.active || !design) return;
+      swallow.current = true;
+      reset(s);
+      if (s.mode === 'move') {
+        // Select first: moving an HTML box changes its position, and selects it there.
+        design.onSelect(s.at);
+        if (s.dr || s.dc) design.onMove(s.at, { rows: s.dr, cols: s.dc });
+      } else {
+        design.onResize(s.at, { width: Math.max(1, s.size.width + s.dc), height: Math.max(1, s.size.height + s.dr) });
+      }
+    },
+    cancel: () => {
+      if (state.current) reset(state.current);
+      state.current = null;
+    },
+  };
+}
+
+/** Arrow keys move the selected item one cell (not while typing in the panel). */
+function useNudge(design: Props['design']) {
+  const latest = useRef(design);
+  latest.current = design;
+  const active = Boolean(design);
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      const d = latest.current;
+      const by = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+      if (!d?.selected || !by || e.altKey || e.ctrlKey || e.metaKey) return;
+      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return;
+      e.preventDefault();
+      d.onMove(d.selected, { rows: by[0]!, cols: by[1]! });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [active]);
 }

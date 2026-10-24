@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/brand/veneer-logo-900.png" alt="Veneer" width="560">
+</p>
+
 # Veneer
 
 Veneer renders IBM i 5250 green-screen applications as modern web pages without
@@ -79,6 +83,15 @@ Rules run in order, and each one claims the cells it renders. Rules work on a re
 whole screen, or the interior of the active pop-up window. Per-screen customizations
 can later be added as extra rules. **Classic view** shows the untransformed screen.
 
+## Exporting lists
+
+Any screen with a list (a subfile) has an **Export** button in the key bar: **Excel (.xlsx)**
+or **CSV**. Veneer pages up to the top of the list, then down to the bottom collecting every
+row, then back to the page you were on. The option column is left out. In the Excel file,
+numbers are numbers (`1,234.50-` becomes -1234.5), and codes with leading zeros such as
+`00123` stay text. A progress window shows the pages read; **Cancel** (or Esc) stops and
+returns you to your page. The Excel writer is built in, with no extra dependency.
+
 ## Type-ahead
 
 As on a 5250, keys typed while the host is busy are not lost. They are queued (the header
@@ -144,6 +157,10 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
     converted to and from the host's format.
   - `button` adds an action button that presses a key, optionally filling fields first.
   - `title` replaces the page title.
+  - `move` draws an item somewhere else: `{ "op": "move", "at": { "row": 6, "col": 4 }, "to": { "row": 6, "col": 44 } }`.
+    In the designer, drag any item (a table moves as a whole), or select it and use the arrow
+    keys. Drag the corner handle of an HTML box to resize it. Moving only changes the layout:
+    the host still sees fields where it put them, and Tab follows the new order.
 - **Designer:** a **Design** button appears when the designer is enabled. With
   `VENEER_DESIGNER=local`, browsers on the server's own machine use it without a token;
   `npm run dev` and `npm run demo` turn this on. For anyone else, set `VENEER_DESIGNER_TOKEN`,

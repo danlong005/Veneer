@@ -12,9 +12,15 @@ export interface CustomizeOptions {
 /** Rows an item covers. */
 export const heightOf = (i: Item) => (i.kind === 'table' || i.kind === 'html' ? i.height : 1);
 
+/** Where the host put an item (moved items are found by their original place). */
+export const homeOf = (i: Item): Target => i.home ?? { row: i.row, col: i.col };
+
 /** The item covering a target cell. Custom HTML is drawn on top, so it wins. */
 export function itemAt(items: readonly Item[], at: Target): Item | undefined {
-  const covers = (i: Item) => at.row >= i.row && at.row < i.row + heightOf(i) && at.col >= i.col && at.col < i.col + i.width;
+  const covers = (i: Item) => {
+    const h = homeOf(i);
+    return at.row >= h.row && at.row < h.row + heightOf(i) && at.col >= h.col && at.col < h.col + i.width;
+  };
   return items.find((i) => i.kind === 'html' && covers(i)) ?? items.find(covers);
 }
 
@@ -31,6 +37,7 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
   if (def.css) out.css = def.css;
   if (def.scripts) out.scripts = def.scripts;
   const all = () => [...out.items, ...(out.window?.items ?? [])];
+  const moves: Array<Extract<ScreenDefinition['changes'][number], { op: 'move' }>> = [];
 
   for (const change of def.changes) {
     switch (change.op) {
@@ -63,6 +70,9 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
       case 'button':
         out.buttons.push({ label: change.label, action: change.action });
         break;
+      case 'move':
+        moves.push(change);
+        break;
       case 'html': {
         const item: HtmlItem = {
           kind: 'html', row: change.at.row, col: change.at.col, width: change.width, height: change.height, html: change.html,
@@ -78,9 +88,35 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
     }
   }
 
+  // Moves come last, so the other changes still find items where the host put them.
+  for (const m of moves) {
+    const item = all().find((i) => i.kind !== 'html' && i.row === m.at.row && i.col === m.at.col)
+      ?? itemAt(all().filter((i) => i.kind !== 'html'), m.at);
+    if (item && !item.home) moveItem(item, m.to);
+  }
+  if (moves.length > 0) {
+    // Tab order follows the new layout.
+    const byPlace = (a: Item, b: Item) => a.row - b.row || a.col - b.col;
+    out.items.sort(byPlace);
+    out.window?.items.sort(byPlace);
+  }
+
   if (!opts.design) {
     out.items = out.items.filter((i) => !i.hidden);
     if (out.window) out.window.items = out.window.items.filter((i) => !i.hidden);
   }
   return out;
+}
+
+function moveItem(item: Item, to: Target): void {
+  const dr = to.row - item.row;
+  const dc = to.col - item.col;
+  item.home = { row: item.row, col: item.col };
+  item.row = to.row;
+  item.col = to.col;
+  if (item.kind === 'table') {
+    // Rows and columns are placed relative to the table, so they move with it.
+    item.rows = item.rows.map((r) => ({ ...r, row: r.row + dr, cells: r.cells.map((c) => ({ ...c, col: c.col + dc })) }));
+    item.columns = item.columns.map((c) => ({ ...c, col: c.col + dc }));
+  }
 }

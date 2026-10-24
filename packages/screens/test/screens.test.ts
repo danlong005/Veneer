@@ -56,6 +56,7 @@ test('rejects bad definitions with a useful path', () => {
     [{ ...base, changes: [{ op: 'button', label: 'x', action: { aid: 'F99' } }] }, /aid/],
     [{ ...base, changes: [{ op: 'widget', field: '7:22', widget: { type: 'date', format: 'bogus' } }] }, /format/],
     [{ ...base, changes: [{ op: 'explode' }] }, /op/],
+    [{ ...base, changes: [{ op: 'move', at: { row: 1, col: 1 }, to: { row: 30, col: 1 } }] }, /changes\[0\]\.to\.row/],
     [{ ...base, changes: [{ op: 'html', at: { row: 1, col: 1 }, html: 'x', width: 0, height: 1 }] }, /changes\[0\]\.width/],
     [{ ...base, scripts: { show: 'x'.repeat(70_000) } }, /scripts\.show: must be a string/],
     [{ ...base, scripts: { click: 'x' } }, /scripts\.click: must be one of load, show/],

@@ -12,7 +12,7 @@ import { runScript } from '../custom/runtime.ts';
 import type { ScreenView } from '../transform/types.ts';
 import {
   addScreenId, buttonsOf, formatOptions, freeSpot, htmlAt, htmlOf, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
-  setCss, setHidden, setHtml, setScript, setRole, setText, setWidget, textOf, widgetOf, type Selection,
+  moveOf, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textOf, widgetOf, type Selection,
 } from './edit.ts';
 
 const TOKEN_KEY = 'veneer.designerToken';
@@ -447,6 +447,8 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
       <>
         <p className="dp-desc">Input field <code>{f.id}</code>, {f.length} character{f.length === 1 ? '' : 's'}{f.value ? ` (now “${f.value}”)` : ''}</p>
         {hideToggle}
+        {!selection.item && <p className="dp-hint">Part of a table: drag the table to move it.</p>}
+        {selection.item && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />}
         <label className="dp-row">Show as
           <select
             value={widget?.type ?? 'text'}
@@ -470,6 +472,7 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
     <>
       <p className="dp-desc">{kind} at <code>{at.row},{at.col}</code>{original ? `: “${original}”` : ''}</p>
       {hideToggle}
+      <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />
       {(item.kind === 'text' || item.kind === 'link') && (
         <label className="dp-row">Text
           <input
@@ -486,6 +489,31 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
             {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </select>
         </label>
+      )}
+    </>
+  );
+}
+
+/** Where an item is drawn; drag it on the screen or use the arrow keys too. */
+function PositionEditor({ draft, setDraft, at, cols }: {
+  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; at: Target; cols: number;
+}) {
+  const to = moveOf(draft, at) ?? at;
+  const num = (value: string, max: number) => Math.min(max, Math.max(1, Math.trunc(Number(value)) || 1));
+  return (
+    <>
+      <div className="dp-pair">
+        <label className="dp-row">Row<input type="number" min={1} max={27} value={to.row}
+          onChange={(e) => setDraft(setMove(draft, at, { ...to, row: num(e.target.value, 27) }))} /></label>
+        <label className="dp-row">Column<input type="number" min={1} max={cols} value={to.col}
+          onChange={(e) => setDraft(setMove(draft, at, { ...to, col: num(e.target.value, cols) }))} /></label>
+      </div>
+      {moveOf(draft, at) ? (
+        <button type="button" className="ghost" onClick={() => setDraft(setMove(draft, at, null))}>
+          Put back at {at.row},{at.col}
+        </button>
+      ) : (
+        <p className="dp-hint">Drag it on the screen, or use the arrow keys, to move it.</p>
       )}
     </>
   );
