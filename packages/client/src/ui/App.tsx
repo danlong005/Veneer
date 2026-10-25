@@ -3,15 +3,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fillUrl, matchScreen, screenId, type ScreenDefinition, type Target } from '@veneer/screens';
 import { download, fileBase } from '../export/download.ts';
 import { ListExporter, listOf, type Progress, type Step } from '../export/exporter.ts';
+import { HelpReader, type HelpPage, type HelpStep } from '../help/help.ts';
 import { toCsv, toXlsx } from '../export/sheet.ts';
 import { connectHost, notifyScreen, runScript, runSiteScript, screenInfo, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
 import { cardsOf, componentAt, htmlAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
 import { transform } from '../transform/index.ts';
-import type { Action, FunctionKey } from '../transform/types.ts';
+import type { Action, FunctionKey, ScreenView } from '../transform/types.ts';
 import { ClassicScreen } from './ClassicScreen.tsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu.tsx';
+import { HelpPopover } from './HelpPopover.tsx';
 import type { FieldBinding } from './fieldInput.tsx';
 import { keyAction, keyHint, typedKey } from './keys.ts';
 import { checkFields } from './fieldRules.ts';
@@ -164,7 +166,7 @@ export function App() {
   }, [snap, seq, session]);
 
   const submit = useCallback((aid: AidName, extra: Record<string, string> = {}) => {
-    if (!snap || !canSubmit) return;
+    if (!snap || !canSubmit || helping.current) return;
     const values = { ...edits, ...extra };
     if (aid === 'Enter') {
       const problem = checkFields(snap.fields, values);
@@ -213,7 +215,7 @@ export function App() {
   };
   const startExport = (format: ExportFormat) => {
     const table = view && listOf(view);
-    if (!snap || !table || !canSubmit || exporting.current) return;
+    if (!snap || !table || !canSubmit || exporting.current || helping.current) return;
     if (Object.keys(edits).length > 0) {
       setNotice({ id: Date.now(), message: 'Press Enter or clear your changes before exporting.' });
       return;
@@ -223,6 +225,52 @@ export function App() {
     exportStep(ex.start(), snap);
   };
   const cancelExport = () => exporting.current?.ex.cancel();
+
+  // Help (help/help.ts): the Help button presses the 5250 Help key, and the
+  // help panel shows in a popover over the screen the user was on, which stays
+  // drawn until help closes. What the user typed goes with the Help key, so the
+  // host keeps it; it is put back here too, for hosts that redraw the screen.
+  const lastField = useRef<Caret | null>(null);
+  const helping = useRef<{ reader: HelpReader; edits: Record<string, string>; caret: Caret | null } | null>(null);
+  const [help, setHelp] = useState<{ snap: ScreenSnapshot; view: ScreenView; page: HelpPage | null; anchor: string | undefined } | null>(null);
+  const helpStep = (step: HelpStep, from: ScreenSnapshot) => {
+    const job = helping.current;
+    if (!job) return;
+    if ('send' in step) {
+      sendAid(step.send, {}, from.cursor);
+      return;
+    }
+    if (step.reset) session.send({ type: 'reset' });
+    if ('show' in step) {
+      setHelp((h) => h && { ...h, page: step.show });
+      return;
+    }
+    helping.current = null;
+    setHelp(null);
+    if (step.message) setNotice({ id: Date.now(), message: step.message });
+    if (step.back) {
+      setEdits(Object.fromEntries(Object.entries(job.edits).filter(([id, v]) => from.fields.some((f) => f.id === id && f.value !== v))));
+      focusTarget.current = job.caret;
+    }
+  };
+  const startHelp = () => {
+    if (!snap || !view || !canSubmit || exporting.current || helping.current) return;
+    // The field the user was in: focused now, or last (the button takes focus when tabbed to).
+    const active = (document.activeElement as HTMLElement | null)?.dataset?.field;
+    const caret = active ? caretOf(snap, document.activeElement as HTMLElement) : lastField.current;
+    const f = caret ? snap.fields.find((x) => x.id === caret.id) : undefined;
+    const cursor = f && caret ? caretPosition(snap, caret) ?? snap.cursor : currentCursor(snap, clickedCursor.current);
+    helping.current = { reader: new HelpReader(screenId(snap)), edits, caret };
+    setHelp({ snap, view, page: null, anchor: f?.id });
+    sendAid('Help', edits, cursor);
+  };
+  const helpMore = () => { if (helping.current && snap && canSubmit) helpStep(helping.current.reader.more(), snap); };
+  const helpKeys = useRef({ more: () => {}, close: () => {} });
+  const helpClose = () => {
+    const step = helping.current?.reader.close();
+    if (step && snap) helpStep(step, snap);
+  };
+  helpKeys.current = { more: helpMore, close: helpClose };
 
   // Custom JavaScript (custom/runtime.ts) reads and types into fields and presses keys.
   const sheet = useRef<HTMLFormElement>(null);
@@ -266,6 +314,8 @@ export function App() {
   };
   useEffect(() => {
     const root = sheet.current;
+    // Help screens are not the user's screen: leave its scripts as they are.
+    if (helping.current) return;
     if (!snap || !root || mode !== 'modern' || designing) {
       closeOpened();
       return;
@@ -295,6 +345,13 @@ export function App() {
   useEffect(() => {
     if (!snap) return;
     clickedCursor.current = null;
+    if (helping.current && view) {
+      if (snap.keyboardLocked && !snap.error) return;
+      awaitingNow.current = false;
+      setAwaitingSeq(null);
+      helpStep(helping.current.reader.onScreen(view, screenId(snap), Boolean(snap.error)), snap);
+      return;
+    }
     // An error while exporting is the host refusing a page key (top or bottom
     // of the list); the next key resets it, as on a 5250.
     if (snap.error && exporting.current && view) {
@@ -313,6 +370,7 @@ export function App() {
       return;
     }
     if (snap.keyboardLocked) return;
+    lastField.current = null;
     // Any newer unlocked screen answers the AID we were waiting on.
     awaitingNow.current = false;
     setNotice(null);
@@ -348,7 +406,8 @@ export function App() {
   // Apply a pending focus after rendering.
   useEffect(() => {
     const target = focusTarget.current;
-    if (!target || designingNow.current) return;
+    // The screen is inert while help shows: focus it once help has closed.
+    if (!target || designingNow.current || help) return;
     focusTarget.current = null;
     const el = document.querySelector<HTMLElement>(`[data-field="${target.id}"]`)
       ?? document.querySelector<HTMLElement>('[data-field]');
@@ -366,6 +425,13 @@ export function App() {
       if (exporting.current) {
         e.preventDefault();
         if (e.key === 'Escape') exporting.current.ex.cancel();
+        return;
+      }
+      // While help is open: Esc closes it, Page Down shows more; other keys wait.
+      if (helping.current) {
+        if (e.key === 'Escape') { e.preventDefault(); helpKeys.current.close(); }
+        else if (e.key === 'PageDown') { e.preventDefault(); helpKeys.current.more(); }
+        else if (keyAction(e)) e.preventDefault();
         return;
       }
       // While designing, keys belong to the design panel, not the host.
@@ -412,24 +478,30 @@ export function App() {
     try { localStorage.setItem(MODE_KEY, next); } catch { /* ignore */ }
   };
 
+  // While help is open, the screen the user pressed Help on stays drawn.
+  const screenView = help?.view ?? view;
+  const screenSnap = help?.snap ?? snap;
+  // Keys and buttons wait while help shows (the host is showing help, not this screen).
+  const keysEnabled = canSubmit && !help;
+
   // An active pop-up window owns the function keys and the message.
-  const keys: FunctionKey[] = (view?.window ? view.window.functionKeys : view?.functionKeys) ?? [];
-  const message = view?.window ? view.window.message : view?.message;
-  const hasTable = [...(view?.items ?? []), ...(view?.window?.items ?? [])].some((i) => i.kind === 'table');
+  const keys: FunctionKey[] = (screenView?.window ? screenView.window.functionKeys : screenView?.functionKeys) ?? [];
+  const message = screenView?.window ? screenView.window.message : screenView?.message;
+  const hasTable = [...(screenView?.items ?? []), ...(screenView?.window?.items ?? [])].some((i) => i.kind === 'table');
   const busy = typingAhead;
 
   return (
-    <div className={`app${designing ? ' designing' : ''}`} data-screen={view?.definition?.id}>
+    <div className={`app${designing ? ' designing' : ''}`} data-screen={screenView?.definition?.id}>
       {screens.site?.css && <style>{screens.site.css}</style>}
-      {mode === 'modern' && view?.css && <style>{view.css}</style>}
+      {mode === 'modern' && screenView?.css && <style>{screenView.css}</style>}
       <div className={`busy-bar${busy ? ' on' : ''}`} aria-hidden />
       <header className="topbar">
         <img className="brand" src="/veneer-mark.png" alt="Veneer" />
         <div className="titles">
-          <h1>{(mode === 'modern' && view?.title) || 'Veneer'}</h1>
-          {mode === 'modern' && view && view.meta.length > 0 && (
+          <h1>{(mode === 'modern' && screenView?.title) || 'Veneer'}</h1>
+          {mode === 'modern' && screenView && screenView.meta.length > 0 && (
             <div className="meta">
-              {view.meta.map((m) => {
+              {screenView.meta.map((m) => {
                 const cls = `meta-item${m.role !== 'normal' ? ` role-${m.role}` : ''}`;
                 if (!designing) return <span key={`${m.row}:${m.col}`} className={cls}>{m.text}</span>;
                 // In the designer, header items are selectable to hide, rename or restyle.
@@ -446,14 +518,14 @@ export function App() {
           )}
         </div>
         <div className="top-actions">
-          {view?.definition && mode === 'modern' && (
-            <span className="custom-badge" title={`Customized: ${view.definition.name}`}>Customized</span>
+          {screenView?.definition && mode === 'modern' && (
+            <span className="custom-badge" title={`Customized: ${screenView.definition.name}`}>Customized</span>
           )}
           <span className={`status status-${session.state}`}>
             {statusText(session.state, busy)}
             {queued > 0 && <span className="typeahead" title="Keys typed ahead">{queued} typed ahead</span>}
           </span>
-          {screens.designer && snap && !designing && (
+          {screens.designer && screenSnap && !designing && !help && (
             <button type="button" className="ghost mode-toggle" onClick={startDesign}>Design</button>
           )}
           {!designing && (
@@ -477,52 +549,69 @@ export function App() {
           </div>
         )}
         <Toast error={notice} />
+        {help && (
+          <HelpPopover page={help.page} anchor={help.anchor} busy={!canSubmit} onMore={helpMore} onClose={helpClose} />
+        )}
 
-        {snap && view ? (
-          <form className="sheet" ref={sheet} onSubmit={(e) => e.preventDefault()} autoComplete="off">
-            {mode === 'modern' && view.buttons.length > 0 && (
+        {screenSnap && screenView ? (
+          <form
+            className="sheet" ref={sheet} onSubmit={(e) => e.preventDefault()} autoComplete="off" inert={Boolean(help)}
+            onBlurCapture={(e) => { if (screenSnap && (e.target as HTMLElement).dataset.field) lastField.current = caretOf(screenSnap, e.target as HTMLElement); }}
+          >
+            {mode === 'modern' && screenView.buttons.length > 0 && (
               <div className="screen-actions">
-                {view.buttons.map(({ label, action }, i) => ('url' in action
+                {screenView.buttons.map(({ label, action }, i) => ('url' in action
                   ? <button key={i} type="button" className="link-button" title="Opens in a new tab" onClick={() => openUrl(action.url)}>{label}</button>
-                  : <button key={i} type="button" disabled={!canSubmit} onClick={() => onAction(action)}>{label}</button>
+                  : <button key={i} type="button" disabled={!keysEnabled} onClick={() => onAction(action)}>{label}</button>
                 ))}
               </div>
             )}
             {mode === 'modern'
-              ? <ModernScreen view={view} binding={binding} locked={!canSubmit} onAction={onAction}
+              ? <ModernScreen view={screenView} binding={binding} locked={!keysEnabled} onAction={onAction}
                   onCursor={(row, col) => { clickedCursor.current = { row, col }; }}
                   design={designing ? { selected: selection?.at ?? null, onSelect: setSelectedAt, onMove: moveItem, onResize: resizeBox } : undefined} />
-              : <ClassicScreen snap={snap} binding={binding} />}
+              : <ClassicScreen snap={screenSnap} binding={binding} />}
           </form>
         ) : (
           session.state !== 'closed' && <div className="placeholder">Connecting to IBM i…</div>
         )}
       </main>
 
-      {snap && (
+      {screenSnap && (
         <footer className="keybar">
-          <button type="button" className="primary" disabled={!canSubmit} onClick={() => submit('Enter')}>
+          <button type="button" className="primary" disabled={!keysEnabled} onClick={() => submit('Enter')}>
             Enter
           </button>
           {keys.map((k) => (
-            <button key={k.aid} type="button" disabled={!canSubmit} onClick={() => submit(k.aid)}>
+            <button key={k.aid} type="button" disabled={!keysEnabled} onClick={() => submit(k.aid)}>
               <kbd>{keyHint(k.aid)}</kbd>{k.label}
             </button>
           ))}
           {(hasTable || mode === 'classic') && (
             <>
-              <button type="button" disabled={!canSubmit} onClick={() => submit('PageUp')}><kbd>PgUp</kbd>Previous</button>
-              <button type="button" disabled={!canSubmit} onClick={() => submit('PageDown')}><kbd>PgDn</kbd>Next</button>
+              <button type="button" disabled={!keysEnabled} onClick={() => submit('PageUp')}><kbd>PgUp</kbd>Previous</button>
+              <button type="button" disabled={!keysEnabled} onClick={() => submit('PageDown')}><kbd>PgDn</kbd>Next</button>
             </>
           )}
-          {hasTable && mode === 'modern' && !designing && <ExportMenu disabled={!canSubmit} onExport={startExport} />}
+          {hasTable && mode === 'modern' && !designing && <ExportMenu disabled={!canSubmit || Boolean(help)} onExport={startExport} />}
+          {!designing && (
+            <button
+              type="button"
+              className="help-button"
+              disabled={!canSubmit || Boolean(help)}
+              title="Help for the field you are in (the 5250 Help key)"
+              onClick={() => (mode === 'modern' ? startHelp() : submit('Help'))}
+            >
+              <kbd>?</kbd>Help
+            </button>
+          )}
         </footer>
       )}
 
-      {designing && draft && snap && view && (
+      {designing && draft && screenSnap && screenView && (
         <DesignPanel
-          snap={snap}
-          view={view}
+          snap={screenSnap}
+          view={screenView}
           draft={draft}
           setDraft={setDraft}
           saved={savedDraft}
@@ -577,6 +666,14 @@ function statusText(state: string, busy: boolean): string {
 function endOf(snap: ScreenSnapshot, values: Record<string, string>, id: string): Caret {
   const value = values[id] ?? snap.fields.find((f) => f.id === id)?.value ?? '';
   return { id, offset: value.length };
+}
+
+/** The caret in a focused field input. */
+function caretOf(snap: ScreenSnapshot, el: HTMLElement): Caret | null {
+  const f = snap.fields.find((x) => x.id === el.dataset.field);
+  if (!f) return null;
+  const offset = el instanceof HTMLInputElement ? Math.min(el.selectionStart ?? 0, f.length - 1) : 0;
+  return { id: f.id, offset };
 }
 
 /** The cursor to report: the caret in the focused field, else the last clicked text. */

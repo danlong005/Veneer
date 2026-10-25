@@ -121,6 +121,17 @@ shows "N typed ahead") and replayed into the next screen, starting at the host's
 Full fields advance to the next field, and an AID key in the queue (Enter, F-keys, PgUp/PgDn)
 submits; any keys after it wait for the following screen. A host error discards the queue.
 
+## Help
+
+The **Help** button at the end of the key bar presses the 5250 Help key for the field you
+are in. F1 is not used: applications may give it their own meaning, so it goes to the host
+as F1. Veneer reads the help the host shows, a pop-up window or a full screen, and shows its
+text in a popover next to the field, while your screen stays as it was. **More** (or Page
+Down) shows the next page of long help. Closing the popover (×, or Esc) closes the help on
+the host (F12, then F3 if needed), and what you had typed is still there. If the host has no
+help for the screen, its message shows as usual. In the classic view, Help shows the host's
+help screens as they are.
+
 ## Field handling
 
 The browser applies the same field rules as a 5250 terminal:

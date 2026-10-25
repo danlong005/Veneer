@@ -33,7 +33,9 @@ type State =
   | { screen: 'menu'; user: string }
   | { screen: 'menuWindow'; user: string }
   | { screen: 'order'; user: string }
-  | { screen: 'jobs'; user: string; page: number };
+  | { screen: 'jobs'; user: string; page: number }
+  /** Help, shown from `back` (the screen Help was pressed on) about `topic`. */
+  | { screen: 'help'; user: string; back: 'order' | 'menu'; topic: string; page: number };
 
 /** Simulated host latency, to exercise type-ahead (VENEER_DEMO_DELAY_MS). */
 const DELAY_MS = Number(process.env.VENEER_DEMO_DELAY_MS ?? 0);
@@ -58,6 +60,39 @@ export class DemoHost {
       const aid = rec[12]!;
       const fields = parseFields(rec.subarray(13));
       const s = state;
+      // The Help key: a help window for the order entry field at the cursor,
+      // full-screen help for the main menu, none elsewhere.
+      if (aid === 0xf3 && s.screen !== 'signon' && s.screen !== 'help') {
+        const row = rec[10]!;
+        if (s.screen === 'order') {
+          const topic = ORDER_HELP[row] ? String(row) : 'order';
+          state = { screen: 'help', user: s.user, back: 'order', topic, page: 0 };
+          return show(helpWindow(topic, 0));
+        }
+        if (s.screen === 'menu') {
+          state = { screen: 'help', user: s.user, back: 'menu', topic: 'menu', page: 0 };
+          return show(menuHelp(0));
+        }
+        return show(new HostStream().errorMessage('CPD9001 - Help is not available for this display.').build());
+      }
+      if (s.screen === 'help') {
+        const pages = s.back === 'menu' ? MENU_HELP.length : (ORDER_HELP[s.topic] ?? ORDER_HELP.order!).length;
+        const draw = (page: number) => (s.back === 'menu' ? menuHelp(page) : helpWindow(s.topic, page));
+        if (aid === 0x33 || aid === 0x3c || aid === 0xf1) { // F3, F12, Enter: back where Help was pressed
+          state = s.back === 'menu' ? { screen: 'menu', user: s.user } : { screen: 'order', user: s.user };
+          return show(s.back === 'menu' ? mainMenu(s.user) : orderEntry());
+        }
+        if (aid === 0xf5) {
+          if (s.page + 1 >= pages) return show(new HostStream().errorMessage('CPF6A07 - Already at bottom of help.').build());
+          state = { ...s, page: s.page + 1 };
+          return show(draw(s.page + 1));
+        }
+        if (aid === 0xf4 && s.page > 0) {
+          state = { ...s, page: s.page - 1 };
+          return show(draw(s.page - 1));
+        }
+        return show(draw(s.page));
+      }
       if (s.screen === 'signon') {
         const user = (fields.get('6:53') ?? '').trim().toUpperCase();
         if (aid !== 0xf1) return show(signOn());
@@ -161,6 +196,57 @@ export function orderEntry(message?: string): number[] {
     .text(22, 2, 'F3=Exit   F12=Cancel', BLUE);
   if (message) s.text(24, 2, message);
   return s.cursor(6, 22).readMdt().build();
+}
+
+/** Help text for the order entry screen, by the row of the field, in pages of lines. */
+const ORDER_HELP: Record<string, string[][]> = {
+  order: [['Order Entry - Help', '', 'Type the details of a new order, then press', 'Enter to place it. F12 goes back to the menu.']],
+  6: [['Customer - Help', '', 'The number of the customer placing the order.', 'It is required: the order cannot be placed', 'without one.']],
+  7: [['State - Help', '', 'The two-letter code of the state the order', 'ships to, such as CA or TX.']],
+  8: [
+    ['Quantity - Help', '', 'How many items to ship. Type a negative number', 'for a return: -5, or 5- as on a 5250. The', 'number is whole: there are no decimal places.'],
+    ['Quantity - Help', '', 'Returns are credited when the goods arrive back', 'at the warehouse.', '', 'Large orders (over 1,000) are checked by a', 'supervisor before they ship.'],
+  ],
+  9: [['Item code - Help', '', 'The three-digit code from the catalog. The order', 'is placed as soon as all three digits are typed.']],
+  10: [['Ship date - Help', '', 'The date to ship the order, as YYYYMMDD.', 'Leave it blank to ship as soon as possible.']],
+  11: [['Rush order - Help', '', 'Y ships the order overnight, for an extra charge.', 'N ships it with the standard service.']],
+};
+
+/** A UIM-style help window over the order entry screen. */
+function helpWindow(topic: string, page: number): number[] {
+  const pages = ORDER_HELP[topic] ?? ORDER_HELP.order!;
+  const lines = pages[page]!;
+  const s = new HostStream().write().text(12, 8, '.'.repeat(58), BLUE);
+  for (let r = 13; r <= 21; r++) s.text(r, 8, ':', BLUE).fill(r, 10, 54).text(r, 65, ':', BLUE);
+  s.text(22, 8, ':' + '.'.repeat(56) + ':', BLUE);
+  lines.forEach((line, i) => s.text(13 + i, 11, line, i === 0 ? WHITE : undefined));
+  return s.text(20, 55, page + 1 < pages.length ? 'More...' : 'Bottom')
+    .text(21, 11, 'F2=Extended help   F12=Cancel', BLUE)
+    .cursor(13, 11).build();
+}
+
+const MENU_HELP: string[][] = [
+  [
+    'The main menu lists what you can do. Type the number of an option',
+    'on the command line and press Enter, or click it.',
+    '',
+    'You can also type a command, such as WRKACTJOB, and press Enter.',
+  ],
+  [
+    'Option 2 opens the order entry screen, which shows how Veneer checks',
+    'fields before they are sent: required fields, numbers and dates.',
+    '',
+    'Option 9 opens a pop-up window over the menu.',
+  ],
+];
+
+/** Full-screen help for the main menu. */
+function menuHelp(page: number): number[] {
+  const s = new HostStream().clear().write().text(1, 32, 'Main Menu - Help', WHITE);
+  MENU_HELP[page]!.forEach((line, i) => s.text(3 + i, 2, line));
+  return s.text(20, 73, page + 1 < MENU_HELP.length ? 'More...' : 'Bottom')
+    .text(22, 2, 'F3=Exit help   F12=Cancel', BLUE)
+    .cursor(1, 1).build();
 }
 
 /** Decode a signed numeric field as sent: a D zone on the last digit means negative. */

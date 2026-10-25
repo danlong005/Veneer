@@ -187,6 +187,21 @@ button.ghost:hover { background: var(--surface-2); }
 .more-link { font-weight: 600; padding: 0 8px; background: var(--accent-soft); height: calc(var(--rh) - 6px); margin-top: 3px; }
 button:disabled { cursor: default; opacity: 0.55; }
 
+/* ---- help popover ---- */
+.help-popover {
+  position: fixed; z-index: 20; width: min(440px, calc(100vw - 24px)); max-height: min(60vh, 520px);
+  display: flex; flex-direction: column; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+}
+.help-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 6px 16px; border-bottom: 1px solid var(--border); }
+.help-head h2 { flex: 1; margin: 0; font-size: 15px; font-weight: 650; color: var(--text-strong); }
+.help-body { overflow-y: auto; padding: 4px 16px 12px; font-size: 14px; line-height: 1.5; }
+.help-body p { margin: 8px 0 0; }
+.help-wait { color: var(--text-muted); }
+.help-foot { display: flex; justify-content: flex-end; padding: 8px 12px; border-top: 1px solid var(--border); }
+.help-foot button { border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.keybar .help-button { margin-left: auto; }
+
 /* ---- pop-up windows ---- */
 .background { position: absolute; inset: 0; opacity: 0.35; filter: saturate(0.4); pointer-events: none; }
 .background > * { position: absolute; }
