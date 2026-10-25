@@ -79,6 +79,15 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
       case 'style':
         applyStyle(withHeader(), change);
         break;
+      case 'card':
+        (out.cards ??= []).push({
+          top: change.from.row, left: change.from.col, bottom: change.to.row, right: change.to.col,
+          ...(change.title ? { title: change.title } : {}),
+        });
+        break;
+      case 'tabs':
+        out.tabs = change.tabs.map((t) => ({ ...t }));
+        break;
       case 'html': {
         const item: HtmlItem = {
           kind: 'html', row: change.at.row, col: change.at.col, width: change.width, height: change.height, html: change.html,

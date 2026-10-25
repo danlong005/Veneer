@@ -1,10 +1,10 @@
 // The view model produced by the auto-transform pipeline. Every item keeps
 // its 5250 row/column so the layout stays faithful to the original screen.
 
-import type { ButtonAction, Role, ScreenEvent, Widget } from '@veneer/screens';
+import type { ButtonAction, Role, ScreenEvent, TabBand, Widget } from '@veneer/screens';
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
 
-export type { Role, Widget };
+export type { Role, TabBand, Widget };
 
 export interface Placed {
   /** 1-based row and column. */
@@ -117,6 +117,15 @@ export interface FunctionKey {
   label: string;
 }
 
+/** A framed panel from a customization, around cells where items are drawn (inclusive). */
+export interface Card {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+  title?: string;
+}
+
 /** A pop-up window: rendered as a modal card over the dimmed screen. */
 export interface WindowView {
   /** Interior of the window (border excluded), 1-based and inclusive. */
@@ -143,6 +152,9 @@ export interface ScreenView {
   window?: WindowView;
   /** Buttons added by a customization, shown above the screen: press a key, or open a web page. */
   buttons: Array<{ label: string; action: ButtonAction }>;
+  /** Panels and tabs from a customization; positions are where items are drawn. */
+  cards?: Card[];
+  tabs?: TabBand[];
   /** The screen definition applied, if any. */
   definition?: { id: string; name: string };
   /** The definition's CSS and JavaScript (see custom/runtime.ts). */

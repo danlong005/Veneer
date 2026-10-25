@@ -203,6 +203,18 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
     In the designer, drag any item (a table moves as a whole), or select it and use the arrow
     keys. Drag the corner handle of an HTML box to resize it. Moving only changes the layout:
     the host still sees fields where it put them, and Tab follows the new order.
+  - `card` draws a framed panel, with an optional title on its border, around the cells
+    from `from` to `to`: `{ "op": "card", "from": { "row": 5, "col": 2 }, "to": { "row": 9, "col": 60 }, "title": "Customer" }`.
+    In the designer, select an item and click **Add card around this**, then drag the
+    card's corner to resize it.
+  - `tabs` splits rows into tabs, each a band of rows following the one before:
+    `{ "op": "tabs", "tabs": [{ "title": "General", "from": 5, "to": 12 }, { "title": "Shipping", "from": 13, "to": 20 }] }`.
+    One band shows at a time under a strip of tab titles, and the rows below move up.
+    Fields on hidden tabs keep their values and are still sent. When the host puts the
+    cursor on a hidden tab, or Veneer finds a problem in a field there, that tab opens.
+    Cards and tabs use the positions where items are drawn, after moves. A card cannot be
+    split between tabs. Tabs are not used while a pop-up window is shown. In the designer,
+    select something on a row and click **Start a tab at row …** on the Page tab.
 - **Designer:** a **Design** button appears when the designer is enabled. With
   `VENEER_DESIGNER=local`, browsers on the server's own machine use it without a token;
   `npm run dev` and `npm run demo` turn this on. For anyone else, set `VENEER_DESIGNER_TOKEN`,

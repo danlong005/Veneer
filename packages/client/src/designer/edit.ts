@@ -1,8 +1,8 @@
 // Pure helpers the designer uses to build and edit screen definitions.
 
-import { screenId, type ButtonAction, type Change, type Role, type ScreenDefinition, type ScreenEvent, type Target, type TextMatch, type Widget } from '@veneer/screens';
+import { screenId, type ButtonAction, type Change, type Role, type ScreenDefinition, type ScreenEvent, type TabBand, type Target, type TextMatch, type Widget } from '@veneer/screens';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
-import { homeOf, itemAt } from '../transform/customize.ts';
+import { heightOf, homeOf, itemAt } from '../transform/customize.ts';
 import type { Item, ScreenView } from '../transform/types.ts';
 
 const same = (a: Target, b: Target) => a.row === b.row && a.col === b.col;
@@ -175,6 +175,75 @@ export function setStyles(def: ScreenDefinition, rules: StyleRule[]): ScreenDefi
     ...def,
     changes: [...def.changes.filter((c) => c.op !== 'style'), ...rules.map((r) => ({ op: 'style' as const, ...r }))],
   };
+}
+
+// ---- cards and tabs ----------------------------------------------------------
+
+export type CardSpec = Omit<ChangeOf<'card'>, 'op'>;
+
+export function cardsOf(def: ScreenDefinition): CardSpec[] {
+  return def.changes.filter((c): c is ChangeOf<'card'> => c.op === 'card').map(({ op: _op, ...card }) => card);
+}
+
+/** Add, replace (same top-left) or with `next` null remove a card. Cards are named by their top-left. */
+export function setCard(def: ScreenDefinition, from: Target, next: CardSpec | null): ScreenDefinition {
+  const exists = cardsOf(def).some((c) => same(c.from, from));
+  const changes = def.changes.flatMap<Change>((c) => (c.op === 'card' && same(c.from, from) ? (next ? [{ op: 'card' as const, ...next }] : []) : [c]));
+  return { ...def, changes: exists || !next ? changes : [...changes, { op: 'card', ...next }] };
+}
+
+/** A card around an item where it is drawn. */
+export function cardAround(item: Item): CardSpec {
+  return { from: { row: item.row, col: item.col }, to: { row: item.row + heightOf(item) - 1, col: item.col + item.width - 1 } };
+}
+
+export function tabsOf(def: ScreenDefinition): TabBand[] {
+  return def.changes.find((c): c is ChangeOf<'tabs'> => c.op === 'tabs')?.tabs ?? [];
+}
+
+/** Replace the tabs; fewer than two removes them. They stay where they were in the changes. */
+export function setTabs(def: ScreenDefinition, tabs: TabBand[]): ScreenDefinition {
+  const had = def.changes.some((c) => c.op === 'tabs');
+  const changes = def.changes.flatMap<Change>((c) => (c.op !== 'tabs' ? [c] : tabs.length >= 2 ? [{ op: 'tabs' as const, tabs }] : []));
+  return { ...def, changes: had || tabs.length < 2 ? changes : [...changes, { op: 'tabs', tabs }] };
+}
+
+/** The rows items are drawn on, for the first split into tabs. */
+export function tabRegion(view: ScreenView): { from: number; to: number } {
+  const rows = view.items.flatMap((i) => [i.row, i.row + heightOf(i) - 1]);
+  return rows.length ? { from: Math.min(...rows), to: Math.max(...rows) } : { from: 1, to: 1 };
+}
+
+/**
+ * Start a new tab at `row`: split the tab holding it, or with no tabs yet,
+ * split `region` in two. Unchanged when `row` already starts a tab or is
+ * outside them.
+ */
+export function splitTabs(tabs: TabBand[], row: number, region: { from: number; to: number }): TabBand[] {
+  const bands = tabs.length ? tabs : [{ title: 'Tab 1', from: region.from, to: region.to }];
+  const i = bands.findIndex((b) => row > b.from && row <= b.to);
+  if (i < 0) return tabs;
+  const b = bands[i]!;
+  return [...bands.slice(0, i), { ...b, to: row - 1 }, { title: `Tab ${bands.length + 1}`, from: row, to: b.to }, ...bands.slice(i + 1)];
+}
+
+/** Remove a tab; its rows join the tab before it (the first tab's join the next). */
+export function removeTab(tabs: TabBand[], i: number): TabBand[] {
+  if (tabs.length <= 2) return [];
+  const rest = tabs.filter((_, j) => j !== i);
+  const gone = tabs[i]!;
+  return rest.map((t, j) => (i > 0 && j === i - 1 ? { ...t, to: gone.to } : i === 0 && j === 0 ? { ...t, from: gone.from } : t));
+}
+
+/** Move where tab `i` starts, or with `i` equal to the count, where the last one ends. Kept at least one row each. */
+export function moveTabEdge(tabs: TabBand[], i: number, row: number): TabBand[] {
+  if (i === tabs.length) {
+    const last = tabs[i - 1]!;
+    return tabs.map((t, j) => (j === i - 1 ? { ...t, to: Math.min(27, Math.max(last.from, row)) } : t));
+  }
+  if (i === 0) return tabs.map((t, j) => (j === 0 ? { ...t, from: Math.max(1, Math.min(t.to, row)) } : t));
+  const r = Math.max(tabs[i - 1]!.from + 1, Math.min(tabs[i]!.to, row));
+  return tabs.map((t, j) => (j === i - 1 ? { ...t, to: r - 1 } : j === i ? { ...t, from: r } : t));
 }
 
 // ---- small text formats used by the panel -----------------------------------

@@ -2,11 +2,13 @@
 // layouts stay faithful while widgets replace recognised patterns.
 
 import type { Target } from '@veneer/screens';
-import type { CSSProperties, MouseEvent, PointerEvent, WheelEvent } from 'react';
-import { useEffect, useRef } from 'react';
-import { heightOf, homeOf } from '../transform/customize.ts';
-import type { Action, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
+import type { CSSProperties, MouseEvent, PointerEvent, RefObject, WheelEvent } from 'react';
+import type { ScreenSnapshot } from '@veneer/tn5250';
+import { useEffect, useRef, useState } from 'react';
+import { homeOf } from '../transform/customize.ts';
+import type { Action, Card, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
+import { layoutOf, tabAtCursor, viewRow, type Group } from './layout.ts';
 
 interface Props {
   view: ScreenView;
@@ -23,8 +25,8 @@ interface Props {
     selected: Target | null;
     onSelect: (at: Target) => void;
     onMove: (at: Target, by: { rows: number; cols: number }) => void;
-    /** Resize custom HTML, in cells. */
-    onResize: (at: Target, size: { width: number; height: number }) => void;
+    /** Resize custom HTML (at its position) or a card (at its top-left), in cells. */
+    onResize: (at: Target, size: { width: number; height: number }, kind: 'html' | 'card') => void;
   } | undefined;
 }
 
@@ -44,8 +46,9 @@ function designClass(design: Props['design'], home: Target, hidden?: boolean): s
 /**
  * In design mode, swallow the click and report the item's position instead, or
  * for empty space, the cell clicked (where custom HTML can be added).
+ * `rowAt` gives the screen row drawn at a canvas row.
  */
-function selectInDesign(design: Props['design'], top: number, rows: number, cols: number) {
+function selectInDesign(design: Props['design'], top: number, rows: number, cols: number, rowAt: (row: number) => number | undefined) {
   return (e: MouseEvent<HTMLElement>) => {
     if (!design) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-at]');
@@ -56,9 +59,9 @@ function selectInDesign(design: Props['design'], top: number, rows: number, cols
       return;
     }
     const box = e.currentTarget.getBoundingClientRect();
-    const row = top + Math.floor(((e.clientY - box.top) / box.height) * rows);
+    const row = rowAt(top + Math.floor(((e.clientY - box.top) / box.height) * rows));
     const col = 1 + Math.floor(((e.clientX - box.left) / box.width) * cols);
-    if (row >= 1 && col >= 1 && col <= cols) design.onSelect({ row, col });
+    if (row !== undefined && row >= 1 && col >= 1 && col <= cols) design.onSelect({ row, col });
   };
 }
 
@@ -74,26 +77,37 @@ const at = (row: number, col: number, origin: Origin, width?: number): CSSProper
   ...(width !== undefined ? { width: `calc(${width} * var(--cw))` } : {}),
 });
 
-function extent(view: ScreenView): { top: number; bottom: number } {
-  const rows = view.items.flatMap((i) => [i.row, i.row + heightOf(i) - 1]);
-  if (view.window) rows.push(view.window.top - 1, view.window.bottom + 1);
-  if (rows.length === 0) return { top: 1, bottom: 1 };
-  return { top: Math.min(...rows), bottom: Math.max(...rows) };
+/** Sent to a field to show the tab it is on, before focusing it (see revealField). */
+const REVEAL = 'veneer:reveal';
+
+/** Show the tab holding a field, if it is on a hidden one, so it can take focus. */
+export function revealField(el: HTMLElement): void {
+  if (el.closest('[data-tab-panel][hidden]')) el.dispatchEvent(new Event(REVEAL, { bubbles: true }));
 }
 
 export function ModernScreen(props: Props) {
   const { view, design } = props;
-  const { top, bottom } = extent(view);
+  const layout = layoutOf(view);
+  const { top, bottom } = layout;
   const origin = { row: top, col: 1 };
-  const select = selectInDesign(design, top, bottom - top + 1, view.cols);
+  // The tab picked on this screen; a new screen shows the cursor's tab.
+  const [picked, setPicked] = useState<{ snap: ScreenSnapshot; index: number } | null>(null);
+  const tabs = layout.tabs;
+  const active = !tabs ? 0
+    : Math.min(tabs.bands.length - 1, picked?.snap === view.snapshot ? picked.index : tabAtCursor(layout, view, view.snapshot.cursor));
+  const select = selectInDesign(design, top, bottom - top + 1, view.cols, (row) => viewRow(layout, row, active));
   const drag = useDrag(design, bottom - top + 1, view.cols);
   useNudge(design);
+  useReveal(drag.ref, (index) => setPicked({ snap: view.snapshot, index }));
+  const group = (g: Group) => <GroupView {...props} group={g} origin={origin} />;
   return (
     <div
       ref={drag.ref}
       className={`canvas${design ? ' designing' : ''}`}
       style={{ '--cols': view.cols, height: `calc(${bottom - top + 1} * var(--rh))` } as CSSProperties}
       onClickCapture={design ? (e) => {
+        // The tab strip switches tabs while designing too.
+        if ((e.target as HTMLElement).closest('.tab-strip')) return;
         if (!drag.swallowClick()) return select(e);
         e.preventDefault();
         e.stopPropagation();
@@ -107,14 +121,98 @@ export function ModernScreen(props: Props) {
       {view.window ? (
         <>
           <div className="background" aria-hidden inert={!props.design}>
-            <Items {...props} items={view.items} origin={origin} />
+            {group(layout.main)}
           </div>
           <Window {...props} win={view.window} origin={origin} />
         </>
       ) : (
-        <Items {...props} items={view.items} origin={origin} />
+        <>
+          {group(layout.main)}
+          {tabs && (
+            <>
+              <div className="tab-strip" role="tablist" style={at(tabs.row, 1, origin, view.cols)}>
+                {tabs.bands.map((b, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    role="tab"
+                    id={`tab-${i}`}
+                    aria-selected={i === active}
+                    aria-controls={`tab-panel-${i}`}
+                    className={i === active ? 'active' : ''}
+                    onClick={() => setPicked({ snap: view.snapshot, index: i })}
+                  >
+                    {b.title}
+                  </button>
+                ))}
+              </div>
+              {tabs.panels.map((p, i) => (
+                <div
+                  key={i}
+                  id={`tab-panel-${i}`}
+                  className="tab-panel"
+                  role="tabpanel"
+                  aria-labelledby={`tab-${i}`}
+                  data-tab-panel={i}
+                  hidden={i !== active}
+                >
+                  {group(p)}
+                </div>
+              ))}
+              {group(tabs.after)}
+            </>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+/**
+ * Items and cards drawn from a layout row: a box at that row whose own origin
+ * is the group's first screen row, so items inside keep their relative places.
+ */
+function GroupView(props: Props & { group: Group; origin: Origin }) {
+  const { group, origin, design } = props;
+  const inner = { row: group.from, col: 1 };
+  return (
+    <div className="group" style={at(group.row, 1, origin)}>
+      {group.cards.map((c) => <CardView key={`card-${c.top}-${c.left}`} card={c} origin={inner} design={Boolean(design)} />)}
+      <Items {...props} items={group.items} origin={inner} />
+    </div>
+  );
+}
+
+/** A card: a framed panel drawn behind the items in its cells, its title on the top border. */
+function CardView({ card, origin, design }: { card: Card; origin: Origin; design: boolean }) {
+  const width = card.right - card.left + 1;
+  const height = card.bottom - card.top + 1;
+  const key = `${card.top}:${card.left}`;
+  return (
+    <>
+      <div
+        className="card"
+        data-card={key}
+        data-size={`${width}:${height}`}
+        style={{
+          top: `calc(${card.top - origin.row} * var(--rh) - 4px)`,
+          left: `calc(${card.left - origin.col - 1} * var(--cw))`,
+          width: `calc(${width + 2} * var(--cw))`,
+          height: `calc(${height} * var(--rh) + 8px)`,
+        }}
+      >
+        {card.title && <span className="card-title">{card.title}</span>}
+      </div>
+      {design && (
+        <div
+          className="resize-handle"
+          data-resize={key}
+          data-kind="card"
+          title="Drag to resize the card"
+          style={at(card.bottom + 1, card.right + 1, origin)}
+        />
+      )}
+    </>
   );
 }
 
@@ -302,7 +400,7 @@ function Table({ table, origin, binding, locked, onAction, design }: {
 function useDrag(design: Props['design'], rows: number, cols: number) {
   const ref = useRef<HTMLDivElement>(null);
   const state = useRef<{
-    el: HTMLElement; at: Target; mode: 'move' | 'resize'; x: number; y: number; cw: number; rh: number;
+    el: HTMLElement; at: Target; mode: 'move' | 'resize'; kind: 'html' | 'card'; x: number; y: number; cw: number; rh: number;
     size: { width: number; height: number }; style: string; active: boolean; dr: number; dc: number;
   } | null>(null);
   const swallow = useRef(false);
@@ -324,16 +422,18 @@ function useDrag(design: Props['design'], rows: number, cols: number) {
       if (!design || !canvas || e.button !== 0) return;
       const target = e.target as HTMLElement;
       const handle = target.closest<HTMLElement>('[data-resize]');
+      const kind = handle?.dataset.kind === 'card' ? 'card' : 'html';
       let el = handle
-        ? canvas.querySelector<HTMLElement>(`[data-html="${handle.dataset.resize}"]`)
+        ? canvas.querySelector<HTMLElement>(`[data-${kind}="${handle.dataset.resize}"]`)
         : target.closest<HTMLElement>('[data-at]');
       // A field or cell inside a table moves the whole table.
       if (el && !handle) el = el.closest<HTMLElement>('.table') ?? el;
-      if (!el?.dataset.at) return;
+      const at = handle ? handle.dataset.resize : el?.dataset.at;
+      if (!el || !at) return;
       const box = canvas.getBoundingClientRect();
       const [w, h] = (el.dataset.size ?? '1:1').split(':').map(Number) as [number, number];
       state.current = {
-        el, at: parseAt(el.dataset.at), mode: handle ? 'resize' : 'move', x: e.clientX, y: e.clientY,
+        el, at: parseAt(at), mode: handle ? 'resize' : 'move', kind, x: e.clientX, y: e.clientY,
         cw: box.width / cols, rh: box.height / rows, size: { width: w, height: h },
         style: el.getAttribute('style') ?? '', active: false, dr: 0, dc: 0,
       };
@@ -353,8 +453,10 @@ function useDrag(design: Props['design'], rows: number, cols: number) {
       if (s.mode === 'move') {
         s.el.style.transform = `translate(${s.dc * s.cw}px, ${s.dr * s.rh}px)`;
       } else {
-        s.el.style.width = `calc(${Math.max(1, s.size.width + s.dc)} * var(--cw))`;
-        s.el.style.height = `calc(${Math.max(1, s.size.height + s.dr)} * var(--rh))`;
+        // A card's frame is a little larger than its cells (see CardView).
+        const pad = s.kind === 'card' ? { w: 2, h: ' + 8px' } : { w: 0, h: '' };
+        s.el.style.width = `calc(${Math.max(1, s.size.width + s.dc) + pad.w} * var(--cw))`;
+        s.el.style.height = `calc(${Math.max(1, s.size.height + s.dr)} * var(--rh)${pad.h})`;
       }
     },
     up: () => {
@@ -368,7 +470,7 @@ function useDrag(design: Props['design'], rows: number, cols: number) {
         design.onSelect(s.at);
         if (s.dr || s.dc) design.onMove(s.at, { rows: s.dr, cols: s.dc });
       } else {
-        design.onResize(s.at, { width: Math.max(1, s.size.width + s.dc), height: Math.max(1, s.size.height + s.dr) });
+        design.onResize(s.at, { width: Math.max(1, s.size.width + s.dc), height: Math.max(1, s.size.height + s.dr) }, s.kind);
       }
     },
     cancel: () => {
@@ -396,4 +498,27 @@ function useNudge(design: Props['design']) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [active]);
+}
+
+/**
+ * Switch to the tab holding a field that is about to take focus (see
+ * revealField). The panels are shown and hidden at once, before React
+ * redraws, so the focus that follows lands on a visible field.
+ */
+function useReveal(ref: RefObject<HTMLDivElement | null>, show: (index: number) => void) {
+  const latest = useRef(show);
+  latest.current = show;
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const onReveal = (e: Event) => {
+      const panel = (e.target as HTMLElement).closest<HTMLElement>('[data-tab-panel]');
+      if (!panel) return;
+      const index = Number(panel.dataset.tabPanel);
+      for (const p of canvas.querySelectorAll<HTMLElement>('[data-tab-panel]')) p.hidden = p !== panel;
+      latest.current(index);
+    };
+    canvas.addEventListener(REVEAL, onReveal);
+    return () => canvas.removeEventListener(REVEAL, onReveal);
+  }, [ref]);
 }

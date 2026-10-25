@@ -6,7 +6,7 @@ import { ListExporter, listOf, type Progress, type Step } from '../export/export
 import { toCsv, toXlsx } from '../export/sheet.ts';
 import { connectHost, notifyScreen, runScript, runSiteScript, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
-import { htmlAt, moveOf, newDefinition, resolveSelection, setHtml, setMove } from '../designer/edit.ts';
+import { cardsOf, htmlAt, moveOf, newDefinition, resolveSelection, setCard, setHtml, setMove } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
 import { transform } from '../transform/index.ts';
 import type { Action, FunctionKey } from '../transform/types.ts';
@@ -15,7 +15,7 @@ import { ExportMenu, type ExportFormat } from './ExportMenu.tsx';
 import type { FieldBinding } from './fieldInput.tsx';
 import { keyAction, keyHint, typedKey } from './keys.ts';
 import { checkFields } from './fieldRules.ts';
-import { ModernScreen } from './ModernScreen.tsx';
+import { ModernScreen, revealField } from './ModernScreen.tsx';
 import { MAX_TYPEAHEAD, caretAtCursor, caretPosition, replay, type Caret, type ReplayResult, type TypedKey } from './typeahead.ts';
 import { useScreens } from './useScreens.ts';
 import { useSession } from './useSession.ts';
@@ -88,7 +88,15 @@ export function App() {
     }
     setDraft(setMove(draft, at, clamp(moveOf(draft, at) ?? at)));
   };
-  const resizeHtml = (at: Target, size: { width: number; height: number }) => {
+  const resizeBox = (at: Target, size: { width: number; height: number }, kind: 'html' | 'card') => {
+    if (kind === 'card') {
+      const card = draft && snap ? cardsOf(draft).find((c) => c.from.row === at.row && c.from.col === at.col) : undefined;
+      if (!draft || !snap || !card) return;
+      setDraft(setCard(draft, at, {
+        ...card, to: { row: Math.min(snap.rows, at.row + size.height - 1), col: Math.min(snap.cols, at.col + size.width - 1) },
+      }));
+      return;
+    }
     const html = draft && snap ? htmlAt(draft, at) : undefined;
     if (!draft || !snap || !html) return;
     const { op: _op, ...rest } = html;
@@ -334,6 +342,7 @@ export function App() {
     focusTarget.current = null;
     const el = document.querySelector<HTMLElement>(`[data-field="${target.id}"]`)
       ?? document.querySelector<HTMLElement>('[data-field]');
+    if (el) revealField(el);
     el?.focus();
     if (el instanceof HTMLInputElement && el.dataset.field === target.id) {
       try { el.setSelectionRange(target.offset, target.offset); } catch { /* password inputs on some browsers */ }
@@ -472,7 +481,7 @@ export function App() {
             {mode === 'modern'
               ? <ModernScreen view={view} binding={binding} locked={!canSubmit} onAction={onAction}
                   onCursor={(row, col) => { clickedCursor.current = { row, col }; }}
-                  design={designing ? { selected: selection?.at ?? null, onSelect: setSelectedAt, onMove: moveItem, onResize: resizeHtml } : undefined} />
+                  design={designing ? { selected: selection?.at ?? null, onSelect: setSelectedAt, onMove: moveItem, onResize: resizeBox } : undefined} />
               : <ClassicScreen snap={snap} binding={binding} />}
           </form>
         ) : (

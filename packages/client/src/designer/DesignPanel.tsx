@@ -11,10 +11,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { runScript } from '../custom/runtime.ts';
 import { InventoryDialog } from './InventoryDialog.tsx';
 import { StyleRules } from './StyleRules.tsx';
+import { CardsAndTabs } from './CardsAndTabs.tsx';
 import type { ScreenView } from '../transform/types.ts';
 import {
-  addScreenId, buttonsOf, formatOptions, freeSpot, htmlAt, htmlOf, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
-  ROLE_LABELS, moveOf, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textOf, widgetOf, type Selection,
+  addScreenId, buttonsOf, cardAround, cardsOf, formatOptions, freeSpot, htmlAt, htmlOf, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
+  ROLE_LABELS, moveOf, setCard, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textOf, widgetOf, type Selection,
 } from './edit.ts';
 
 const TOKEN_KEY = 'veneer.designerToken';
@@ -353,6 +354,7 @@ export function DesignPanel(props: Props) {
           </section>
 
           <StyleRules draft={draft} setDraft={setDraft} view={props.view} selected={selection?.at} />
+          <CardsAndTabs draft={draft} setDraft={setDraft} view={props.view} selection={selection} />
 
           <section>
             <h3>HTML</h3>
@@ -416,6 +418,14 @@ export function DesignPanel(props: Props) {
             {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} cols={snap.cols} onSelect={props.onSelect} /> : (
               <p className="dp-hint">Click any text, field or table on the screen, or an empty spot to add HTML.</p>
             )}
+            {selection && selection.kind !== 'empty' && selection.item && !(selection.kind === 'item' && selection.header) && (() => {
+              const card = cardAround(selection.item);
+              return cardsOf(draft).some((c) => c.from.row === card.from.row && c.from.col === card.from.col) ? null : (
+                <button type="button" className="ghost" onClick={() => setDraft(setCard(draft, card.from, card))}>
+                  Add card around this
+                </button>
+              );
+            })()}
             {selection?.kind === 'item' && selection.item.kind !== 'table' && selection.item.kind !== 'html' && (() => {
               const m = originalText(snap, selection.item);
               return m && !draft.match.text.some((x) => x.row === m.row && x.col === m.col) ? (

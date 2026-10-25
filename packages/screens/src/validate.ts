@@ -2,13 +2,14 @@
 
 import { isWebTemplate, placeholders } from './links.ts';
 import { STYLE_TESTS } from './styles.ts';
-import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type StyleCondition, type KeyAction, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type Target, type TextMatch, type Widget } from './types.ts';
+import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type StyleCondition, type KeyAction, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const AID = /^(Enter|Help|PageUp|PageDown|Print|Clear|RecordBackspace|F([1-9]|1\d|2[0-4]))$/;
 const FIELD_ID = /^\d{1,3}:\d{1,3}$/;
 const SCREEN_ID = /^[0-9a-f]{8,32}$/;
 const MAX_CHANGES = 500;
+const MAX_TABS = 10;
 /** Limits for custom code, in characters. */
 export const MAX_CSS = 64 * 1024;
 export const MAX_SCRIPT = 64 * 1024;
@@ -148,6 +149,28 @@ function change(v: unknown, path: string): Change {
       if (when.at !== undefined && targetOf !== 'item') fail(`${path}.target`, 'must be item for a condition on a position');
       return { op: 'style', when, role: oneOf(o.role, ROLES, `${path}.role`), target: targetOf };
     }
+    case 'card': {
+      const from = target(o.from, `${path}.from`);
+      const to = target(o.to, `${path}.to`);
+      if (to.row < from.row || to.col < from.col) fail(`${path}.to`, 'must be below and to the right of from');
+      const title = o.title === undefined || o.title === '' ? undefined : str(o.title, `${path}.title`, 60);
+      return { op: 'card', from, to, ...(title !== undefined ? { title } : {}) };
+    }
+    case 'tabs': {
+      const tabs = arr(o.tabs, `${path}.tabs`, MAX_TABS).map((x, i): TabBand => {
+        const t = obj(x, `${path}.tabs[${i}]`);
+        const title = str(t.title, `${path}.tabs[${i}].title`, 40);
+        if (title.trim() === '') fail(`${path}.tabs[${i}].title`, 'must not be blank');
+        const from = int(t.from, `${path}.tabs[${i}].from`, 1, 27);
+        const to = int(t.to, `${path}.tabs[${i}].to`, from, 27);
+        return { title, from, to };
+      });
+      if (tabs.length < 2) fail(`${path}.tabs`, 'needs at least two tabs');
+      tabs.forEach((t, i) => {
+        if (i > 0 && t.from !== tabs[i - 1]!.to + 1) fail(`${path}.tabs[${i}].from`, `must be ${tabs[i - 1]!.to + 1}, the row after the tab before`);
+      });
+      return { op: 'tabs', tabs };
+    }
     case 'html':
       return {
         op: 'html',
@@ -159,8 +182,20 @@ function change(v: unknown, path: string): Change {
         ...(o.script !== undefined && o.script !== '' ? { script: str(o.script, `${path}.script`, MAX_SCRIPT) } : {}),
       };
     default:
-      fail(`${path}.op`, 'must be hide, text, role, widget, button, move, style or html');
+      fail(`${path}.op`, 'must be hide, text, role, widget, button, move, style, card, tabs or html');
   }
+}
+
+/** At most one set of tabs, and no card split between two tabs (or half outside them). */
+function checkLayout(changes: Change[]): void {
+  const tabs = changes.filter((c) => c.op === 'tabs');
+  if (tabs.length > 1) fail('changes', 'may have only one tabs change');
+  const bands = tabs[0]?.tabs;
+  if (!bands) return;
+  const bandOf = (row: number) => bands.findIndex((b) => row >= b.from && row <= b.to);
+  changes.forEach((c, i) => {
+    if (c.op === 'card' && bandOf(c.from.row) !== bandOf(c.to.row)) fail(`changes[${i}]`, 'a card must not be split between tabs');
+  });
 }
 
 /** Validate untrusted input; returns a clean definition (unknown keys dropped). */
@@ -189,6 +224,7 @@ export function validateDefinition(input: unknown): ScreenDefinition {
     },
     changes: arr(o.changes ?? [], 'changes', MAX_CHANGES).map((x, i) => change(x, `changes[${i}]`)),
   };
+  checkLayout(def.changes);
   if (o.title !== undefined) def.title = str(o.title, 'title', 100);
   if (o.css !== undefined && o.css !== '') def.css = str(o.css, 'css', MAX_CSS);
   const scripts: Partial<Record<ScreenEvent, string>> = {};

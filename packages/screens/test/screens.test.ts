@@ -80,3 +80,26 @@ test('converts host dates to and from ISO', () => {
   assert.equal(isoToHost('2026-10-23', 'DD/MM/YYYY'), '23/10/2026');
   assert.equal(isoToHost('', 'MMDDYY'), '');
 });
+
+test('validates cards and tabs', () => {
+  const base = { id: 'x', name: 'X', match: { text: [{ row: 1, col: 1, text: 'X' }] } };
+  const tabs = { op: 'tabs', tabs: [{ title: 'General', from: 4, to: 9 }, { title: 'Shipping', from: 10, to: 18 }] };
+  const card = { op: 'card', from: { row: 5, col: 2 }, to: { row: 8, col: 40 }, title: 'Customer', extra: 1 };
+  const clean = validateDefinition({ ...base, changes: [tabs, card, { ...card, from: { row: 20, col: 2 }, to: { row: 21, col: 9 }, title: '' }] });
+  assert.deepEqual(clean.changes, [
+    tabs,
+    { op: 'card', from: { row: 5, col: 2 }, to: { row: 8, col: 40 }, title: 'Customer' },
+    { op: 'card', from: { row: 20, col: 2 }, to: { row: 21, col: 9 } },
+  ]);
+  const cases: Array<[unknown[], RegExp]> = [
+    [[{ ...card, to: { row: 4, col: 40 } }], /changes\[0\]\.to: must be below/],
+    [[{ ...tabs, tabs: [tabs.tabs[0]] }], /needs at least two tabs/],
+    [[{ ...tabs, tabs: [tabs.tabs[0], { title: 'Gap', from: 11, to: 12 }] }], /tabs\[1\]\.from: must be 10/],
+    [[{ ...tabs, tabs: [tabs.tabs[0], { title: ' ', from: 10, to: 12 }] }], /tabs\[1\]\.title: must not be blank/],
+    [[{ ...tabs, tabs: [{ title: 'Up', from: 9, to: 4 }, tabs.tabs[1]] }], /tabs\[0\]\.to/],
+    [[tabs, tabs], /only one tabs change/],
+    [[tabs, { ...card, to: { row: 12, col: 40 } }], /changes\[1\]: a card must not be split between tabs/],
+    [[tabs, { ...card, from: { row: 2, col: 2 } }], /changes\[1\]: a card must not be split/],
+  ];
+  for (const [changes, message] of cases) assert.throws(() => validateDefinition({ ...base, changes }), message);
+});

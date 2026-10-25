@@ -201,6 +201,37 @@ button:disabled { cursor: default; opacity: 0.55; }
 }
 .window-body { position: absolute; right: 0; bottom: 0; }
 .window-body > * { position: absolute; }
+/* ---- cards and tabs from a screen definition ---- */
+.group, .tab-panel { inset: 0 auto auto 0; }
+.group > *, .tab-panel > * { position: absolute; }
+.tab-panel[hidden] { display: none; }
+.card {
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
+  pointer-events: none;
+}
+.card-title {
+  position: absolute; top: -0.7em; left: calc(0.8 * var(--cw)); padding: 0 6px;
+  font-size: 0.8em; line-height: 1.4; font-weight: 650; color: var(--text-strong);
+  background: linear-gradient(transparent 50%, var(--surface-2) 50%);
+  white-space: nowrap; max-width: calc(100% - 2 * var(--cw)); overflow: hidden; text-overflow: ellipsis;
+}
+.tab-strip {
+  /* Shorter than its row, leaving room for a card title on the panel's first row. */
+  display: flex; gap: 2px; align-items: flex-end; height: calc(var(--rh) - 0.8em);
+  border-bottom: 1px solid var(--border);
+}
+.tab-strip button {
+  font: inherit; font-size: 0.9em; font-weight: 600; color: var(--text-muted);
+  height: 100%; padding: 0 calc(1.2 * var(--cw)); margin-bottom: -1px;
+  background: none; border: 1px solid transparent; border-radius: 8px 8px 0 0; cursor: pointer;
+}
+.tab-strip button:hover { color: var(--text-strong); background: var(--surface-2); }
+.tab-strip button.active {
+  color: var(--accent); background: var(--surface);
+  border-color: var(--border); border-bottom-color: var(--surface);
+}
+.tab-strip button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
 /* Custom HTML from a screen definition: normal text flow inside its box. */
 .custom-html { overflow: auto; white-space: normal; line-height: 1.4; }
 
@@ -419,6 +450,14 @@ kbd {
 .dp-warn { margin: 0; color: var(--danger); font-weight: 600; }
 .dp-hint, .dp-desc { margin: 0; color: var(--text-muted); }
 .dp-button { display: grid; grid-template-columns: minmax(0, 1fr) 108px auto; gap: 6px; align-items: center; }
+.dp-card, .dp-tab { display: grid; gap: 6px; align-items: end; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.dp-card { grid-template-columns: minmax(0, 1fr) auto; }
+.dp-card .dp-hint { grid-column: 1 / -1; font-size: 12px; }
+.dp-tab { grid-template-columns: minmax(0, 1fr) 64px 64px auto; }
+.dp-card > input, .dp-tab > input {
+  min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text); font-size: 13.5px;
+}
+.dp-tab .dp-row input { min-width: 0; padding: 6px 4px; }
 .dp-style {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; align-items: center;
   padding: 8px 0; border-bottom: 1px solid var(--border);

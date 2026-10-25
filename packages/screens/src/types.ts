@@ -83,6 +83,13 @@ export interface StyleCondition {
 export const STYLE_TARGETS = ['row', 'cell', 'item'] as const;
 export type StyleTarget = (typeof STYLE_TARGETS)[number];
 
+/** One tab: a band of whole screen rows, `from` to `to` inclusive. */
+export interface TabBand {
+  title: string;
+  from: number;
+  to: number;
+}
+
 export type Change =
   | { op: 'hide'; at: Target }
   | { op: 'text'; at: Target; text: string }
@@ -93,6 +100,19 @@ export type Change =
   | { op: 'move'; at: Target; to: Target }
   /** Restyle what matches a condition, e.g. rows whose Status column equals MSGW. */
   | { op: 'style'; when: StyleCondition; role: Role; target: StyleTarget }
+  /**
+   * A framed panel around the cells `from` to `to` (inclusive), with an
+   * optional title on its top border. Positions are where items are drawn,
+   * after moves.
+   */
+  | { op: 'card'; from: Target; to: Target; title?: string }
+  /**
+   * Split rows into tabs: each tab is a band of rows following the one before
+   * it. One band shows at a time, under a strip of tab titles; hidden tabs
+   * keep their fields, so their values are still sent. Rows are where items
+   * are drawn, after moves. At most one per definition.
+   */
+  | { op: 'tabs'; tabs: TabBand[] }
   /**
    * Custom HTML drawn over the screen at a position, `width` x `height` cells.
    * `css` is scoped to the box (nested rules reach inside it); `script` runs
