@@ -233,7 +233,8 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   customization recognises it. Sort by most visited and tick **Not customized yet** to see
   which screens to customize next. Only the screen's shape is recorded, never what was on
   it. It is kept in `inventory.json` in `VENEER_DATA_DIR` (default `data/`, not in git).
-- **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2).
+- **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2),
+  and serves the example components, ready to place from the designer.
 
 ### Custom HTML, CSS and JavaScript
 
@@ -283,6 +284,56 @@ script runs after a page reload.
 **Custom code runs with the page's full rights**, like Veneer's own code: it can read
 everything users type, passwords included. Give designer access only to people you'd
 trust to change the site's code, and review definitions in git like code.
+
+### Custom components
+
+For things the designer can't build, such as a chart, a signature pad or a lookup in another
+system, developers write **components**: ES modules in the server's components folder
+(`VENEER_COMPONENTS_DIR`, default `components/` in the repo), one `name.js` per component.
+Veneer serves them at `/components/` and lists them at `/api/components`. Nothing in the
+designer can add or change them: designers place installed components and set their options.
+A component can import other files from the same folder. Browsers load a new version after
+a page reload; the server lists new files after a restart.
+
+A component draws in a box over the screen, or in place of an input field:
+
+```json
+{ "op": "component", "name": "bar-chart", "at": { "row": 17, "col": 2 }, "width": 76, "height": 4,
+  "options": { "column": "Amount", "label": "Order" } }
+{ "op": "component", "name": "star-rating", "at": { "row": 19, "col": 24 }, "width": 5, "height": 1,
+  "field": "19:24", "options": { "max": 5 } }
+```
+
+In the designer, add one from the Page tab's **Components** section, or select a field and
+choose **Show as: Component**. Select it to pick another component, edit its options (JSON),
+move it or resize it.
+
+The module exports `mount(element, ctx)`, and optionally a `label`. `mount` draws into
+`element` and may return `{ update(ctx), unmount() }` (or just a cleanup function).
+`update` is called when the screen is redrawn or the bound field's value changes; keep the
+newest `ctx` it is given. `ctx` has:
+
+- `options`: the change's options.
+- `screen`: `{ id, definition, rows, cols, lines, fields }`, as for scripts.
+- `tables`: the lists on the screen, `{ row, col, columns, rows, more }`, with each cell as text.
+- For a field: `field` (`{ id, length }`), `value` and `setValue(text)`, which types into it.
+- `getField(id)`, `setField(id, text)` and `press(key, fields?)`, which go through the
+  same path as the user typing and pressing keys.
+- `design`: true in the designer, where typing and keys do nothing.
+
+```js
+export const label = 'Hello';
+export function mount(element, ctx) {
+  element.textContent = `Hello from ${ctx.screen.id}`;
+  return { update: (next) => { element.textContent = `Hello from ${next.screen.id}`; } };
+}
+```
+
+A component that can't be loaded, or throws, is reported in the browser console, and a field
+it replaced gets its normal input back; the designer shows a note in its box. The demo has
+two examples in `packages/server/dev/components`: `bar-chart.js` (a column of a list) and
+`star-rating.js` (a one-digit field). Components run with the page's full rights, like
+designers' scripts, so only install code you have reviewed.
 
 ## License
 

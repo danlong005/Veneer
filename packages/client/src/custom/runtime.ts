@@ -18,7 +18,7 @@
 //   veneer.setField('6:53', v)  type into a field
 //   veneer.press('F3', fields?) press a key, optionally filling fields first
 
-import type { AidName } from '@veneer/tn5250';
+import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 
 export interface ScreenInfo {
   /** Structural screen id (see @veneer/screens fingerprint). */
@@ -30,6 +30,18 @@ export interface ScreenInfo {
   /** Screen text, one string per row. */
   lines: string[];
   fields: Array<{ id: string; row: number; col: number; length: number; value: string }>;
+}
+
+/** What scripts and components see of a screen. */
+export function screenInfo(snap: ScreenSnapshot, id: string, definition?: string): ScreenInfo {
+  return {
+    id,
+    ...(definition ? { definition } : {}),
+    rows: snap.rows,
+    cols: snap.cols,
+    lines: snap.lines,
+    fields: snap.fields.filter((f) => !f.bypass).map((f) => ({ id: f.id, row: f.row, col: f.col, length: f.length, value: f.value })),
+  };
 }
 
 export interface VeneerApi {

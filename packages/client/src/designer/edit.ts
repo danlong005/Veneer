@@ -2,7 +2,7 @@
 
 import { screenId, type ButtonAction, type Change, type Role, type ScreenDefinition, type ScreenEvent, type TabBand, type Target, type TextMatch, type Widget } from '@veneer/screens';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
-import { heightOf, homeOf, itemAt } from '../transform/customize.ts';
+import { heightOf, homeOf, isBox, itemAt } from '../transform/customize.ts';
 import type { Item, ScreenView } from '../transform/types.ts';
 
 const same = (a: Target, b: Target) => a.row === b.row && a.col === b.col;
@@ -48,7 +48,7 @@ export function resolveSelection(view: ScreenView, snap: ScreenSnapshot, at: Tar
   if (header) return { kind: 'item', at: { row: header.row, col: header.col }, item: header, header: true };
   const items = [...view.items, ...(view.window?.items ?? [])];
   const item = itemAt(items, at);
-  if (item?.kind === 'html') return { kind: 'item', at: homeOf(item), item };
+  if (item && isBox(item)) return { kind: 'item', at: homeOf(item), item };
   const field = snap.fields.find((f) => !f.bypass && f.row === at.row && f.col === at.col);
   if (field) return { kind: 'field', at, field, ...(item?.kind === 'field' ? { item } : {}) };
   if (item) return { kind: 'item', at: homeOf(item), item };
@@ -102,6 +102,28 @@ export function setHtml(def: ScreenDefinition, at: Target, next: Omit<Html, 'op'
   const changes = def.changes.map((c) => (c.op === 'html' && same(c.at, at) && next ? { op: 'html' as const, ...next } : c))
     .filter((c) => !(c.op === 'html' && same(c.at, at) && !next));
   return htmlAt(def, at) || !next ? { ...def, changes } : { ...def, changes: [...changes, { op: 'html', ...next }] };
+}
+
+type Component = ChangeOf<'component'>;
+
+export function componentAt(def: ScreenDefinition, at: Target): Component | undefined {
+  return def.changes.find((c): c is Component => c.op === 'component' && same(c.at, at));
+}
+
+export function componentsOf(def: ScreenDefinition): Component[] {
+  return def.changes.filter((c): c is Component => c.op === 'component');
+}
+
+/** Add, replace (same position) or with `next` null remove a component. */
+export function setComponent(def: ScreenDefinition, at: Target, next: Omit<Component, 'op'> | null): ScreenDefinition {
+  const exists = componentAt(def, at) !== undefined;
+  const changes = def.changes.flatMap<Change>((c) => (c.op === 'component' && same(c.at, at) ? (next ? [{ op: 'component', ...next }] : []) : [c]));
+  return { ...def, changes: exists || !next ? changes : [...changes, { op: 'component', ...next }] };
+}
+
+/** The component drawing a field instead of its input, if any. */
+export function componentForField(def: ScreenDefinition, field: string): Component | undefined {
+  return def.changes.find((c): c is Component => c.op === 'component' && c.field === field);
 }
 
 /** Where a customization moved the item at `at`, if it did. */

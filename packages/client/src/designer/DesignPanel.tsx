@@ -12,10 +12,11 @@ import { runScript } from '../custom/runtime.ts';
 import { InventoryDialog } from './InventoryDialog.tsx';
 import { StyleRules } from './StyleRules.tsx';
 import { CardsAndTabs } from './CardsAndTabs.tsx';
+import { ComponentEditor, ComponentsSection, componentForFieldChange } from './Components.tsx';
 import type { ScreenView } from '../transform/types.ts';
 import {
-  addScreenId, buttonsOf, cardAround, cardsOf, formatOptions, freeSpot, htmlAt, htmlOf, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
-  ROLE_LABELS, moveOf, setCard, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textOf, widgetOf, type Selection,
+  addScreenId, buttonsOf, cardAround, cardsOf, componentAt, componentForField, formatOptions, freeSpot, htmlAt, htmlOf, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
+  ROLE_LABELS, moveOf, setCard, setComponent, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textOf, widgetOf, type Selection,
 } from './edit.ts';
 
 const TOKEN_KEY = 'veneer.designerToken';
@@ -70,6 +71,8 @@ interface Props {
   onPick: (def: ScreenDefinition | null) => void;
   /** False when the server lets this browser save without the token. */
   tokenRequired: boolean;
+  /** Custom components installed on the server. */
+  components: string[];
   /** Site-wide CSS and JavaScript as saved. */
   site: SiteCustomization;
   /** Select a screen position (after moving custom HTML). */
@@ -355,6 +358,7 @@ export function DesignPanel(props: Props) {
 
           <StyleRules draft={draft} setDraft={setDraft} view={props.view} selected={selection?.at} />
           <CardsAndTabs draft={draft} setDraft={setDraft} view={props.view} selection={selection} />
+          <ComponentsSection draft={draft} setDraft={setDraft} snap={snap} installed={props.components} onSelect={props.onSelect} />
 
           <section>
             <h3>HTML</h3>
@@ -415,7 +419,7 @@ export function DesignPanel(props: Props) {
           <section>
             <h3>Selected</h3>
             {selection && selection.kind !== 'empty' && <p className="dp-hint">Changes here are part of this page's customization.</p>}
-            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} cols={snap.cols} onSelect={props.onSelect} /> : (
+            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} cols={snap.cols} onSelect={props.onSelect} components={props.components} /> : (
               <p className="dp-hint">Click any text, field or table on the screen, or an empty spot to add HTML.</p>
             )}
             {selection && selection.kind !== 'empty' && selection.item && !(selection.kind === 'item' && selection.header) && (() => {
@@ -477,8 +481,9 @@ export function DesignPanel(props: Props) {
   );
 }
 
-function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
+function SelectionEditor({ draft, setDraft, selection, cols, onSelect, components }: {
   draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; selection: Selection; cols: number; onSelect: (at: Target) => void;
+  components: string[];
 }) {
   const at = selection.at;
   if (selection.kind === 'empty') {
@@ -495,6 +500,12 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
       </>
     );
   }
+  if (selection.kind === 'item' && selection.item.kind === 'component') {
+    const component = componentAt(draft, at);
+    return component
+      ? <ComponentEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} component={component} installed={components} cols={cols} onSelect={onSelect} />
+      : null;
+  }
   if (selection.kind === 'item' && selection.item.kind === 'html') {
     const html = htmlAt(draft, at);
     return html ? <HtmlEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} html={html} cols={cols} onSelect={onSelect} /> : null;
@@ -509,6 +520,14 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
   if (selection.kind === 'field') {
     const f = selection.field;
     const widget = widgetOf(draft, f.id);
+    const component = componentForField(draft, f.id);
+    const showAs = (value: string) => {
+      let next = component ? setComponent(draft, component.at, null) : draft;
+      if (value === 'component') next = setComponent(setWidget(next, f.id, null), f, componentForFieldChange(components[0]!, f));
+      else next = setWidget(next, f.id, defaultWidget(value, f.value));
+      setDraft(next);
+      if (value === 'component') onSelect({ row: f.row, col: f.col });
+    };
     return (
       <>
         <p className="dp-desc">Input field <code>{f.id}</code>, {f.length} character{f.length === 1 ? '' : 's'}{f.value ? ` (now “${f.value}”)` : ''}</p>
@@ -516,14 +535,12 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect }: {
         {!selection.item && <p className="dp-hint">Part of a table: drag the table to move it.</p>}
         {selection.item && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />}
         <label className="dp-row">Show as
-          <select
-            value={widget?.type ?? 'text'}
-            onChange={(e) => setDraft(setWidget(draft, f.id, defaultWidget(e.target.value, f.value)))}
-          >
+          <select value={component ? 'component' : widget?.type ?? 'text'} onChange={(e) => showAs(e.target.value)}>
             <option value="text">Text box</option>
             <option value="select">Dropdown</option>
             <option value="checkbox">Checkbox</option>
             <option value="date">Date picker</option>
+            {(components.length > 0 || component) && <option value="component">Component</option>}
           </select>
         </label>
         {widget && <WidgetEditor key={`${f.id}:${widget.type}`} widget={widget} onChange={(w) => setDraft(setWidget(draft, f.id, w))} />}

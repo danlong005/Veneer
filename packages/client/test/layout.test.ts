@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import type { Change, ScreenDefinition, TabBand } from '@veneer/screens';
 import { customize } from '../src/transform/customize.ts';
 import { transform, type Item, type TextItem } from '../src/transform/index.ts';
-import { cardAround, cardsOf, moveTabEdge, removeTab, setCard, setTabs, splitTabs, tabsOf } from '../src/designer/edit.ts';
+import { cardAround, cardsOf, resolveSelection, moveTabEdge, removeTab, setCard, setTabs, splitTabs, tabsOf } from '../src/designer/edit.ts';
 import { layoutOf, tabAtCursor, viewRow } from '../src/ui/layout.ts';
 import { orderEntry, promptWindow } from './screens.ts';
 
@@ -105,4 +105,33 @@ test('designer: add, retitle and remove cards', () => {
   d = setCard(d, card.from, { ...card, title: 'Who' });
   assert.deepEqual(cardsOf(d), [{ ...card, title: 'Who' }]);
   assert.deepEqual(setCard(d, card.from, null).changes, []);
+});
+
+test('components: drawn in reading order; a bound field is marked to give way', () => {
+  const view = customize(transform(orderEntry()), def([
+    { op: 'component', name: 'stepper', at: { row: 6, col: 20 }, width: 8, height: 1, field: '6:20', options: { step: 1 } },
+    { op: 'component', name: 'chart', at: { row: 9, col: 2 }, width: 30, height: 4 },
+    { op: 'component', name: 'nothing', at: { row: 5, col: 40 }, width: 3, height: 1, field: '99:1' },
+  ]));
+  const order = view.items.map((i) => `${i.kind}@${i.row}:${i.col}`);
+  assert.ok(order.indexOf('component@6:20') === order.indexOf('field@6:20') + 1, 'just after the field it replaces');
+  assert.equal(order.at(-1), 'component@9:2');
+  const quantity = view.items.find((i) => i.kind === 'field' && i.field.id === '6:20');
+  assert.equal(quantity?.kind === 'field' && quantity.component, 'stepper');
+  const stepper = view.items.find((i) => i.kind === 'component' && i.name === 'stepper');
+  assert.equal(stepper?.kind === 'component' && stepper.field?.id, '6:20');
+  assert.deepEqual(stepper?.kind === 'component' && stepper.options, { step: 1 });
+  const unbound = view.items.find((i) => i.kind === 'component' && i.name === 'nothing');
+  assert.equal(unbound?.kind === 'component' && unbound.field, undefined, 'an unknown field id binds nothing');
+  // The designer selects the box, which is drawn over the field.
+  assert.equal(resolveSelection(view, view.snapshot, { row: 6, col: 21 })?.kind, 'item');
+});
+
+test('hide, text and style skip component boxes, reaching the screen item under them', () => {
+  const view = customize(transform(orderEntry()), def([
+    { op: 'component', name: 'wide', at: { row: 7, col: 2 }, width: 40, height: 1 },
+    { op: 'hide', at: { row: 7, col: 3 } },
+  ]));
+  assert.ok(view.items.some((i) => i.kind === 'component'), 'the box stays');
+  assert.ok(!labels(view.items).includes('Item code'), 'the text under it is hidden');
 });

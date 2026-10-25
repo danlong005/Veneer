@@ -11,6 +11,7 @@ import { ScreenInventory } from './inventory.ts';
 import { log } from './log.ts';
 import { SessionManager } from './sessions.ts';
 import { serveStatic } from './static.ts';
+import { serveComponent } from './components.ts';
 import { ScreenStore } from './store.ts';
 import { VERSION } from './version.ts';
 
@@ -60,13 +61,15 @@ export function createServer(config: ServerConfig): VeneerServer {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', version: VERSION, uptimeSeconds: Math.round(process.uptime()), sessions: sessions.size }));
     } else if (handleApi(req, res, pathname, {
-      store: screens, inventory, sessions, info,
+      store: screens, inventory, sessions, info, componentsDir: config.componentsDir,
       designerToken: config.designerToken, designerLocal: config.designerLocal,
       adminToken: config.adminToken, adminLocal: config.adminLocal,
     })) {
       // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405).end();
+    } else if (pathname.startsWith('/components/')) {
+      serveComponent(config.componentsDir, req, res, pathname);
     } else if (config.staticDir) {
       serveStatic(config.staticDir, req, res);
     } else {

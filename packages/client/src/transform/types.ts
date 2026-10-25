@@ -1,7 +1,7 @@
 // The view model produced by the auto-transform pipeline. Every item keeps
 // its 5250 row/column so the layout stays faithful to the original screen.
 
-import type { ButtonAction, Role, ScreenEvent, TabBand, Widget } from '@veneer/screens';
+import type { ButtonAction, ComponentOptions, Role, ScreenEvent, TabBand, Widget } from '@veneer/screens';
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/tn5250';
 
 export type { Role, TabBand, Widget };
@@ -52,6 +52,8 @@ export interface FieldItem extends Placed {
   widget?: Widget;
   /** Set by a style rule. */
   role?: Role;
+  /** A custom component draws this field instead, when it is working (see ComponentItem). */
+  component?: string;
 }
 
 export interface LinkItem extends Placed {
@@ -110,7 +112,18 @@ export interface HtmlItem extends Placed {
   height: number;
 }
 
-export type Item = TextItem | FieldItem | LinkItem | TableItem | HtmlItem;
+/** A custom component from a screen definition (see custom/components.ts). */
+export interface ComponentItem extends Placed {
+  kind: 'component';
+  name: string;
+  options: ComponentOptions;
+  /** The input field it replaces, if any. */
+  field?: FieldSnapshot;
+  /** Rows covered. */
+  height: number;
+}
+
+export type Item = TextItem | FieldItem | LinkItem | TableItem | HtmlItem | ComponentItem;
 
 export interface FunctionKey {
   aid: AidName;

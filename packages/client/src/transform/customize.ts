@@ -2,7 +2,7 @@
 // found by their screen position, so changes survive data changing on screen.
 
 import { conditionTester, type Change, type ScreenDefinition, type Target } from '@veneer/screens';
-import type { HtmlItem, Item, ScreenView } from './types.ts';
+import type { ComponentItem, HtmlItem, Item, ScreenView } from './types.ts';
 
 export interface CustomizeOptions {
   /** Designer mode: keep hidden items (marked hidden) so they can be selected. */
@@ -10,18 +10,21 @@ export interface CustomizeOptions {
 }
 
 /** Rows an item covers. */
-export const heightOf = (i: Item) => (i.kind === 'table' || i.kind === 'html' ? i.height : 1);
+export const heightOf = (i: Item) => (i.kind === 'table' || i.kind === 'html' || i.kind === 'component' ? i.height : 1);
+
+/** Boxes from a definition (custom HTML and components), drawn on top of the screen. */
+export const isBox = (i: Item): i is HtmlItem | ComponentItem => i.kind === 'html' || i.kind === 'component';
 
 /** Where the host put an item (moved items are found by their original place). */
 export const homeOf = (i: Item): Target => i.home ?? { row: i.row, col: i.col };
 
-/** The item covering a target cell. Custom HTML is drawn on top, so it wins. */
+/** The item covering a target cell. Custom HTML and components are drawn on top, so they win. */
 export function itemAt(items: readonly Item[], at: Target): Item | undefined {
   const covers = (i: Item) => {
     const h = homeOf(i);
     return at.row >= h.row && at.row < h.row + heightOf(i) && at.col >= h.col && at.col < h.col + i.width;
   };
-  return items.find((i) => i.kind === 'html' && covers(i)) ?? items.find(covers);
+  return items.find((i) => isBox(i) && covers(i)) ?? items.find(covers);
 }
 
 export function customize(view: ScreenView, def: ScreenDefinition | undefined, opts: CustomizeOptions = {}): ScreenView {
@@ -38,8 +41,10 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
   if (def.css) out.css = def.css;
   if (def.scripts) out.scripts = def.scripts;
   const all = () => [...out.items, ...(out.window?.items ?? [])];
-  // Header items can be hidden, renamed and restyled, but not moved.
-  const withHeader = () => [...all(), ...out.meta];
+  // What hide, text, role and style apply to: the screen's own items, header
+  // included (it can be hidden, renamed and restyled, but not moved). Boxes
+  // from the definition (HTML, components) are edited through their own changes.
+  const withHeader = () => [...all().filter((i) => !isBox(i)), ...out.meta];
   const moves: Array<Extract<ScreenDefinition['changes'][number], { op: 'move' }>> = [];
 
   for (const change of def.changes) {
@@ -88,6 +93,22 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
       case 'tabs':
         out.tabs = change.tabs.map((t) => ({ ...t }));
         break;
+      case 'component': {
+        const field = change.field !== undefined ? out.snapshot.fields.find((f) => f.id === change.field && !f.bypass) : undefined;
+        const item: ComponentItem = {
+          kind: 'component', row: change.at.row, col: change.at.col, width: change.width, height: change.height,
+          name: change.name, options: change.options ?? {}, ...(field ? { field } : {}),
+        };
+        if (field) {
+          for (const i of all()) if (i.kind === 'field' && i.field.id === field.id) i.component = change.name;
+        }
+        // In reading order with the other items, so Tab reaches it where it is drawn.
+        const w = out.window;
+        const list = w && item.row >= w.top && item.row <= w.bottom && item.col >= w.left && item.col <= w.right ? w.items : out.items;
+        const k = list.findIndex((i) => i.row > item.row || (i.row === item.row && i.col > item.col));
+        list.splice(k < 0 ? list.length : k, 0, item);
+        break;
+      }
       case 'html': {
         const item: HtmlItem = {
           kind: 'html', row: change.at.row, col: change.at.col, width: change.width, height: change.height, html: change.html,
@@ -105,8 +126,8 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
 
   // Moves come last, so the other changes still find items where the host put them.
   for (const m of moves) {
-    const item = all().find((i) => i.kind !== 'html' && i.row === m.at.row && i.col === m.at.col)
-      ?? itemAt(all().filter((i) => i.kind !== 'html'), m.at);
+    const item = all().find((i) => !isBox(i) && i.row === m.at.row && i.col === m.at.col)
+      ?? itemAt(all().filter((i) => !isBox(i)), m.at);
     if (item && !item.home) moveItem(item, m.to);
   }
   if (moves.length > 0) {

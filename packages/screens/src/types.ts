@@ -83,6 +83,9 @@ export interface StyleCondition {
 export const STYLE_TARGETS = ['row', 'cell', 'item'] as const;
 export type StyleTarget = (typeof STYLE_TARGETS)[number];
 
+/** Settings for a component, as JSON. */
+export type ComponentOptions = { [key: string]: unknown };
+
 /** One tab: a band of whole screen rows, `from` to `to` inclusive. */
 export interface TabBand {
   title: string;
@@ -113,6 +116,14 @@ export type Change =
    * are drawn, after moves. At most one per definition.
    */
   | { op: 'tabs'; tabs: TabBand[] }
+  /**
+   * A custom component (components/<name>.js on the server) drawn in a box
+   * `width` x `height` cells at a position. With `field` (an input field id
+   * such as "6:22") it replaces that field's input and can set its value; if
+   * the component is missing or fails, the normal input is shown. `options`
+   * are passed to the component as they are.
+   */
+  | { op: 'component'; name: string; at: Target; width: number; height: number; field?: string; options?: ComponentOptions }
   /**
    * Custom HTML drawn over the screen at a position, `width` x `height` cells.
    * `css` is scoped to the box (nested rules reach inside it); `script` runs

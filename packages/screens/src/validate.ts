@@ -2,7 +2,7 @@
 
 import { isWebTemplate, placeholders } from './links.ts';
 import { STYLE_TESTS } from './styles.ts';
-import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type StyleCondition, type KeyAction, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
+import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type StyleCondition, type KeyAction, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const AID = /^(Enter|Help|PageUp|PageDown|Print|Clear|RecordBackspace|F([1-9]|1\d|2[0-4]))$/;
@@ -14,6 +14,7 @@ const MAX_TABS = 10;
 export const MAX_CSS = 64 * 1024;
 export const MAX_SCRIPT = 64 * 1024;
 export const MAX_HTML = 16 * 1024;
+export const MAX_OPTIONS = 16 * 1024;
 
 export class DefinitionError extends Error {
   override name = 'DefinitionError';
@@ -171,6 +172,29 @@ function change(v: unknown, path: string): Change {
       });
       return { op: 'tabs', tabs };
     }
+    case 'component': {
+      const name = str(o.name, `${path}.name`, 64);
+      if (!ID_PATTERN.test(name)) fail(`${path}.name`, 'must be a component name: lowercase letters, digits and dashes');
+      let field: string | undefined;
+      if (o.field !== undefined) {
+        field = str(o.field, `${path}.field`, 7);
+        if (!FIELD_ID.test(field)) fail(`${path}.field`, 'must be a field id like "6:53"');
+      }
+      let options: ComponentOptions | undefined;
+      if (o.options !== undefined) {
+        const json = JSON.stringify(obj(o.options, `${path}.options`));
+        if (json.length > MAX_OPTIONS) fail(`${path}.options`, `must be at most ${MAX_OPTIONS} characters of JSON`);
+        options = JSON.parse(json) as ComponentOptions;
+      }
+      return {
+        op: 'component', name,
+        at: target(o.at, `${path}.at`),
+        width: int(o.width, `${path}.width`, 1, 132),
+        height: int(o.height, `${path}.height`, 1, 27),
+        ...(field !== undefined ? { field } : {}),
+        ...(options !== undefined ? { options } : {}),
+      };
+    }
     case 'html':
       return {
         op: 'html',
@@ -182,7 +206,7 @@ function change(v: unknown, path: string): Change {
         ...(o.script !== undefined && o.script !== '' ? { script: str(o.script, `${path}.script`, MAX_SCRIPT) } : {}),
       };
     default:
-      fail(`${path}.op`, 'must be hide, text, role, widget, button, move, style, card, tabs or html');
+      fail(`${path}.op`, 'must be hide, text, role, widget, button, move, style, card, tabs, component or html');
   }
 }
 

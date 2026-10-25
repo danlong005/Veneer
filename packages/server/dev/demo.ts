@@ -9,6 +9,7 @@ import { DemoHost } from './demoHost.ts';
 const hostPort = await new DemoHost().listen();
 const config = loadConfig({
   VENEER_SCREENS_DIR: fileURLToPath(new URL('./screens', import.meta.url)),
+  VENEER_COMPONENTS_DIR: fileURLToPath(new URL('./components', import.meta.url)),
   VENEER_DESIGNER: 'local',
   VENEER_ADMIN: 'local',
   ...process.env,

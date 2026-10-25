@@ -37,6 +37,20 @@ export function serveStatic(root: string, req: http.IncomingMessage, res: http.S
   fs.createReadStream(file).pipe(res);
 }
 
+/**
+ * Send `rel`, a path inside `root`, if it is a file there. False when it is
+ * not (or would be outside `root`), and nothing was sent.
+ */
+export function sendFile(root: string, rel: string, req: http.IncomingMessage, res: http.ServerResponse, cache: string): boolean {
+  const base = path.resolve(root);
+  const file = path.resolve(base, rel);
+  if (!file.startsWith(base + path.sep) || !isFile(file)) return false;
+  res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream', 'Cache-Control': cache });
+  if (req.method === 'HEAD') res.end();
+  else fs.createReadStream(file).pipe(res);
+  return true;
+}
+
 function isFile(p: string): boolean {
   try {
     return fs.statSync(p).isFile();

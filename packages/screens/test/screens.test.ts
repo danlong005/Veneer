@@ -103,3 +103,20 @@ test('validates cards and tabs', () => {
   ];
   for (const [changes, message] of cases) assert.throws(() => validateDefinition({ ...base, changes }), message);
 });
+
+test('validates components', () => {
+  const base = { id: 'x', name: 'X', match: { text: [{ row: 1, col: 1, text: 'X' }] } };
+  const c = { op: 'component', name: 'bar-chart', at: { row: 12, col: 2 }, width: 40, height: 6, options: { column: 'Amount', max: 5 } };
+  assert.deepEqual(validateDefinition({ ...base, changes: [c, { ...c, name: 'star-rating', field: '19:24', options: undefined }] }).changes, [
+    c,
+    { op: 'component', name: 'star-rating', at: { row: 12, col: 2 }, width: 40, height: 6, field: '19:24' },
+  ]);
+  const cases: Array<[unknown, RegExp]> = [
+    [{ ...c, name: '../evil' }, /changes\[0\]\.name: must be a component name/],
+    [{ ...c, field: 'x' }, /changes\[0\]\.field/],
+    [{ ...c, options: [1] }, /changes\[0\]\.options: must be an object/],
+    [{ ...c, options: { big: 'x'.repeat(20_000) } }, /changes\[0\]\.options: must be at most/],
+    [{ ...c, height: 0 }, /changes\[0\]\.height/],
+  ];
+  for (const [change, message] of cases) assert.throws(() => validateDefinition({ ...base, changes: [change] }), message);
+});

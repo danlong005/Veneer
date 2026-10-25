@@ -4,9 +4,9 @@ import { fillUrl, matchScreen, screenId, type ScreenDefinition, type Target } fr
 import { download, fileBase } from '../export/download.ts';
 import { ListExporter, listOf, type Progress, type Step } from '../export/exporter.ts';
 import { toCsv, toXlsx } from '../export/sheet.ts';
-import { connectHost, notifyScreen, runScript, runSiteScript, setScreen } from '../custom/runtime.ts';
+import { connectHost, notifyScreen, runScript, runSiteScript, screenInfo, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
-import { cardsOf, htmlAt, moveOf, newDefinition, resolveSelection, setCard, setHtml, setMove } from '../designer/edit.ts';
+import { cardsOf, componentAt, htmlAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
 import { transform } from '../transform/index.ts';
 import type { Action, FunctionKey } from '../transform/types.ts';
@@ -15,7 +15,7 @@ import { ExportMenu, type ExportFormat } from './ExportMenu.tsx';
 import type { FieldBinding } from './fieldInput.tsx';
 import { keyAction, keyHint, typedKey } from './keys.ts';
 import { checkFields } from './fieldRules.ts';
-import { ModernScreen, revealField } from './ModernScreen.tsx';
+import { ModernScreen, revealField, type BoxKind } from './ModernScreen.tsx';
 import { MAX_TYPEAHEAD, caretAtCursor, caretPosition, replay, type Caret, type ReplayResult, type TypedKey } from './typeahead.ts';
 import { useScreens } from './useScreens.ts';
 import { useSession } from './useSession.ts';
@@ -86,14 +86,31 @@ export function App() {
       setSelectedAt(to);
       return;
     }
+    const component = componentAt(draft, at);
+    if (component) {
+      const { op: _op, ...rest } = component;
+      const to = clamp(at);
+      setDraft(setComponent(draft, at, { ...rest, at: to }));
+      setSelectedAt(to);
+      return;
+    }
     setDraft(setMove(draft, at, clamp(moveOf(draft, at) ?? at)));
   };
-  const resizeBox = (at: Target, size: { width: number; height: number }, kind: 'html' | 'card') => {
+  const resizeBox = (at: Target, size: { width: number; height: number }, kind: BoxKind) => {
     if (kind === 'card') {
       const card = draft && snap ? cardsOf(draft).find((c) => c.from.row === at.row && c.from.col === at.col) : undefined;
       if (!draft || !snap || !card) return;
       setDraft(setCard(draft, at, {
         ...card, to: { row: Math.min(snap.rows, at.row + size.height - 1), col: Math.min(snap.cols, at.col + size.width - 1) },
+      }));
+      return;
+    }
+    if (kind === 'component') {
+      const c = draft && snap ? componentAt(draft, at) : undefined;
+      if (!draft || !snap || !c) return;
+      const { op: _op, ...rest } = c;
+      setDraft(setComponent(draft, at, {
+        ...rest, width: Math.min(snap.cols, Math.max(1, size.width)), height: Math.min(snap.rows, Math.max(1, size.height)),
       }));
       return;
     }
@@ -255,14 +272,7 @@ export function App() {
     }
     const id = screenId(snap);
     const definition = view?.definition;
-    setScreen({
-      id,
-      ...(definition ? { definition: definition.id } : {}),
-      rows: snap.rows,
-      cols: snap.cols,
-      lines: snap.lines,
-      fields: snap.fields.filter((f) => !f.bypass).map((f) => ({ id: f.id, row: f.row, col: f.col, length: f.length, value: f.value })),
-    }, root);
+    setScreen(screenInfo(snap, id, definition?.id), root);
     const label = (event: string) => `the ${event} script of "${definition?.name}"`;
     const key = `${id}|${definition?.id ?? ''}`;
     if (opened.current?.key !== key) {
@@ -520,6 +530,7 @@ export function App() {
           selection={selection}
           definitions={screens.screens}
           site={screens.site ?? { css: '', scripts: { load: '', screen: '' } }}
+          components={screens.components}
           onSelect={setSelectedAt}
           clickedAt={selectedAt}
           tokenRequired={screens.tokenRequired}

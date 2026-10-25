@@ -7,6 +7,8 @@ import type { ScreenSnapshot } from '@veneer/tn5250';
 import { useEffect, useRef, useState } from 'react';
 import { homeOf } from '../transform/customize.ts';
 import type { Action, Card, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
+import { useComponents } from '../custom/components.ts';
+import { ComponentBox } from './ComponentBox.tsx';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
 import { layoutOf, tabAtCursor, viewRow, type Group } from './layout.ts';
 
@@ -25,10 +27,13 @@ interface Props {
     selected: Target | null;
     onSelect: (at: Target) => void;
     onMove: (at: Target, by: { rows: number; cols: number }) => void;
-    /** Resize custom HTML (at its position) or a card (at its top-left), in cells. */
-    onResize: (at: Target, size: { width: number; height: number }, kind: 'html' | 'card') => void;
+    /** Resize custom HTML or a component (at its position), or a card (at its top-left), in cells. */
+    onResize: (at: Target, size: { width: number; height: number }, kind: BoxKind) => void;
   } | undefined;
 }
+
+/** What a resize handle resizes. */
+export type BoxKind = 'html' | 'component' | 'card';
 
 const atKey = (t: Target) => `${t.row}:${t.col}`;
 const parseAt = (s: string): Target => {
@@ -195,10 +200,11 @@ function CardView({ card, origin, design }: { card: Card; origin: Origin; design
         data-card={key}
         data-size={`${width}:${height}`}
         style={{
-          top: `calc(${card.top - origin.row} * var(--rh) - 4px)`,
+          // Within its own rows (less a little), so cards on rows next to each other do not overlap.
+          top: `calc(${card.top - origin.row} * var(--rh) + 1px)`,
           left: `calc(${card.left - origin.col - 1} * var(--cw))`,
           width: `calc(${width + 2} * var(--cw))`,
-          height: `calc(${height} * var(--rh) + 8px)`,
+          height: `calc(${height} * var(--rh) - 2px)`,
         }}
       >
         {card.title && <span className="card-title">{card.title}</span>}
@@ -240,6 +246,7 @@ function Window(props: Props & { win: WindowView; origin: Origin }) {
 function Items({ items, origin, binding, locked, onAction, onCursor, view, design }: Props & { items: Item[]; origin: Origin }) {
   const top = origin;
   const cols = view.cols;
+  const component = useComponents();
   return (
     <>
       {items.map((item) => {
@@ -259,7 +266,11 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
               </span>
             );
           case 'field': {
-            const width = Math.min(item.width, cols - item.col + 1);
+            // Drawn by a working component instead (or one still loading).
+            if (item.component && (component(item.component).status === 'ready' || component(item.component).status === 'loading')) return null;
+            // One cell wider: the attribute byte after a field is always blank, and the
+            // box's padding would otherwise hide the last character.
+            const width = Math.min(item.width + 1, cols - item.col + 1);
             return (
               <FieldInput
                 key={key}
@@ -292,6 +303,31 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
             );
           case 'table':
             return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} design={design} />;
+          case 'component': {
+            const selected = design?.selected?.row === item.row && design.selected.col === item.col;
+            return [
+              <ComponentBox
+                key={key}
+                item={item}
+                view={view}
+                binding={binding}
+                design={Boolean(design)}
+                className={designClass(design, home, item.hidden)}
+                style={{ ...at(item.row, item.col, top, item.width), height: `calc(${item.height} * var(--rh))` }}
+                dataAt={atKey(home)}
+              />,
+              selected && (
+                <div
+                  key={`${key}-resize`}
+                  className="resize-handle"
+                  data-resize={atKey(home)}
+                  data-kind="component"
+                  title="Drag to resize"
+                  style={at(item.row + item.height, item.col + item.width, top)}
+                />
+              ),
+            ];
+          }
           case 'html': {
             const selected = design?.selected?.row === item.row && design.selected.col === item.col;
             // Written by the site's designers, who are trusted like the site's own code.
@@ -400,7 +436,7 @@ function Table({ table, origin, binding, locked, onAction, design }: {
 function useDrag(design: Props['design'], rows: number, cols: number) {
   const ref = useRef<HTMLDivElement>(null);
   const state = useRef<{
-    el: HTMLElement; at: Target; mode: 'move' | 'resize'; kind: 'html' | 'card'; x: number; y: number; cw: number; rh: number;
+    el: HTMLElement; at: Target; mode: 'move' | 'resize'; kind: BoxKind; x: number; y: number; cw: number; rh: number;
     size: { width: number; height: number }; style: string; active: boolean; dr: number; dc: number;
   } | null>(null);
   const swallow = useRef(false);
@@ -422,7 +458,7 @@ function useDrag(design: Props['design'], rows: number, cols: number) {
       if (!design || !canvas || e.button !== 0) return;
       const target = e.target as HTMLElement;
       const handle = target.closest<HTMLElement>('[data-resize]');
-      const kind = handle?.dataset.kind === 'card' ? 'card' : 'html';
+      const kind: BoxKind = handle?.dataset.kind === 'card' || handle?.dataset.kind === 'component' ? handle.dataset.kind : 'html';
       let el = handle
         ? canvas.querySelector<HTMLElement>(`[data-${kind}="${handle.dataset.resize}"]`)
         : target.closest<HTMLElement>('[data-at]');
@@ -454,7 +490,7 @@ function useDrag(design: Props['design'], rows: number, cols: number) {
         s.el.style.transform = `translate(${s.dc * s.cw}px, ${s.dr * s.rh}px)`;
       } else {
         // A card's frame is a little larger than its cells (see CardView).
-        const pad = s.kind === 'card' ? { w: 2, h: ' + 8px' } : { w: 0, h: '' };
+        const pad = s.kind === 'card' ? { w: 2, h: ' - 2px' } : { w: 0, h: '' };
         s.el.style.width = `calc(${Math.max(1, s.size.width + s.dc) + pad.w} * var(--cw))`;
         s.el.style.height = `calc(${Math.max(1, s.size.height + s.dr)} * var(--rh)${pad.h})`;
       }

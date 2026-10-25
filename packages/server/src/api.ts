@@ -5,6 +5,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type http from 'node:http';
 import { DefinitionError, ID_PATTERN } from '@veneer/screens';
 import { log, recentProblems } from './log.ts';
+import { listComponents } from './components.ts';
 import type { ScreenInventory } from './inventory.ts';
 import type { SessionManager } from './sessions.ts';
 import type { ScreenStore } from './store.ts';
@@ -23,6 +24,8 @@ export interface ApiOptions {
   adminToken?: string | undefined;
   /** Requests from this machine may use /api/admin without the token. */
   adminLocal?: boolean | undefined;
+  /** Directory of custom components. */
+  componentsDir?: string | undefined;
   /** Server facts for the admin page. */
   info?: (() => Record<string, unknown>) | undefined;
 }
@@ -70,6 +73,10 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   }
   if (pathname === '/api/screens' && req.method === 'GET') {
     return json(res, 200, { version: store.version, screens: store.list(), site: store.site });
+  }
+
+  if (pathname === '/api/components' && req.method === 'GET') {
+    return json(res, 200, { components: listComponents(opts.componentsDir) });
   }
 
   if (pathname === '/api/inventory') {
