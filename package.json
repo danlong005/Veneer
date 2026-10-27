@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "tsc -b packages/server && npm run build -w @veneer/client",
-    "typecheck": "tsc -b packages/server --noEmit",
+    "typecheck": "tsc -b packages/server && tsc -p packages/client --noEmit",
     "test": "npm test --workspaces --if-present",
     "dev": "npm run dev -w @veneer/server",
     "start": "npm start -w @veneer/server",
