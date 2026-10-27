@@ -5,3 +5,6 @@ dist/
 traces/
 release/
 data/
+# This machine's screen definitions and components (the server's default folders)
+/screens/
+/components/
