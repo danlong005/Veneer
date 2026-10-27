@@ -117,8 +117,15 @@ export class Session extends EventEmitter<SessionEvents> {
     return this.telnet.deviceName;
   }
 
+  /**
+   * The screen as the user sees it. Input is inhibited, as on a 5250, until the
+   * host has a Read outstanding: after Cancel Invite (SysReq), or between a
+   * screen and the Read that follows it. A key sent then can be taken as the
+   * reply to the host's next Save Screen, and replayed later as a screen.
+   */
   snapshot(): ScreenSnapshot {
-    return snapshot(this.terminal.screen, this.codepage);
+    const snap = snapshot(this.terminal.screen, this.codepage);
+    return this.terminal.readPending ? snap : { ...snap, keyboardLocked: true };
   }
 
   /** Resolve with the next screen awaiting the user: keyboard unlocked or an error shown. */
@@ -146,7 +153,7 @@ export class Session extends EventEmitter<SessionEvents> {
   submit(input: SubmitInput): void {
     const screen = this.terminal.screen;
     if (screen.error) this.terminal.reset();
-    if (screen.keyboardLocked) throw new ProtocolError('Keyboard is locked');
+    if (screen.keyboardLocked || !this.terminal.readPending) throw new ProtocolError('Keyboard is locked');
     for (const [id, value] of Object.entries(input.fields ?? {})) {
       const field = screen.fields.find((f) => {
         const { row, col } = screen.rowCol(f.start);

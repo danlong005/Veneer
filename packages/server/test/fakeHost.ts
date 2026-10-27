@@ -117,11 +117,13 @@ export class FakeHost {
   private onRecord(socket: net.Socket, rec: Buffer): void {
     this.records.push(rec);
     if (rec[9] === 0x03 && rec[12] === 0xf1) send(socket, MAIN_MENU); // Enter
+    // SysReq: like IBM i, withdraw the pending Read (the System Request menu would follow).
+    if (rec[9] === 0x00 && (rec[7]! & 0x04) !== 0) send(socket, [], 0x0a);
   }
 }
 
-function send(socket: net.Socket, data: number[]): void {
-  const rec = buildRecord(0x03, data);
+function send(socket: net.Socket, data: number[], opcode = 0x03): void {
+  const rec = buildRecord(opcode, data);
   const out: number[] = [];
   for (const b of rec) { out.push(b); if (b === IAC) out.push(IAC); }
   socket.write(Buffer.from([...out, IAC, 0xef]));

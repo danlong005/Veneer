@@ -118,6 +118,20 @@ test('reports protocol errors without closing the socket', async () => {
   await client.closed();
 });
 
+test('keys wait while the host has no Read outstanding (after SysReq)', async () => {
+  const { client } = await signedOn();
+  client.send({ type: 'sysreq' });
+  const screen = await client.next('screen');
+  assert.equal(screen.screen.keyboardLocked, true, 'Cancel Invite inhibits input');
+  const before = host.records.length;
+  client.send({ type: 'submit', aid: 'Enter', fields: { '6:53': 'bob' } });
+  assert.match((await client.next('error')).message, /Keyboard is locked/);
+  await sleep(50);
+  assert.ok(host.records.slice(before).every((r) => r[9] !== 0x03), 'no AID reached the host');
+  client.send({ type: 'disconnect' });
+  await client.closed();
+});
+
 test('resumes a session after the socket drops', async () => {
   const { client, token } = await signedOn();
   const connections = host.connections;

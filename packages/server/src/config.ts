@@ -18,6 +18,8 @@ export interface ServerConfig {
   maxSessions: number;
   /** Name devices PREFIX01, PREFIX02, ...; unset lets IBM i assign QPADEVxxxx. */
   deviceNamePrefix?: string;
+  /** Log every 5250 record (VENEER_TRACE=true), for diagnosing host behaviour. */
+  trace?: boolean;
   /** Allowed browser origins; empty means same-origin only. */
   allowedOrigins: string[];
   /** Directory of client files to serve, if any. */
@@ -73,6 +75,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     resumeGraceMs: int(env, 'VENEER_RESUME_GRACE_SECONDS', 60) * 1000,
     maxSessions: int(env, 'VENEER_MAX_SESSIONS', 100),
     ...(env.VENEER_DEVNAME_PREFIX ? { deviceNamePrefix: env.VENEER_DEVNAME_PREFIX } : {}),
+    trace: env.VENEER_TRACE === 'true',
     allowedOrigins: (env.VENEER_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     ...(staticDir(env) ? { staticDir: staticDir(env)! } : {}),
     screensDir: env.VENEER_SCREENS_DIR || fileURLToPath(new URL('../../../screens', import.meta.url)),

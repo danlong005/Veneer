@@ -37,6 +37,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     resumeGraceMs: config.resumeGraceMs,
     maxSessions: config.maxSessions,
     deviceNamePrefix: config.deviceNamePrefix,
+    trace: config.trace,
   });
   const screens = new ScreenStore(config.screensDir);
   screens.on('changed', (version) => sessions.broadcast({ type: 'screens', version }));

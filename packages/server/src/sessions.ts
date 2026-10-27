@@ -18,6 +18,8 @@ export interface SessionManagerOptions {
   maxSessions: number;
   /** Name devices PREFIX01, PREFIX02, ...; unset lets IBM i assign names. */
   deviceNamePrefix?: string | undefined;
+  /** Log every 5250 record; see traceRecord. */
+  trace?: boolean;
   /** How long a new socket has to send its hello message. */
   helloTimeoutMs?: number;
   /** Records each screen sessions show. */
@@ -129,6 +131,7 @@ export class SessionManager {
     let retries = 0;
     const host: Session = new Session({
       ...this.opts.host,
+      ...(this.opts.trace ? { trace: (dir: 'in' | 'out', rec: Buffer) => traceRecord(bs, dir, rec) } : {}),
       ...(deviceName ? { deviceName, onDeviceNameInUse: (name: string) => this.nextDeviceName(bs, name, ++retries) } : {}),
     });
     const bs: BrowserSession = new BrowserSession(host, deviceName, remote);
@@ -343,4 +346,18 @@ export class SessionManager {
 function rejectSocket(socket: WebSocket, message: string): void {
   socket.send(JSON.stringify({ type: 'error', message } satisfies ServerMessage));
   socket.close(CloseCode.POLICY_VIOLATION, 'Bad hello');
+}
+
+/**
+ * Log a 5250 record in hex. What the browser sends (field values, a password
+ * among them, and the screen in Save Screen replies) stays out: an outbound
+ * record shows only its header and, for an AID, the cursor and AID byte.
+ */
+export function traceRecord(bs: { id: string }, dir: 'in' | 'out', rec: Buffer): void {
+  const header = 6 + (rec[6] ?? 4);
+  const shown = dir === 'in' ? rec : rec.subarray(0, Math.min(rec.length, header + 3));
+  log.info('record', {
+    session: bs.id, dir, length: rec.length, hex: shown.toString('hex'),
+    ...(shown.length < rec.length ? { hidden: rec.length - shown.length } : {}),
+  });
 }
