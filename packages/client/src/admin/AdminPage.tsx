@@ -2,6 +2,7 @@
 // warnings and errors, and server facts. Polls /api/admin/status.
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useBrand } from '../ui/brand.ts';
 import './admin.css';
 
 interface ServerInfo {
@@ -54,6 +55,7 @@ function loadToken(): string {
 }
 
 export function AdminPage() {
+  const brand = useBrand();
   const [token, setToken] = useState(loadToken);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   // Set when the server can't be reached; the last good status stays on screen.
@@ -113,9 +115,9 @@ export function AdminPage() {
   return (
     <div className="app admin">
       <header className="topbar">
-        <img className="brand" src="/veneer-mark.png" alt="Veneer" />
+        {brand ? <img className="brand" src={brand.logo} alt={brand.name} /> : <span className="brand" />}
         <div className="titles">
-          <h1>Veneer admin</h1>
+          <h1>{brand?.name} admin</h1>
           {status && (
             <div className="meta">
               Version {status.server.version} · up {duration(status.server.uptimeSeconds * 1000 + (now - (load.kind === 'ok' ? load.at : now)))}

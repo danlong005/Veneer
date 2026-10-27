@@ -14,6 +14,7 @@ import { serveStatic } from './static.ts';
 import { serveComponent } from './components.ts';
 import { ScreenStore } from './store.ts';
 import { VERSION } from './version.ts';
+import { LOGO_PATH, serveLogo } from './brand.ts';
 
 const HEARTBEAT_MS = 30_000;
 const MAX_MESSAGE_BYTES = 64 * 1024;
@@ -64,11 +65,13 @@ export function createServer(config: ServerConfig): VeneerServer {
     } else if (handleApi(req, res, pathname, {
       store: screens, inventory, sessions, info, componentsDir: config.componentsDir,
       designerToken: config.designerToken, designerLocal: config.designerLocal,
-      adminToken: config.adminToken, adminLocal: config.adminLocal,
+      adminToken: config.adminToken, adminLocal: config.adminLocal, brand: config.brand,
     })) {
       // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405).end();
+    } else if (pathname === LOGO_PATH) {
+      serveLogo(config.brand ?? {}, req, res);
     } else if (pathname.startsWith('/components/')) {
       serveComponent(config.componentsDir, req, res, pathname);
     } else if (config.staticDir) {

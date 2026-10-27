@@ -40,6 +40,9 @@ after(async () => {
   await host.stop();
 });
 
+/** The designer access part of /api/config. */
+const access = ({ designer, tokenRequired }: { designer: boolean; tokenRequired: boolean }) => ({ designer, tokenRequired });
+
 const put = (id: string, body: unknown, token: string | null = TOKEN) => fetch(`http://${base}/api/screens/${id}`, {
   method: 'PUT',
   headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -47,7 +50,7 @@ const put = (id: string, body: unknown, token: string | null = TOKEN) => fetch(`
 });
 
 test('reports whether the designer is enabled; invalid files are skipped', async () => {
-  assert.deepEqual(await (await fetch(`http://${base}/api/config`)).json(), { designer: true, tokenRequired: true });
+  assert.deepEqual(access(await (await fetch(`http://${base}/api/config`)).json()), { designer: true, tokenRequired: true });
   const list = await (await fetch(`http://${base}/api/screens`)).json();
   assert.deepEqual(list.screens, []);
 });
@@ -129,7 +132,7 @@ test('definitions on disk are loaded at startup', async () => {
   const port = (await other.listen()).port;
   const list = await (await fetch(`http://127.0.0.1:${port}/api/screens`)).json();
   assert.equal(list.screens[0].id, 'order-entry');
-  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/api/config`)).json(), { designer: false, tokenRequired: false });
+  assert.deepEqual(access(await (await fetch(`http://127.0.0.1:${port}/api/config`)).json()), { designer: false, tokenRequired: false });
   const res = await fetch(`http://127.0.0.1:${port}/api/screens/order-entry`, { method: 'DELETE', headers: { Authorization: 'Bearer x' } });
   assert.equal(res.status, 403, 'designer disabled without a token');
   await other.close();
@@ -160,7 +163,7 @@ test('local mode: this machine uses the designer without the token', async () =>
   const body = JSON.stringify(definition);
   const json = { 'Content-Type': 'application/json' };
 
-  assert.deepEqual(JSON.parse((await raw(port, 'GET', '/api/config', { Host: host })).body), { designer: true, tokenRequired: false });
+  assert.deepEqual(access(JSON.parse((await raw(port, 'GET', '/api/config', { Host: host })).body)), { designer: true, tokenRequired: false });
   assert.equal((await raw(port, 'PUT', '/api/screens/order-entry', { ...json, Host: host, Origin: `http://${host}` }, body)).status, 200);
   assert.equal((await raw(port, 'PUT', '/api/screens/order-entry', { ...json, Host: `127.0.0.1:${port}` }, body)).status, 200);
 
@@ -168,7 +171,7 @@ test('local mode: this machine uses the designer without the token', async () =>
   assert.equal((await raw(port, 'PUT', '/api/screens/order-entry', { ...json, Host: `evil.example:${port}` }, body)).status, 401);
   assert.equal((await raw(port, 'PUT', '/api/screens/order-entry', { ...json, Host: host, Origin: 'http://evil.example' }, body)).status, 401);
   assert.equal((await raw(port, 'PUT', '/api/screens/order-entry', { ...json, Host: host, 'X-Forwarded-For': '10.1.2.3' }, body)).status, 401);
-  assert.deepEqual(JSON.parse((await raw(port, 'GET', '/api/config', { Host: host, 'X-Forwarded-For': '10.1.2.3' })).body), { designer: true, tokenRequired: true });
+  assert.deepEqual(access(JSON.parse((await raw(port, 'GET', '/api/config', { Host: host, 'X-Forwarded-For': '10.1.2.3' })).body)), { designer: true, tokenRequired: true });
   // The token still works for those.
   assert.equal((await raw(port, 'PUT', '/api/screens/order-entry', { ...json, Host: host, 'X-Forwarded-For': '10.1.2.3', Authorization: `Bearer ${TOKEN}` }, body)).status, 200);
   await local.close();

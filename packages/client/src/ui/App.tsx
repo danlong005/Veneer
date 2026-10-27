@@ -16,6 +16,7 @@ import { DropMenu, ExportMenu, type ExportFormat } from './ExportMenu.tsx';
 import { HelpPopover } from './HelpPopover.tsx';
 import type { FieldBinding } from './fieldInput.tsx';
 import { keyAction, keyHint, typedKey } from './keys.ts';
+import { useBrand } from './brand.ts';
 import { checkFields } from './fieldRules.ts';
 import { ModernScreen, revealField, type BoxKind } from './ModernScreen.tsx';
 import { MAX_TYPEAHEAD, caretAtCursor, caretPosition, replay, type Caret, type ReplayResult, type TypedKey } from './typeahead.ts';
@@ -32,6 +33,7 @@ function loadMode(): Mode {
 
 export function App() {
   const session = useSession();
+  const brand = useBrand();
   const snap = session.screen?.snap ?? null;
   const seq = session.screen?.seq ?? 0;
   const [mode, setMode] = useState<Mode>(loadMode);
@@ -521,9 +523,9 @@ export function App() {
       {mode === 'modern' && screenView?.css && <style>{screenView.css}</style>}
       <div className={`busy-bar${busy ? ' on' : ''}`} aria-hidden />
       <header className="topbar">
-        <img className="brand" src="/veneer-mark.png" alt="Veneer" />
+        {brand ? <img className="brand" src={brand.logo} alt={brand.name} /> : <span className="brand" />}
         <div className="titles">
-          <h1>{(mode === 'modern' && screenView?.title) || 'Veneer'}</h1>
+          <h1>{(mode === 'modern' && screenView?.title) || brand?.name}</h1>
           {mode === 'modern' && screenView && screenView.meta.length > 0 && (
             <div className="meta">
               {screenView.meta.map((m) => {

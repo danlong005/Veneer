@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hostSettingsFromEnv, type HostSettings } from '@veneer/tn5250';
+import { brandFromEnv, type Brand } from './brand.ts';
 import { DeviceNamePool } from './devices.ts';
 
 export interface ServerConfig {
@@ -39,6 +40,8 @@ export interface ServerConfig {
   /** Let browsers on this machine use the admin page without the token (VENEER_ADMIN=local). */
   adminLocal?: boolean;
   log: { level: string; file?: string; maxBytes: number; keep: number };
+  /** Product name, logo and accent colors (VENEER_BRAND_*). */
+  brand?: Brand;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -85,6 +88,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     designerLocal: designer === 'local',
     ...(adminToken ? { adminToken } : {}),
     adminLocal: admin === 'local',
+    brand: brandFromEnv(env),
     log: {
       level: env.VENEER_LOG_LEVEL || 'info',
       ...(env.VENEER_LOG_FILE ? { file: env.VENEER_LOG_FILE } : {}),

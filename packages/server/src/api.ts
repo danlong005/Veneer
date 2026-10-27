@@ -9,6 +9,7 @@ import { listComponents } from './components.ts';
 import type { ScreenInventory } from './inventory.ts';
 import type { SessionManager } from './sessions.ts';
 import type { ScreenStore } from './store.ts';
+import { brandInfo, type Brand } from './brand.ts';
 
 const MAX_BODY = 1024 * 1024;
 
@@ -28,6 +29,7 @@ export interface ApiOptions {
   componentsDir?: string | undefined;
   /** Server facts for the admin page. */
   info?: (() => Record<string, unknown>) | undefined;
+  brand?: Brand | undefined;
 }
 
 /** How a request may use the designer or admin page: freely, with the token, or not at all. */
@@ -69,7 +71,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
 
   if (pathname === '/api/config' && req.method === 'GET') {
     const access = accessFor(req, designerRole(opts));
-    return json(res, 200, { designer: access !== 'off', tokenRequired: access === 'token' });
+    return json(res, 200, { designer: access !== 'off', tokenRequired: access === 'token', brand: brandInfo(opts.brand ?? {}) });
   }
   if (pathname === '/api/screens' && req.method === 'GET') {
     return json(res, 200, { version: store.version, screens: store.list(), site: store.site });

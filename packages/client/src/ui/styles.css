@@ -6,8 +6,12 @@
   --text: #1d232b;
   --text-strong: #0b1017;
   --text-muted: #5c6673;
-  --accent: #2563eb;
-  --accent-soft: #e6eeff;
+  /* Branding (ui/brand.ts) sets --brand-accent and maybe --brand-accent-dark;
+     a screen's CSS can set them too. The tints follow --accent. */
+  --accent: var(--brand-accent, #2563eb);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  /* The accent in dark mode when only --brand-accent is set: lighter, to read on dark backgrounds. */
+  --brand-accent-lifted: color-mix(in oklab, var(--brand-accent) 60%, white);
   --accent-2: #a1349b;
   --danger: #c62828;
   --danger-soft: #fdecec;
@@ -15,9 +19,9 @@
   --warning-soft: #fdf1de;
   --accent2-soft: #f8e8f6;
   --info-soft: #eef2f7;
-  --focus: #2563eb55;
+  --focus: color-mix(in srgb, var(--accent) 33%, transparent);
   --row-alt: #f6f8fb;
-  --row-hover: #eef3fe;
+  --row-hover: color-mix(in srgb, var(--accent) 7%, var(--surface));
   --classic-bg: #0b0f0c;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 4px 16px rgb(16 24 40 / 6%);
 
@@ -38,8 +42,8 @@
     --text: #d9dee5;
     --text-strong: #f5f7fa;
     --text-muted: #8f9aa8;
-    --accent: #6ea0ff;
-    --accent-soft: #1d2a44;
+    --accent: var(--brand-accent-dark, var(--brand-accent-lifted, #6ea0ff));
+    --accent-soft: color-mix(in srgb, var(--accent) 15%, var(--surface));
     --accent-2: #e08ad9;
     --danger: #ff7b7b;
     --danger-soft: #3a1d1f;
@@ -47,9 +51,8 @@
     --warning-soft: #3a2c14;
     --accent2-soft: #3a1d38;
     --info-soft: #1c232d;
-    --focus: #6ea0ff55;
     --row-alt: #1a1f26;
-    --row-hover: #1f2938;
+    --row-hover: color-mix(in srgb, var(--accent) 10%, var(--surface));
     --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 25%);
     color-scheme: dark;
   }
@@ -79,7 +82,8 @@ button, input, select { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 14px;
   padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
 }
-.brand { width: 32px; height: 32px; border-radius: 8px; flex: none; display: block; }
+/* The logo: 32px high, as wide as its shape needs (wide company logos). */
+.brand { height: 32px; width: auto; min-width: 32px; max-width: 180px; object-fit: contain; border-radius: 8px; flex: none; display: block; }
 .titles { min-width: 0; flex: 1; }
 .titles h1 { margin: 0; font-size: 17px; font-weight: 650; color: var(--text-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; display: flex; flex-wrap: wrap; align-items: center; }

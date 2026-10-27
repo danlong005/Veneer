@@ -354,6 +354,24 @@ two examples in `packages/server/dev/components`: `bar-chart.js` (a column of a 
 `star-rating.js` (a one-digit field). Components run with the page's full rights, like
 designers' scripts, so only install code you have reviewed.
 
+## Branding
+
+Server settings put a company's name, logo and color on every page, the admin page included:
+
+| Setting | |
+| --- | --- |
+| `VENEER_BRAND_NAME` | Product name: the header when a screen has no title, and the browser tab |
+| `VENEER_BRAND_LOGO` | Path to a PNG, SVG, JPEG, WebP or GIF (up to 1 MB), shown 32px high in the header and used as the tab icon |
+| `VENEER_BRAND_ACCENT` | Accent color, as hex (`#0a7f5a`): buttons, links, focus rings, highlights |
+| `VENEER_BRAND_ACCENT_DARK` | Optional accent for dark mode; without it, dark mode uses a lighter shade of the accent |
+
+Light and dark mode still follow the browser. Pick an accent that white text reads well on,
+since the main buttons use it as their background. Restart the server after changing these.
+
+A screen definition can use its own accent, for instance a color per application area, by
+setting the same variables in its CSS: `:root { --brand-accent: #8a3ffc; }` (and
+`--brand-accent-dark` if needed). `global.css` can do the same for every page.
+
 ## License
 
 [MIT](LICENSE) © 2026 Daniel Long
