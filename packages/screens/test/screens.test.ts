@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Attr, HostStream, Terminal, buildRecord, getCodepage, snapshot } from '@veneer/tn5250';
-import { hostToIso, isoToHost, matchScreen, validateDefinition, validateSite, type ScreenDefinition } from '../src/index.ts';
+import { hostToIso, isoToHost, matchScreen, validateDefinition, validateSite, validateStyle, type ScreenDefinition } from '../src/index.ts';
 
 const cp = getCodepage(37);
 function screen(build: (s: HostStream) => HostStream) {
@@ -65,7 +65,7 @@ test('rejects bad definitions with a useful path', () => {
 });
 
 test('validates site-wide CSS and JavaScript', () => {
-  assert.deepEqual(validateSite({ css: 'body {}', scripts: { screen: 'x' } }), { css: 'body {}', scripts: { load: '', screen: 'x' } });
+  assert.deepEqual(validateSite({ css: 'body {}', scripts: { screen: 'x' } }), { css: 'body {}', scripts: { load: '', screen: 'x' }, style: { look: 'default' } });
   assert.throws(() => validateSite({ scripts: { unload: 'x' } }), /scripts\.unload/);
   assert.throws(() => validateSite({ css: 1 }), /css: must be a string/);
 });
@@ -119,4 +119,15 @@ test('validates components', () => {
     [{ ...c, height: 0 }, /changes\[0\]\.height/],
   ];
   for (const [change, message] of cases) assert.throws(() => validateDefinition({ ...base, changes: [change] }), message);
+});
+
+test('validates the site style: listed values only, so it cannot inject CSS', () => {
+  assert.deepEqual(validateStyle({}), { look: 'default' });
+  const style = { look: 'flat', accent: '#0A7F5A', corners: 'round', density: 'roomy', font: 'mono' };
+  assert.deepEqual(validateStyle(style), style);
+  assert.throws(() => validateStyle({ look: 'neon' }), /style\.look: must be one of default, compact/);
+  assert.throws(() => validateStyle({ look: 'flat', accent: 'red' }), /style\.accent: must be a hex color/);
+  assert.throws(() => validateStyle({ look: 'flat', accent: '#123; } body { display: none' }), /hex color/);
+  assert.throws(() => validateStyle({ look: 'flat', density: 'huge' }), /style\.density/);
+  assert.throws(() => validateStyle({ look: 'flat', css: 'x' }), /style\.css: is not a style option/);
 });

@@ -517,3 +517,5 @@ kbd {
 .export-pop button { border: 0; background: none; text-align: left; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 13.5px; white-space: nowrap; }
 .export-pop button:hover { background: var(--surface-2); }
 .dialog-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.dp-accent { display: flex; align-items: center; gap: 8px; }
+.dp-row .dp-accent input[type="color"] { width: 44px; height: 30px; padding: 2px; cursor: pointer; }

@@ -2,7 +2,7 @@
 
 import { isWebTemplate, placeholders } from './links.ts';
 import { STYLE_TESTS } from './styles.ts';
-import { DATE_FORMATS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type StyleCondition, type KeyAction, type ScreenEvent, type SiteCustomization, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
+import { CORNERS, DATE_FORMATS, DENSITIES, FONTS, LOOKS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type StyleCondition, type KeyAction, type ScreenEvent, type SiteCustomization, type SiteStyle, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const AID = /^(Enter|Help|PageUp|PageDown|Print|Clear|RecordBackspace|F([1-9]|1\d|2[0-4]))$/;
@@ -274,5 +274,23 @@ export function validateSite(input: unknown): SiteCustomization {
   return {
     css: str(o.css ?? '', 'css', MAX_CSS),
     scripts: { load: str(s.load ?? '', 'scripts.load', MAX_SCRIPT), screen: str(s.screen ?? '', 'scripts.screen', MAX_SCRIPT) },
+    style: validateStyle(o.style ?? { look: 'default' }, 'style'),
   };
+}
+
+/** The site's style (global.style.json). Only listed values pass, so it cannot inject CSS. */
+export function validateStyle(input: unknown, path = 'style'): SiteStyle {
+  const o = obj(input, path);
+  for (const key of Object.keys(o)) {
+    if (!['look', 'accent', 'corners', 'density', 'font'].includes(key)) fail(`${path}.${key.slice(0, 20)}`, 'is not a style option');
+  }
+  const style: SiteStyle = { look: oneOf(o.look ?? 'default', LOOKS, `${path}.look`) };
+  if (o.accent !== undefined) {
+    if (typeof o.accent !== 'string' || !/^#[0-9a-f]{6}$/i.test(o.accent)) fail(`${path}.accent`, 'must be a hex color such as #0a7f5a');
+    style.accent = o.accent;
+  }
+  if (o.corners !== undefined) style.corners = oneOf(o.corners, CORNERS, `${path}.corners`);
+  if (o.density !== undefined) style.density = oneOf(o.density, DENSITIES, `${path}.density`);
+  if (o.font !== undefined) style.font = oneOf(o.font, FONTS, `${path}.font`);
+  return style;
 }

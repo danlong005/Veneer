@@ -9,6 +9,8 @@ import {
 import type { AidName, ScreenSnapshot } from '@veneer/tn5250';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { runScript } from '../custom/runtime.ts';
+import { applyStyle } from '../ui/looks.ts';
+import { StyleSection } from './StyleSection.tsx';
 import { InventoryDialog } from './InventoryDialog.tsx';
 import { StyleRules } from './StyleRules.tsx';
 import { CardsAndTabs } from './CardsAndTabs.tsx';
@@ -153,6 +155,11 @@ export function DesignPanel(props: Props) {
   const [siteDraft, setSiteDraft] = useState(props.site);
   useEffect(() => { setSiteDraft(props.site); }, [props.site]);
   const siteDirty = JSON.stringify(siteDraft) !== JSON.stringify(props.site);
+  // The style shows on the page as it is edited; closing the panel puts back the saved one.
+  const savedStyle = useRef(props.site.style);
+  savedStyle.current = props.site.style;
+  useEffect(() => { applyStyle(siteDraft.style); }, [siteDraft.style]);
+  useEffect(() => () => applyStyle(savedStyle.current), []);
   const saveSite = async () => {
     if (await request('PUT', '/api/site', siteDraft)) {
       const loadChanged = siteDraft.scripts.load !== props.site.scripts.load;
@@ -221,6 +228,7 @@ export function DesignPanel(props: Props) {
       <div className="dp-body" id="dp-tabpanel" role="tabpanel" aria-labelledby={`dp-tab-${tab}`}>
         {tab === 'site' && (
           <>
+          <StyleSection style={siteDraft.style ?? { look: 'default' }} onChange={(style) => setSiteDraft({ ...siteDraft, style })} />
           <section>
             <h3>Site-wide CSS</h3>
             <p className="dp-hint">On every page, for every screen. Saved as global.css.</p>

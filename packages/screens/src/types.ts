@@ -158,8 +158,27 @@ export type ScreenEvent = (typeof SCREEN_EVENTS)[number];
 export const SITE_EVENTS = ['load', 'screen'] as const;
 export type SiteEvent = (typeof SITE_EVENTS)[number];
 
-/** Site-wide CSS and JavaScript (global.css, global.js and global-screen.js). */
+/** Site-wide CSS and JavaScript (global.css, global.js and global-screen.js), and the style. */
 export interface SiteCustomization {
   css: string;
   scripts: Record<SiteEvent, string>;
+  /** Chosen in the designer (global.style.json); missing means the default look. */
+  style?: SiteStyle;
+}
+
+/** Base looks for every page (client ui/looks.css). */
+export const LOOKS = ['default', 'compact', 'flat', 'green', 'soft'] as const;
+export type Look = (typeof LOOKS)[number];
+export const CORNERS = ['square', 'round'] as const;
+export const DENSITIES = ['compact', 'normal', 'roomy'] as const;
+export const FONTS = ['sans', 'mono'] as const;
+
+/** The site's style: a base look, with options that override it. An unset option follows the look. */
+export interface SiteStyle {
+  look: Look;
+  /** Hex color; overrides VENEER_BRAND_ACCENT. */
+  accent?: string;
+  corners?: (typeof CORNERS)[number];
+  density?: (typeof DENSITIES)[number];
+  font?: (typeof FONTS)[number];
 }

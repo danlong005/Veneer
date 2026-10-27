@@ -255,6 +255,23 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
 - **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2),
   and serves the example components, ready to place from the designer.
 
+### Site style
+
+The designer's **Site-wide** tab starts with **Style**: a base look for every page, and
+options that override it. The page shows changes as they are made; **Save site** applies them
+for every user (saved as `global.style.json`, beside `global.css`).
+
+| | |
+| --- | --- |
+| Look | **Default**, **Compact** (dense, for power users), **Flat** (accent-colored header, square corners, no shadows), **Green screen** (the 5250 palette, always dark), **Soft** (larger, rounded, a floating key bar) |
+| Accent | A color for buttons, links and highlights; overrides `VENEER_BRAND_ACCENT` |
+| Corners | From the look, square or round |
+| Density | From the look, compact, normal or roomy rows |
+| Font | From the look, sans-serif or monospace |
+
+Only these values are accepted, so a style file cannot inject CSS. For anything else, use
+`global.css`.
+
 ### Custom HTML, CSS and JavaScript
 
 Designers can add their own code where the built-in changes aren't enough:
@@ -370,7 +387,8 @@ since the main buttons use it as their background. Restart the server after chan
 
 A screen definition can use its own accent, for instance a color per application area, by
 setting the same variables in its CSS: `:root { --brand-accent: #8a3ffc; }` (and
-`--brand-accent-dark` if needed). `global.css` can do the same for every page.
+`--brand-accent-dark` if needed). `global.css` can do the same for every page. An accent
+chosen in the designer's **Style** section overrides `VENEER_BRAND_ACCENT`.
 
 ## License
 

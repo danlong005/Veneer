@@ -18,6 +18,7 @@ import type { FieldBinding } from './fieldInput.tsx';
 import { keyAction, keyHint, typedKey } from './keys.ts';
 import { useBrand } from './brand.ts';
 import { checkFields } from './fieldRules.ts';
+import { applyStyle } from './looks.ts';
 import { ModernScreen, revealField, type BoxKind } from './ModernScreen.tsx';
 import { MAX_TYPEAHEAD, caretAtCursor, caretPosition, replay, type Caret, type ReplayResult, type TypedKey } from './typeahead.ts';
 import { useScreens } from './useScreens.ts';
@@ -38,6 +39,8 @@ export function App() {
   const seq = session.screen?.seq ?? 0;
   const [mode, setMode] = useState<Mode>(loadMode);
   const screens = useScreens(session.screensVersion);
+  // The site's style; the designer previews its draft while the panel is open.
+  useEffect(() => { applyStyle(screens.site?.style); }, [screens.site]);
   const definition = useMemo(() => (snap ? matchScreen(snap, screens.screens) : undefined), [snap, screens.screens]);
 
   // Designer: a draft definition previewed live in place of the matched one.
