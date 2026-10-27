@@ -22,6 +22,8 @@ export interface SessionApi {
 }
 
 const TOKEN_KEY = 'veneer.resumeToken';
+/** In the page URL, starts a new session instead of resuming (ui/App.tsx openSession). */
+export const NEW_SESSION = 'new-session';
 /** Close codes after which reconnecting would not help. */
 const FINAL_CODES = new Set([1000, 1008, 4001, 4002, 4003, 4004, 4005]);
 const MAX_RETRIES = 8;
@@ -95,7 +97,10 @@ export function useSession(): SessionApi {
   }, []);
 
   useEffect(() => {
-    connect(true);
+    // A tab opened for a new session may have copied this tab's resume token.
+    const fresh = new URLSearchParams(location.search).has(NEW_SESSION);
+    if (fresh) history.replaceState(history.state, '', location.pathname + location.hash);
+    connect(!fresh);
     return () => {
       window.clearTimeout(retryTimer.current);
       const ws = wsRef.current;

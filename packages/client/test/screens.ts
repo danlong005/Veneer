@@ -121,3 +121,8 @@ export const orderEntry = () => render((s) => s
   .text(5, 3, 'State').field(5, 20, 2, { ffw: 0x4027 })           // monocase, mandatory fill
   .text(6, 3, 'Quantity').field(6, 20, 5, { ffw: 0x4706 })        // signed numeric, blank fill
   .text(7, 3, 'Item code').field(7, 20, 3, { ffw: 0x4580 }));      // digits only, auto-enter
+
+/** The System Request line the host shows after SysReq. */
+export const sysreqPrompt = () => render((s) => s
+  .text(1, 33, 'IBM i Main Menu', WHITE)
+  .field(24, 2, 78));

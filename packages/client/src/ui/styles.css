@@ -507,3 +507,9 @@ kbd {
   .app.designing .stage { margin-right: 0; padding-bottom: 58vh; }
   .app.designing .keybar { display: none; }
 }
+
+/* System menu: drops down from the header. */
+.export-pop.down { bottom: auto; top: calc(100% + 6px); }
+.export-pop button { border: 0; background: none; text-align: left; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 13.5px; white-space: nowrap; }
+.export-pop button:hover { background: var(--surface-2); }
+.dialog-actions { display: flex; gap: 8px; flex-wrap: wrap; }

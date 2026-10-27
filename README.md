@@ -132,6 +132,14 @@ the host (F12, then F3 if needed), and what you had typed is still there. If the
 help for the screen, its message shows as usual. In the classic view, Help shows the host's
 help screens as they are.
 
+## Several sessions and System Request
+
+Each browser tab is its own session, and a reload resumes the tab's session. **System ▸
+New session** in the header opens another one in a new tab. The **System** menu also sends
+**System Request**, **Attention**, and **Transfer to secondary job**: SysReq, then option 1 on
+the System Request line or menu, once it appears (other screens the host shows first, such
+as Display Program Messages, are passed over).
+
 ## Field handling
 
 The browser applies the same field rules as a 5250 terminal:

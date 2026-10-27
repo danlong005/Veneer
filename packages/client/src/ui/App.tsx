@@ -12,7 +12,7 @@ import { customize } from '../transform/customize.ts';
 import { transform } from '../transform/index.ts';
 import type { Action, FunctionKey, ScreenView } from '../transform/types.ts';
 import { ClassicScreen } from './ClassicScreen.tsx';
-import { ExportMenu, type ExportFormat } from './ExportMenu.tsx';
+import { DropMenu, ExportMenu, type ExportFormat } from './ExportMenu.tsx';
 import { HelpPopover } from './HelpPopover.tsx';
 import type { FieldBinding } from './fieldInput.tsx';
 import { keyAction, keyHint, typedKey } from './keys.ts';
@@ -20,7 +20,8 @@ import { checkFields } from './fieldRules.ts';
 import { ModernScreen, revealField, type BoxKind } from './ModernScreen.tsx';
 import { MAX_TYPEAHEAD, caretAtCursor, caretPosition, replay, type Caret, type ReplayResult, type TypedKey } from './typeahead.ts';
 import { useScreens } from './useScreens.ts';
-import { useSession } from './useSession.ts';
+import { sysreqField } from './sysreq.ts';
+import { NEW_SESSION, useSession } from './useSession.ts';
 
 type Mode = 'modern' | 'classic';
 const MODE_KEY = 'veneer.mode';
@@ -162,6 +163,7 @@ export function App() {
     }
     awaitingNow.current = true;
     setAwaitingSeq(seq);
+    transferring.current = null;
     session.send({ type: 'submit', aid, fields, cursor });
   }, [snap, seq, session]);
 
@@ -231,6 +233,8 @@ export function App() {
   // drawn until help closes. What the user typed goes with the Help key, so the
   // host keeps it; it is put back here too, for hosts that redraw the screen.
   const lastField = useRef<Caret | null>(null);
+  // The screen SysReq was pressed on, while a transfer waits for the menu.
+  const transferring = useRef<string | null>(null);
   const helping = useRef<{ reader: HelpReader; edits: Record<string, string>; caret: Caret | null } | null>(null);
   const [help, setHelp] = useState<{ snap: ScreenSnapshot; view: ScreenView; page: HelpPage | null; anchor: string | undefined } | null>(null);
   const helpStep = (step: HelpStep, from: ScreenSnapshot) => {
@@ -271,6 +275,16 @@ export function App() {
     if (step && snap) helpStep(step, snap);
   };
   helpKeys.current = { more: helpMore, close: helpClose };
+
+  // System Request: the SysReq key, or SysReq then "1" on the System Request
+  // line or menu to transfer to the secondary job (signing on to it the first
+  // time). The host may show other screens first (Display Program Messages);
+  // any key sent before the menu comes cancels the transfer.
+  const systemRequest = (transfer: boolean) => {
+    if (!connected || exporting.current || helping.current) return;
+    transferring.current = transfer && snap ? screenId(snap) : null;
+    session.send({ type: 'sysreq' });
+  };
 
   // Custom JavaScript (custom/runtime.ts) reads and types into fields and presses keys.
   const sheet = useRef<HTMLFormElement>(null);
@@ -362,6 +376,7 @@ export function App() {
     }
     if (snap.error) {
       // As on a 5250, an error discards anything typed ahead.
+      transferring.current = null;
       queue.current = [];
       setQueued(0);
       awaitingNow.current = false;
@@ -371,6 +386,16 @@ export function App() {
     }
     if (snap.keyboardLocked) return;
     lastField.current = null;
+    if (transferring.current && snap.fields.some((f) => !f.bypass) && screenId(snap) !== transferring.current) {
+      transferring.current = null;
+      const field = sysreqField(snap);
+      if (field) {
+        awaitingNow.current = false;
+        setAwaitingSeq(null);
+        sendAid('Enter', { [field.id]: '1' }, { row: field.row, col: field.col });
+        return;
+      }
+    }
     // Any newer unlocked screen answers the AID we were waiting on.
     awaitingNow.current = false;
     setNotice(null);
@@ -533,6 +558,14 @@ export function App() {
               {mode === 'modern' ? 'Classic view' : 'Modern view'}
             </button>
           )}
+          {session.state !== 'closed' && !designing && (
+            <DropMenu label="System" title="System Request and Attention keys" disabled={!connected || Boolean(help)} items={[
+              { label: 'System Request', title: 'The 5250 SysReq key', onPick: () => systemRequest(false) },
+              { label: 'Transfer to secondary job', title: 'SysReq, option 1', onPick: () => systemRequest(true) },
+              { label: 'Attention', title: 'The 5250 Attn key', onPick: () => session.send({ type: 'attn' }) },
+              { label: 'New session', title: 'Another session, in a new browser tab', onPick: openSession },
+            ]} />
+          )}
           {session.state !== 'closed' && (
             <button type="button" className="ghost" onClick={session.disconnect}>Disconnect</button>
           )}
@@ -648,12 +681,20 @@ export function App() {
           <div className="dialog">
             <h2 id="closed-title">Session ended</h2>
             <p>{session.closedReason ?? 'The connection to the IBM i was closed.'}</p>
-            <button type="button" className="primary" autoFocus onClick={session.newSession}>Start a new session</button>
+            <div className="dialog-actions">
+              <button type="button" className="primary" autoFocus onClick={session.newSession}>Start a new session</button>
+              <button type="button" className="ghost" onClick={openSession}>New session in a new tab</button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
+}
+
+/** Another session: Veneer in a new browser tab, which starts its own. */
+function openSession() {
+  window.open(`${location.pathname}?${NEW_SESSION}`, '_blank', 'noopener');
 }
 
 function statusText(state: string, busy: boolean): string {

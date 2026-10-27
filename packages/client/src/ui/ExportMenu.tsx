@@ -1,10 +1,19 @@
-// The keybar's Export button: pick Excel or CSV for the list on screen.
+// Small drop-down menus: the keybar's Export button (Excel or CSV for the list
+// on screen) and the header's System menu (SysReq, Attn).
 
 import { useEffect, useRef, useState } from 'react';
 
 export type ExportFormat = 'xlsx' | 'csv';
 
-export function ExportMenu({ disabled, onExport }: { disabled: boolean; onExport: (format: ExportFormat) => void }) {
+export interface MenuItem {
+  label: string;
+  title?: string;
+  onPick: () => void;
+}
+
+export function DropMenu({ label, title, disabled, up, items }: {
+  label: string; title: string; disabled: boolean; up?: boolean; items: MenuItem[];
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -19,22 +28,30 @@ export function ExportMenu({ disabled, onExport }: { disabled: boolean; onExport
       document.removeEventListener('keydown', close, true);
     };
   }, [open]);
-  const pick = (format: ExportFormat) => {
-    setOpen(false);
-    onExport(format);
-  };
   return (
     <div className="export-menu" ref={ref}>
-      <button type="button" disabled={disabled} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}
-        title="Download every page of this list">
-        Export ▾
+      <button type="button" className={up ? undefined : 'ghost'} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
+        onClick={() => setOpen(!open)} title={title}>
+        {label} ▾
       </button>
       {open && (
-        <div className="export-pop" role="menu">
-          <button type="button" role="menuitem" onClick={() => pick('xlsx')}>Excel (.xlsx)</button>
-          <button type="button" role="menuitem" onClick={() => pick('csv')}>CSV</button>
+        <div className={`export-pop${up ? '' : ' down'}`} role="menu">
+          {items.map((item) => (
+            <button key={item.label} type="button" role="menuitem" title={item.title} onClick={() => { setOpen(false); item.onPick(); }}>
+              {item.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+export function ExportMenu({ disabled, onExport }: { disabled: boolean; onExport: (format: ExportFormat) => void }) {
+  return (
+    <DropMenu label="Export" title="Download every page of this list" disabled={disabled} up items={[
+      { label: 'Excel (.xlsx)', onPick: () => onExport('xlsx') },
+      { label: 'CSV', onPick: () => onExport('csv') },
+    ]} />
   );
 }
