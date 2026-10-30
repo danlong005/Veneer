@@ -15,6 +15,7 @@ import { InventoryDialog } from './InventoryDialog.tsx';
 import { StyleRules } from './StyleRules.tsx';
 import { CardsAndTabs } from './CardsAndTabs.tsx';
 import { ChangesList } from './ChangesList.tsx';
+import { labelAt } from './names.ts';
 import { Section, SectionContext, SectionGroup, useSectionState } from './Section.tsx';
 import { ComponentEditor, ComponentsSection, componentForFieldChange } from './Components.tsx';
 import type { ScreenView } from '../transform/types.ts';
@@ -382,7 +383,7 @@ export function DesignPanel(props: Props) {
             </p>
           </Section>
 
-          <ChangesList draft={draft} setDraft={setDraft} snap={snap} onSelect={props.onSelect} />
+          <ChangesList draft={draft} setDraft={setDraft} view={props.view} snap={snap} onSelect={props.onSelect} />
 
           <Section title="Buttons" count={buttons.length}>
             {buttons.map((b, i) => (
@@ -475,7 +476,7 @@ export function DesignPanel(props: Props) {
           <section>
             <h3>Selected</h3>
             {selection && selection.kind !== 'empty' && <p className="dp-hint">Changes here are part of this page's customization.</p>}
-            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} cols={snap.cols} onSelect={props.onSelect} components={props.components} /> : (
+            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} name={labelAt(props.view, snap, selection.at, { shown: true })} cols={snap.cols} onSelect={props.onSelect} components={props.components} /> : (
               <p className="dp-hint">Click any text, field or table on the screen, or an empty spot to add HTML.</p>
             )}
             {selection && selection.kind !== 'empty' && selection.item && !(selection.kind === 'item' && selection.header) && (() => {
@@ -537,8 +538,10 @@ export function DesignPanel(props: Props) {
   );
 }
 
-function SelectionEditor({ draft, setDraft, selection, cols, onSelect, components }: {
+function SelectionEditor({ draft, setDraft, selection, name, cols, onSelect, components }: {
   draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; selection: Selection; cols: number; onSelect: (at: Target) => void;
+  /** What people would call the selection, such as a field's label (names.ts). */
+  name: string | undefined;
   components: string[];
 }) {
   const at = selection.at;
@@ -586,7 +589,10 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect, component
     };
     return (
       <>
-        <p className="dp-desc">Input field <code>{f.id}</code>, {f.length} character{f.length === 1 ? '' : 's'}{f.value ? ` (now “${f.value}”)` : ''}</p>
+        <p className="dp-desc">
+          {name ? <><strong>{name}</strong>, input field</> : 'Input field'}, {f.length} character{f.length === 1 ? '' : 's'}
+          {f.value ? ` (now “${f.value}”)` : ''} <code>{f.id}</code>
+        </p>
         {hideToggle}
         {!selection.item && <p className="dp-hint">Part of a table: drag the table to move it.</p>}
         {selection.item && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />}
@@ -605,11 +611,14 @@ function SelectionEditor({ draft, setDraft, selection, cols, onSelect, component
   }
 
   const item = selection.item;
-  const kind = item.kind === 'text' ? 'Text' : item.kind === 'link' ? 'Menu link' : item.kind === 'table' ? 'Table' : 'Field';
+  const kind = selection.header ? 'page header text' : item.kind === 'text' ? 'text' : item.kind === 'link' ? 'menu option' : item.kind === 'table' ? 'list' : 'field';
   const original = item.kind === 'text' || item.kind === 'link' ? item.text : '';
   return (
     <>
-      <p className="dp-desc">{selection.header ? 'Page header text' : kind} at <code>{at.row},{at.col}</code>{original ? `: “${original}”` : ''}</p>
+      <p className="dp-desc">
+        {/* A list's name already says it is a list. */}
+        {name ? <><strong>{name}</strong>{item.kind === 'table' ? '' : `, ${kind}`}</> : kind[0]!.toUpperCase() + kind.slice(1)} <code>{at.row},{at.col}</code>
+      </p>
       {hideToggle}
       {!selection.header && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />}
       {(item.kind === 'text' || item.kind === 'link') && (

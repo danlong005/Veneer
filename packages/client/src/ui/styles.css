@@ -499,6 +499,7 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .dp-ok { margin: 0; color: #1f8a5b; font-weight: 600; }
 .dp-warn { margin: 0; color: var(--danger); font-weight: 600; }
 .dp-hint, .dp-desc { margin: 0; color: var(--text-muted); }
+.dp-desc strong { color: var(--text-strong); font-weight: 600; }
 .dp-button { display: grid; grid-template-columns: minmax(0, 1fr) 108px auto; gap: 6px; align-items: center; }
 .dp-card, .dp-tab { display: grid; gap: 6px; align-items: end; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .dp-card { grid-template-columns: minmax(0, 1fr) auto; }

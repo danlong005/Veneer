@@ -4,12 +4,15 @@
 
 import type { ScreenDefinition, Target } from '@veneer/screens';
 import type { ScreenSnapshot } from '@veneer/tn5250';
+import type { ScreenView } from '../transform/types.ts';
 import { describeChange } from './changes.ts';
 import { Section } from './Section.tsx';
 
-export function ChangesList({ draft, setDraft, snap, onSelect }: {
+export function ChangesList({ draft, setDraft, view, snap, onSelect }: {
   draft: ScreenDefinition;
   setDraft: (d: ScreenDefinition) => void;
+  /** The screen as transformed, to name fields by their labels. */
+  view: ScreenView;
   snap: ScreenSnapshot;
   onSelect: (at: Target) => void;
 }) {
@@ -20,7 +23,7 @@ export function ChangesList({ draft, setDraft, snap, onSelect }: {
       {changes.length === 0 ? <p className="dp-hint">Nothing changed yet.</p> : (
         <ul className="dp-list dp-changes">
           {changes.map((change, i) => {
-            const line = describeChange(change, snap);
+            const line = describeChange(change, view, snap);
             const at = line.at;
             return (
               <li key={i}>
