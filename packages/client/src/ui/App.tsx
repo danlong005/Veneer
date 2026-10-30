@@ -7,6 +7,7 @@ import { HelpReader, type HelpPage, type HelpStep } from '../help/help.ts';
 import { toCsv, toXlsx } from '../export/sheet.ts';
 import { connectHost, notifyScreen, runScript, runSiteScript, screenInfo, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
+import { record, redo, startHistory, undo, type History } from '../designer/history.ts';
 import { cardsOf, componentAt, htmlAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
 import { transform } from '../transform/index.ts';
@@ -43,8 +44,12 @@ export function App() {
   useEffect(() => { applyStyle(screens.site?.style); }, [screens.site]);
   const definition = useMemo(() => (snap ? matchScreen(snap, screens.screens) : undefined), [snap, screens.screens]);
 
-  // Designer: a draft definition previewed live in place of the matched one.
-  const [draft, setDraft] = useState<ScreenDefinition | null>(null);
+  // Designer: a draft definition previewed live in place of the matched one,
+  // with undo history. resetDraft starts over, without a step to undo.
+  const [history, setHistory] = useState<History<ScreenDefinition | null>>(() => startHistory(null));
+  const draft = history.present;
+  const setDraft = useCallback((def: ScreenDefinition) => setHistory((h) => record(h, def, Date.now())), []);
+  const resetDraft = (def: ScreenDefinition | null) => setHistory(startHistory(def));
   const [draftExisting, setDraftExisting] = useState(false);
   const [selectedAt, setSelectedAt] = useState<Target | null>(null);
   const designing = draft !== null;
@@ -64,7 +69,7 @@ export function App() {
 
   const startDesign = () => {
     if (!snap || !baseView) return;
-    setDraft(definition ? structuredClone(definition) : newDefinition(snap, baseView));
+    resetDraft(definition ? structuredClone(definition) : newDefinition(snap, baseView));
     setDraftExisting(Boolean(definition));
     setSelectedAt(null);
     setMode('modern');
@@ -75,7 +80,7 @@ export function App() {
   };
   const stopDesign = () => {
     if (!confirmDiscard()) return;
-    setDraft(null);
+    resetDraft(null);
     setSelectedAt(null);
   };
   // Dragging and arrow keys in the designer. HTML boxes change their own
@@ -131,7 +136,7 @@ export function App() {
   };
   const pickDefinition = (def: ScreenDefinition | null) => {
     if (!snap || !baseView || !confirmDiscard()) return;
-    setDraft(def ? structuredClone(def) : newDefinition(snap, baseView));
+    resetDraft(def ? structuredClone(def) : newDefinition(snap, baseView));
     setDraftExisting(def !== null);
   };
 
@@ -652,6 +657,10 @@ export function App() {
           view={screenView}
           draft={draft}
           setDraft={setDraft}
+          canUndo={history.past.length > 0}
+          canRedo={history.future.length > 0}
+          onUndo={() => setHistory(undo)}
+          onRedo={() => setHistory(redo)}
           saved={savedDraft}
           existing={draftExisting}
           selection={selection}

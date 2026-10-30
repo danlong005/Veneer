@@ -352,6 +352,8 @@ kbd {
 .dialog .primary { border-radius: 8px; padding: 9px 16px; cursor: pointer; }
 .dialog .ghost { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
 .dp-head-actions { display: flex; gap: 6px; }
+button.dp-undo { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; padding: 3px 6px; }
+.dp-undo:disabled { opacity: 0.35; }
 
 /* The screen inventory. */
 .dialog.wide { width: min(980px, 100%); max-height: min(86vh, 900px); display: flex; flex-direction: column; gap: 12px; }

@@ -63,6 +63,11 @@ interface Props {
   view: ScreenView;
   draft: ScreenDefinition;
   setDraft: (def: ScreenDefinition) => void;
+  /** Undo history of the draft (Page and Selected tabs; not the site). */
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
   /** The saved version of this definition, if it exists on the server. */
   saved: ScreenDefinition | undefined;
   /** True while editing a definition that already existed when design mode began. */
@@ -92,6 +97,15 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'page', label: 'Page' },
   { id: 'selected', label: 'Selected' },
 ];
+
+/** A curved arrow back (undo) or, mirrored, forward (redo). */
+function UndoIcon({ redo = false }: { redo?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style={redo ? { transform: 'scaleX(-1)' } : undefined}>
+      <path d="M5.5 3 2 6.5 5.5 10M2.5 6.5h7a4 4 0 0 1 0 8H7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 /** "3 lines" for code that has some, for a closed section's header. */
 function lineCount(code: string | undefined): string | undefined {
@@ -199,6 +213,25 @@ export function DesignPanel(props: Props) {
   const [tab, setTab] = useState<Tab>('page');
   useEffect(() => { if (props.clickedAt) setTab('selected'); }, [props.clickedAt]);
 
+  // Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y) undo and redo page changes. In a text
+  // box they are left to the browser, which undoes the typing there.
+  const undoKeys = useRef({ onUndo: props.onUndo, onRedo: props.onRedo, site: tab === 'site' });
+  undoKeys.current = { onUndo: props.onUndo, onRedo: props.onRedo, site: tab === 'site' };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      const redoKey = (key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey);
+      if (!redoKey && !(key === 'z' && !e.shiftKey)) return;
+      const k = undoKeys.current;
+      if (k.site || (e.target as HTMLElement).closest?.('input, textarea, [contenteditable]') || document.querySelector('.overlay')) return;
+      e.preventDefault();
+      if (redoKey) k.onRedo(); else k.onUndo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // Open and closed Page sections; picking another customization or screen starts over.
   const sections = useSectionState(`${saved?.id ?? ''}|${print.id}`);
 
@@ -212,6 +245,12 @@ export function DesignPanel(props: Props) {
       <header className="dp-head">
         <h2>Design</h2>
         <div className="dp-head-actions">
+          {tab !== 'site' && (
+            <>
+              <button type="button" className="ghost dp-undo" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!props.canUndo} onClick={props.onUndo}><UndoIcon /></button>
+              <button type="button" className="ghost dp-undo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={!props.canRedo} onClick={props.onRedo}><UndoIcon redo /></button>
+            </>
+          )}
           <button type="button" className="ghost" onClick={() => setInventory(true)} title="Every screen Veneer has shown">Screens</button>
           <button type="button" className="ghost" onClick={props.onClose}>Done</button>
         </div>
