@@ -5,7 +5,18 @@
 # Veneer
 
 Veneer renders IBM i 5250 green-screen applications as modern web pages without
-changing host code. It runs on the IBM i (PASE) or on any other machine with Node.js 20+.
+changing host code.
+
+**Where it runs:** on the IBM i itself, installed in the IFS and run in PASE as a service
+(Service Commander or `SBMJOB`), or off the IBM i on any machine with Node.js 20.12 or
+later: Linux with systemd, Docker, or a developer's PC. Either way it reaches the IBM i
+over telnet; no libraries or programs are added to QSYS. See [deploy/README.md](deploy/README.md).
+
+**Security:** Veneer can be secured end to end, on or off the IBM i. It connects to the
+IBM i over TLS with the certificate checked, serves browsers over HTTPS, runs as a
+low-authority service user, and locks the designer and admin page behind tokens.
+[Securing Veneer](deploy/README.md#securing-veneer) is the checklist for a production
+install.
 
 ## Packages
 

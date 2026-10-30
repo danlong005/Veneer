@@ -1,7 +1,8 @@
 # Deploying Veneer
 
-Veneer ships as a self-contained archive, `veneer-<version>.tar.gz`, or as a Docker image
-(see [Docker](#docker)). The archive holds the compiled server, the browser client and the
+Veneer runs either on the IBM i, installed in the IFS and run in PASE, or off it, on Linux
+or in Docker, connecting to the IBM i over the network. It ships as a self-contained
+archive, `veneer-<version>.tar.gz`, or as a Docker image (see [Docker](#docker)). The archive holds the compiled server, the browser client and the
 production dependencies, so the target needs only **Node.js 20.12 or later**: no compiler,
 no `npm install`, and no internet access. Build it on a development machine:
 
@@ -40,6 +41,46 @@ After starting, check the server:
 ```sh
 curl http://127.0.0.1:8080/healthz    # {"status":"ok","version":"0.1.0",...}
 ```
+
+## Securing Veneer
+
+Users type their IBM i passwords into Veneer, so treat it like any other sign-on server.
+Veneer has no IBM i authority of its own: each browser tab is a telnet session, and users
+sign on with their own profiles, as in any emulator. The same checklist applies whether
+Veneer runs on the IBM i, from the IFS, or off it on Linux or in Docker. A secure install
+does all of these:
+
+- [ ] **Encrypt the IBM i connection.** `VENEER_TLS=true` and `VENEER_PORT=992` (the
+  defaults), with the certificate checked: leave `VENEER_TLS_REJECT_UNAUTHORIZED` on, and
+  set `VENEER_TLS_CA` for a certificate from the IBM i's own CA. Plain telnet is fine only
+  when Veneer runs on the IBM i and connects to `localhost`. See
+  [Veneer to the IBM i](#veneer-to-the-ibm-i).
+- [ ] **Encrypt the browser connection.** Set `VENEER_HTTPS_CERT` and `VENEER_HTTPS_KEY`,
+  or put a reverse proxy that handles HTTPS in front. See
+  [Browsers to Veneer](#browsers-to-veneer).
+- [ ] **Listen only where needed.** The default `VENEER_LISTEN_HOST=127.0.0.1` accepts
+  connections from the server itself (and SSH tunnels) only. Use `0.0.0.0` only with
+  HTTPS on, and use a firewall to limit who can reach the port.
+- [ ] **Run as a service user with little authority.** On IBM i, the `VENEER` profile
+  (`PASSWORD(*NONE)`, `USRCLS(*USER)`); on Linux, the `veneer` system user; in Docker, the
+  image's `node` user. The program stays owned by an administrator, so the service can't
+  change it.
+- [ ] **Keep secrets readable only by the service.** The config file may hold tokens, and
+  the HTTPS key file must not be readable by anyone else (`chmod 600`, owned by the service
+  user). `veneer.sh` sets umask 027, so files Veneer creates aren't world-readable.
+- [ ] **Lock down the designer and the admin page.** Leave `VENEER_DESIGNER` and
+  `VENEER_ADMIN` unset, or `local`, unless people elsewhere need them. Then give them
+  separate tokens of 12 characters or more. Designer code runs in every user's page and can
+  read what they type, passwords included, so only trusted people should get that token.
+- [ ] **Allow only your own pages.** Browsers from other sites can't connect unless their
+  origin is in `VENEER_ALLOWED_ORIGINS`; leave it blank unless another site of yours embeds
+  Veneer.
+- [ ] **End idle sessions.** `VENEER_IDLE_TIMEOUT_MINUTES` (default 30) ends sessions left
+  open, and `VENEER_MAX_SESSIONS` (default 100) caps how many devices Veneer can use.
+
+Logs record who signed on (the IBM i user name) but never passwords or other field values.
+`VENEER_TRACE=true` logs host records for diagnosis, but shows only the key and cursor of
+what browsers send, never field values.
 
 ## TLS and HTTPS
 
