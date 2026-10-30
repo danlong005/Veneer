@@ -1,7 +1,7 @@
 # Testing Veneer on IBM i (issue #1)
 
-Issue #1 is built and verified on Linux, and Parts A and B below have both passed on a
-real IBM i. Use this file to repeat the test on another system or a new release.
+Issue #1 is built and verified on Linux, and Parts A, B and C below have passed on a real
+IBM i. Use this file to repeat the test on another system or a new release.
 
 - **Archive:** `release/veneer-0.1.0.tar.gz`. Rebuild with `npm run package` if the code
   has changed since.
@@ -29,6 +29,18 @@ real IBM i. Use this file to repeat the test on another system or a new release.
     `ENDJOB *CNTRLD`.
   - `sc start veneer`, `sc check veneer`, and `sc stop veneer` with a session open: the
     browser shows "Server shutting down" and the job ends with end code 10.
+- **Verified on IBM i, Part C** (same system, a DCM certificate `CN=DLONG` from a local CA):
+  - Telnet over TLS on 992 (TLS 1.3) after assigning the certificate to
+    `QIBM_QTV_TELNET_SERVER`.
+  - Veneer on the IBM i connecting to itself as `DLONG:992` with `VENEER_TLS_CA`: sign-on
+    works.
+  - Veneer on a PC connecting through an SSH tunnel as `DLONG:9992`: sign-on works.
+  - Without `VENEER_TLS_CA`, `host connect failed` with `self-signed certificate in
+    certificate chain`; with `VENEER_HOST=localhost`, `Hostname/IP does not match
+    certificate's altnames: Host: localhost. is not cert's CN: DLONG`.
+  - HTTPS from the same certificate: DCM's PKCS #12 export (an EC key) converted with the
+    `openssl pkcs12` commands in deploy/README.md, then `https://DLONG:18080` through the
+    SSH tunnel: sign-on works over WSS.
 - **Found on IBM i and fixed:**
   - PASE `sed` has no `-i`. Step 6 now avoids it.
   - A failed batch start looks like a normal end (end code 0, no job log). The error is in
@@ -163,29 +175,41 @@ Follow [deploy/README.md](../README.md):
 
 With Service Commander, `sc info veneer` shows how it read `veneer.yaml` and warns about
 unknown keys. If `sc start` times out, `sc -v start veneer` shows the `SBMJOB` it ran and
-any error from it.
+any error from it. If `sc` itself crashes with a Java dump, that is Java on the system, not
+Veneer; the `SBMJOB` above starts Veneer the same way.
 
 - [ ] Files Veneer creates (`veneer.log`, `inventory.json`, saved screens) are
   `rw-r-----`, not writable by everyone.
 
 ## Part C: TLS with the IBM i's own certificate
 
-Not tested yet. pub400's certificate comes from a public authority, so `VENEER_TLS_CA` has
-only been tried against a throwaway certificate on Linux. This part uses a certificate made
-in Digital Certificate Manager (DCM). See "TLS and HTTPS" in
+All four steps passed (see the top of this file). This part uses a certificate made in Digital
+Certificate Manager (DCM). See "TLS and HTTPS" in
 [deploy/README.md](../README.md#tls-and-https).
 
 **1. Telnet over TLS on the IBM i.**
 
 - [ ] In DCM, the certificate is assigned to `QIBM_QTV_TELNET_SERVER`, and `CHGTELNA
-  ALWSSL(*YES)` is set. Restarting telnet ends active telnet sessions.
+  ALWSSL(*YES)` is set. Restarting telnet ends active telnet sessions. A certificate in the
+  *SYSTEM store that isn't assigned to telnet isn't used: 992 accepts the connection and
+  closes it, and `openssl` shows `no peer certificate available`.
 - [ ] In PASE, `openssl s_client -connect localhost:992 </dev/null | grep -E
   'subject=|issuer='` shows the certificate. Record its name (the `CN`, plus any
   alternative names) and its issuer.
-- [ ] Export the issuer's certificate (the local CA) from DCM as a PEM file, for example
-  `/QOpenSys/etc/veneer/ibmi-ca.pem`.
+- [ ] Save the issuer's certificate (the local CA) as a PEM file, for example
+  `/QOpenSys/etc/veneer/ibmi-ca.pem`: export it from DCM, or take it from the chain telnet
+  sends (deploy/README.md shows how).
 
-**2. Veneer on the IBM i, connecting to itself over TLS.** In the service's config file:
+**2. Veneer on the IBM i, connecting to itself over TLS.** If the certificate's name
+doesn't resolve on the IBM i, add it to the host table for 127.0.0.1. `CHGTCPHTE` replaces
+the entry's names, so list the existing ones too (see them in
+`/QIBM/UserData/OS400/TCPIP/QTOCHOSTS`):
+
+```
+CHGTCPHTE INTNETADR('127.0.0.1') HOSTNAME((LOOPBACK) (LOCALHOST) (<the name>))
+```
+
+Then, in the service's config file:
 
 ```sh
 VENEER_HOST=<the name in the certificate>   # must resolve to this IBM i

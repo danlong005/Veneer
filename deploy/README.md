@@ -61,7 +61,10 @@ Set `VENEER_TLS=true` and `VENEER_PORT=992`. Veneer checks the IBM i's certifica
   export that CA's certificate as a PEM file and set `VENEER_TLS_CA` to its path.
   `VENEER_TLS_CA` replaces Node's built-in list of authorities rather than adding to it.
 - **It must name the host in `VENEER_HOST`.** Use the name the certificate was issued for,
-  not an IP address or `localhost`, unless the certificate also covers those.
+  not an IP address or `localhost`, unless the certificate also covers those. If that name
+  doesn't resolve where Veneer runs, add it to DNS or the host table: on the IBM i,
+  `ADDTCPHTE`, or `CHGTCPHTE` to add a name to an existing address (127.0.0.1 when Veneer
+  runs on the IBM i itself); elsewhere, `/etc/hosts`.
 
 If the check fails, the browser shows "Host connection failed" and the log has the reason
 in a `host connect failed` line, such as `self-signed certificate` or
@@ -80,10 +83,29 @@ openssl s_client -connect myibmi.example.com:992 -servername myibmi.example.com 
   | grep -E 'subject=|issuer=|Verify return code'
 ```
 
+Telnet usually sends its local CA's certificate along with its own. If DCM is out of reach,
+this saves the last certificate in the chain, which is the CA. Check that its fingerprint
+(`openssl x509 -in ibmi-ca.pem -noout -fingerprint -sha256`) matches the CA in DCM before
+trusting it:
+
+```sh
+openssl s_client -connect localhost:992 -showcerts </dev/null 2>/dev/null \
+  | awk '/BEGIN CERT/ { pem = "" } { pem = pem $0 "\n" } /END CERT/ { last = pem } END { printf "%s", last }' \
+  > /QOpenSys/etc/veneer/ibmi-ca.pem
+```
+
 On the IBM i, telnet over TLS needs a certificate assigned to the telnet server
 (application `QIBM_QTV_TELNET_SERVER`) in Digital Certificate Manager, and
 `CHGTELNA ALWSSL(*YES)`. Restart telnet afterwards (`ENDTCPSVR SERVER(*TELNET)` then
-`STRTCPSVR SERVER(*TELNET)`), which ends active telnet sessions.
+`STRTCPSVR SERVER(*TELNET)`), which ends active telnet sessions. Until a certificate is
+assigned, port 992 still accepts connections but closes them at once: `openssl s_client`
+shows `no peer certificate available`, not a certificate error. A certificate in the
+*SYSTEM store isn't used until it is assigned. To see the assignments from SQL:
+
+```sql
+SELECT APPLICATION_ID, CERTIFICATE_LABELS FROM QSYS2.CERTIFICATE_USAGE_INFO
+  WHERE APPLICATION_ID = 'QIBM_QTV_TELNET_SERVER'
+```
 
 When Veneer runs on the IBM i itself, plain telnet to `localhost` on port 23 never leaves
 the machine, so it needs no TLS. Only the browser side does.
