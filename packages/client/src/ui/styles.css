@@ -484,6 +484,25 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .dp-row input[aria-invalid="true"] { border-color: var(--danger); }
 .dp-row input:disabled { opacity: 0.6; }
 .dp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Code boxes (designer/CodeBox.tsx): an expand button in the corner opens a large editor. */
+.dp-codebox { position: relative; min-width: 0; }
+.dp-codebox > textarea { display: block; width: 100%; box-sizing: border-box; padding-right: 32px; }
+.dp-expand {
+  position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0;
+  border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text-muted); cursor: pointer; opacity: 0.6;
+}
+.dp-codebox:hover .dp-expand, .dp-expand:focus-visible { opacity: 1; }
+.dp-expand:hover { color: var(--text); }
+.dialog.dp-code-dialog { width: min(1000px, 100%); display: grid; gap: 10px; padding: 18px 20px; }
+.dp-code-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dp-code-dialog-head h2 { margin: 0; }
+.dp-code-large {
+  height: min(70vh, 640px); resize: none; padding: 10px 12px; font-family: var(--mono); font-size: 13px; color: var(--text);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+}
+.dp-code-large:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
+.dialog.dp-code-dialog .dp-hint { margin: 0; }
+.dialog.dp-code-dialog:focus { outline: none; }
 .dp-check { display: flex; gap: 8px; align-items: center; }
 .dp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .dp-list li { display: flex; align-items: center; gap: 6px; }

@@ -14,6 +14,7 @@ import { StyleSection } from './StyleSection.tsx';
 import { InventoryDialog } from './InventoryDialog.tsx';
 import { StyleRules } from './StyleRules.tsx';
 import { CardsAndTabs } from './CardsAndTabs.tsx';
+import { CodeBox } from './CodeBox.tsx';
 import { ChangesList } from './ChangesList.tsx';
 import { labelAt } from './names.ts';
 import { Section, SectionContext, SectionGroup, useSectionState } from './Section.tsx';
@@ -291,8 +292,8 @@ export function DesignPanel(props: Props) {
           <section>
             <h3>Site-wide CSS</h3>
             <p className="dp-hint">On every page, for every screen. Saved as global.css.</p>
-            <textarea className="dp-code dp-solo" rows={5} spellCheck={false} aria-label="Site-wide CSS" value={siteDraft.css}
-              onChange={(e) => setSiteDraft({ ...siteDraft, css: e.target.value })} />
+            <CodeBox className="dp-solo" rows={5} label="Site-wide CSS" value={siteDraft.css}
+              onChange={(css) => setSiteDraft({ ...siteDraft, css })} />
           </section>
           <section>
             <h3>Site-wide JavaScript</h3>
@@ -459,9 +460,9 @@ export function DesignPanel(props: Props) {
           <SectionGroup title="Code" />
           <Section title="Page CSS" note={lineCount(draft.css)}>
             <p className="dp-hint">While this screen is shown.</p>
-            <textarea className="dp-code dp-solo" rows={5} spellCheck={false} aria-label="Page CSS" value={draft.css ?? ''}
+            <CodeBox className="dp-solo" rows={5} label="Page CSS" value={draft.css ?? ''}
               placeholder={`[data-screen="${draft.id}"] .text { … }`}
-              onChange={(e) => setDraft(setCss(draft, e.target.value))} />
+              onChange={(css) => setDraft(setCss(draft, css))} />
           </Section>
           <Section title="Page JavaScript" count={(Object.keys(PAGE_EVENT_LABELS) as ScreenEvent[]).filter((e) => draft.scripts?.[e]).length}>
             <EventScript
@@ -692,8 +693,8 @@ function EventScript<E extends string>({ events, event, onEvent, has, code, plac
           ))}
         </select>
       </label>
-      <textarea className="dp-code dp-solo" rows={7} spellCheck={false} aria-label={`JavaScript: ${events[event]}`}
-        value={code} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <CodeBox className="dp-solo" rows={7} label={`JavaScript: ${events[event]}`}
+        value={code} placeholder={placeholder} onChange={onChange} />
       <div className="dp-actions">
         <button type="button" className="ghost" disabled={!code} onClick={onTest}>Test script</button>
       </div>
@@ -731,17 +732,17 @@ function HtmlEditor({ draft, setDraft, html, cols, onSelect }: {
     <>
       <p className="dp-desc">Custom HTML at <code>{html.at.row},{html.at.col}</code></p>
       <label className="dp-row">HTML
-        <textarea className="dp-code" rows={6} spellCheck={false} value={html.html} onChange={(e) => update({ html: e.target.value })} />
+        <CodeBox rows={6} label="HTML" value={html.html} onChange={(code) => update({ html: code })} />
       </label>
       <label className="dp-row">CSS, for this box only
-        <textarea className="dp-code" rows={5} spellCheck={false} value={html.css ?? ''}
+        <CodeBox rows={5} label="CSS for this HTML box" value={html.css ?? ''}
           placeholder={'background: #fff3c4;\nbutton { font-weight: 600; }'}
-          onChange={(e) => update({ css: e.target.value })} />
+          onChange={(code) => update({ css: code })} />
       </label>
       <label className="dp-row">JavaScript, each time the screen is shown
-        <textarea className="dp-code" rows={5} spellCheck={false} value={html.script ?? ''}
+        <CodeBox rows={5} label="JavaScript for this HTML box" value={html.script ?? ''}
           placeholder={"// Call from the HTML: onclick=\"doMessage()\"\nfunction doMessage() {\n  veneer.press('F4');\n}\n// element = this box"}
-          onChange={(e) => { setResult(null); update({ script: e.target.value }); }} />
+          onChange={(code) => { setResult(null); update({ script: code }); }} />
       </label>
       <div className="dp-actions">
         <button type="button" className="ghost" disabled={!html.script} onClick={testScript}>Test script</button>

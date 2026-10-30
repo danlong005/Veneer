@@ -6,6 +6,7 @@ import type { ComponentOptions, ScreenDefinition, Target } from '@veneer/screens
 import type { ScreenSnapshot } from '@veneer/tn5250';
 import { useEffect, useState } from 'react';
 import { componentAt, componentsOf, freeSpot, setComponent } from './edit.ts';
+import { CodeBox } from './CodeBox.tsx';
 import { Section } from './Section.tsx';
 
 type Component = NonNullable<ReturnType<typeof componentAt>>;
@@ -108,16 +109,15 @@ export function ComponentEditor({ draft, setDraft, component, installed, cols, o
         </select>
       </label>
       <label className="dp-row">Options (JSON)
-        <textarea
-          className="dp-code"
+        <CodeBox
           rows={5}
-          spellCheck={false}
+          label="Component options (JSON)"
           value={text}
           aria-invalid={error ? true : undefined}
           placeholder={'{ "column": "CPU %" }'}
-          onChange={(e) => {
-            setText(e.target.value);
-            const parsed = parseOptions(e.target.value);
+          onChange={(code) => {
+            setText(code);
+            const parsed = parseOptions(code);
             if (parsed.options) update({ options: parsed.options });
           }}
         />
