@@ -49,6 +49,9 @@ export function useSession(): SessionApi {
     wsRef.current = ws;
     setState('connecting');
     setClosedReason(null);
+    // Set when the server says the session is over (shutdown, grace expired):
+    // the socket close that follows is not a network drop to retry.
+    let ended = false;
 
     ws.onopen = () => {
       const token = resume ? storage()?.getItem(TOKEN_KEY) : null;
@@ -63,6 +66,7 @@ export function useSession(): SessionApi {
           break;
         case 'status':
           if (msg.state === 'closed') {
+            ended = true;
             setState('closed');
             setClosedReason(msg.message ?? 'Session ended');
           } else {
@@ -84,7 +88,7 @@ export function useSession(): SessionApi {
     ws.onclose = (event) => {
       if (wsRef.current !== ws) return;
       wsRef.current = null;
-      if (FINAL_CODES.has(event.code) || retries.current >= MAX_RETRIES) {
+      if (ended || FINAL_CODES.has(event.code) || retries.current >= MAX_RETRIES) {
         if (event.code !== 4004) storage()?.removeItem(TOKEN_KEY);
         setState('closed');
         setClosedReason((r) => r ?? (event.reason || 'Connection lost'));

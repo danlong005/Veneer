@@ -119,6 +119,19 @@ releases their devices, and exits.
 Add the `SBMJOB` above (or `sc start veneer`, run through `QSH`) to the system startup
 program. `DSPSYSVAL QSTRUPPGM` shows which program that is.
 
+### If the job ends right away
+
+`QP2SHELL2` ignores Node's exit status, so the job ends normally (end code 0) even when
+Veneer could not start, and it leaves no job log. What Veneer printed is in a `QPRINT`
+spooled file of the job: `WRKJOB JOB(nnnnnn/VENEER) OPTION(*SPLF)`, then display it.
+The usual causes are a missing or invalid config file, and the listen port being in use.
+Once Veneer has read its config, it writes everything to `VENEER_LOG_FILE` instead.
+Without `VENEER_LOG_FILE`, every log line goes to that spooled file.
+
+Submit the job to a queue such as `QSYSNOMAX`, not the default `QBATCH`. Veneer runs
+until it is ended, and `QBATCH` often runs one job at a time, so it would hold up every
+batch job queued after it.
+
 ## Linux
 
 ```sh
