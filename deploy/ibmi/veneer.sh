@@ -18,4 +18,7 @@ if [ -z "$NODE" ]; then
 fi
 
 export PATH=/QOpenSys/pkgs/bin:$PATH
+# A batch job starts with umask 0, which would leave the log, inventory and saved
+# screen definitions writable by every user.
+umask 027
 exec "$NODE" "$DIR/packages/server/dist/main.js" --config "$CONFIG"

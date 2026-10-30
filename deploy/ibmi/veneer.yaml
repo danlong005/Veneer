@@ -1,14 +1,15 @@
 # Service Commander definition (https://github.com/ThePrez/ServiceCommander-IBMi).
 # Copy to /QOpenSys/etc/sc/services/veneer.yaml, then: sc start veneer
-# Check the keys against your Service Commander version.
+# Tested with Service Commander 1.7.1.
 name: Veneer 5250 web server
 dir: /QOpenSys/opt/veneer/current
 start_cmd: /QOpenSys/opt/veneer/current/deploy/ibmi/veneer.sh
 check_alive: '8080'
-check_alive_timeout: '60'
+startup_wait_time: '60'
 batch_mode: 'true'
 sbmjob_jobname: VENEER
-sbmjob_opts: 'USER(VENEER) JOBQ(QSYSNOMAX) ALWMLTTHD(*YES)'
+# Service Commander adds ALWMLTTHD(*YES) itself; repeating it fails with CPD0042.
+sbmjob_opts: 'USER(VENEER) JOBQ(QSYSNOMAX)'
 environment_vars:
   - VENEER_CONFIG=/QOpenSys/etc/veneer/veneer.env
 groups:

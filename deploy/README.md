@@ -95,6 +95,8 @@ from a 5250 command line.
 With [Service Commander](https://github.com/ThePrez/ServiceCommander-IBMi) (recommended):
 
 ```sh
+yum install service-commander
+mkdir -p /QOpenSys/etc/sc/services
 cp /QOpenSys/opt/veneer/current/deploy/ibmi/veneer.yaml /QOpenSys/etc/sc/services/
 sc start veneer
 sc check veneer

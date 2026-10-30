@@ -1,7 +1,7 @@
 # Testing Veneer on IBM i (issue #1)
 
-Issue #1 is built and verified on Linux, and Part A below has passed on a real IBM i.
-What's left is the full service install (Part B).
+Issue #1 is built and verified on Linux, and Parts A and B below have both passed on a
+real IBM i. Use this file to repeat the test on another system or a new release.
 
 - **Archive:** `release/veneer-0.1.0.tar.gz`. Rebuild with `npm run package` if the code
   has changed since.
@@ -20,9 +20,15 @@ What's left is the full service install (Part B).
   - `ENDJOB *CNTRLD DELAY(30)` with a session open: Veneer logged `shutting down` with
     `"signal":"SIGTERM"` and `session closed`, and the job ended in under 3 seconds with
     end code 10.
-- **Not verified yet:**
-  - The Service Commander keys in `deploy/ibmi/veneer.yaml`.
-  - Part B as a whole: the `VENEER` profile and the `/QOpenSys` directories.
+- **Verified on IBM i, Part B** (same system, Service Commander 1.7.1):
+  - The install from [deploy/README.md](../README.md): the `VENEER` profile, the
+    `/QOpenSys` directories, the program owned by the admin and the config, screens,
+    data and log owned by `VENEER`.
+  - `SBMJOB … USER(VENEER) JOBQ(QSYSNOMAX)`: a session, the screen inventory saved to
+    `/QOpenSys/var/lib/veneer`, a designer save to `/QOpenSys/etc/veneer/screens`, and
+    `ENDJOB *CNTRLD`.
+  - `sc start veneer`, `sc check veneer`, and `sc stop veneer` with a session open: the
+    browser shows "Server shutting down" and the job ends with end code 10.
 - **Found on IBM i and fixed:**
   - PASE `sed` has no `-i`. Step 6 now avoids it.
   - A failed batch start looks like a normal end (end code 0, no job log). The error is in
@@ -34,6 +40,12 @@ What's left is the full service install (Part B).
   - Without `VENEER_DATA_DIR`, the screen inventory was saved inside the install
     directory. Step 3 now sets it, and Veneer warns at startup when a production
     configuration keeps data inside the install directory.
+  - A batch job starts with umask 0, so the log, inventory and saved screen definitions
+    were writable by every user. `veneer.sh` now sets umask 027.
+  - `veneer.yaml` repeated `ALWMLTTHD(*YES)`, which Service Commander adds itself, so
+    `SBMJOB` failed (CPD0042) and `sc start` timed out. It also used
+    `check_alive_timeout`, which Service Commander doesn't recognize; the key is
+    `startup_wait_time`.
 
 ## Part A: test from your home directory
 
@@ -149,8 +161,12 @@ Follow [deploy/README.md](../README.md):
 4. Start it with Service Commander (`sc start veneer`, `sc check veneer`, `sc stop veneer`)
    or with `SBMJOB … USER(VENEER) JOBQ(QSYSNOMAX)`.
 
-With Service Commander, watch whether it accepts `deploy/ibmi/veneer.yaml`. Its keys were
-written from memory, so record any error from `sc start`.
+With Service Commander, `sc info veneer` shows how it read `veneer.yaml` and warns about
+unknown keys. If `sc start` times out, `sc -v start veneer` shows the `SBMJOB` it ran and
+any error from it.
+
+- [ ] Files Veneer creates (`veneer.log`, `inventory.json`, saved screens) are
+  `rw-r-----`, not writable by everyone.
 
 ## What to record
 
