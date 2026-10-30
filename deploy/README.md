@@ -41,6 +41,91 @@ After starting, check the server:
 curl http://127.0.0.1:8080/healthz    # {"status":"ok","version":"0.1.0",...}
 ```
 
+## TLS and HTTPS
+
+Sign-on passwords cross two connections, and each needs its own encryption:
+
+```
+browser ──HTTPS/WSS──▶ Veneer ──TLS (port 992)──▶ IBM i
+         VENEER_HTTPS_*          VENEER_TLS, VENEER_TLS_CA
+```
+
+Veneer doesn't create certificates. Whoever installs it provides them.
+
+### Veneer to the IBM i
+
+Set `VENEER_TLS=true` and `VENEER_PORT=992`. Veneer checks the IBM i's certificate:
+
+- **It must be issued by a trusted authority.** A certificate from a public authority works
+  as it is. For one from the IBM i's own local CA (made in Digital Certificate Manager),
+  export that CA's certificate as a PEM file and set `VENEER_TLS_CA` to its path.
+  `VENEER_TLS_CA` replaces Node's built-in list of authorities rather than adding to it.
+- **It must name the host in `VENEER_HOST`.** Use the name the certificate was issued for,
+  not an IP address or `localhost`, unless the certificate also covers those.
+
+If the check fails, the browser shows "Host connection failed" and the log has the reason
+in a `host connect failed` line, such as `self-signed certificate` or
+`unable to verify the first certificate` (set `VENEER_TLS_CA`), or
+`Hostname/IP does not match certificate's altnames` (change `VENEER_HOST`). Node's
+suggestion in that message to use `--use-system-ca` doesn't apply; use `VENEER_TLS_CA`.
+
+`VENEER_TLS_REJECT_UNAUTHORIZED=false` turns the check off. It still encrypts, but anyone
+who can intercept the connection could impersonate the IBM i. Use it only to rule out
+certificate problems while testing.
+
+To see which certificate a host sends, and whether it verifies:
+
+```sh
+openssl s_client -connect myibmi.example.com:992 -servername myibmi.example.com </dev/null \
+  | grep -E 'subject=|issuer=|Verify return code'
+```
+
+On the IBM i, telnet over TLS needs a certificate assigned to the telnet server
+(application `QIBM_QTV_TELNET_SERVER`) in Digital Certificate Manager, and
+`CHGTELNA ALWSSL(*YES)`. Restart telnet afterwards (`ENDTCPSVR SERVER(*TELNET)` then
+`STRTCPSVR SERVER(*TELNET)`), which ends active telnet sessions.
+
+When Veneer runs on the IBM i itself, plain telnet to `localhost` on port 23 never leaves
+the machine, so it needs no TLS. Only the browser side does.
+
+### Browsers to Veneer
+
+Set `VENEER_HTTPS_CERT` and `VENEER_HTTPS_KEY` to a PEM certificate and its private key.
+Veneer then serves HTTPS, and the 5250 traffic runs over secure WebSockets (WSS). The
+certificate must name the host that users type in the browser. Options:
+
+- **Your organization's certificate authority or a public one** for that host name.
+- **A certificate already in Digital Certificate Manager.** Export it with its private key
+  as a PKCS #12 file, then convert it:
+
+  ```sh
+  openssl pkcs12 -in veneer.p12 -clcerts -nokeys -out /QOpenSys/etc/veneer/cert.pem
+  openssl pkcs12 -in veneer.p12 -nocerts -nodes -out /QOpenSys/etc/veneer/key.pem
+  chown VENEER /QOpenSys/etc/veneer/key.pem && chmod 600 /QOpenSys/etc/veneer/key.pem
+  ```
+
+- **A reverse proxy** that handles HTTPS in front of Veneer, which then listens on
+  127.0.0.1 only.
+
+A self-signed certificate encrypts too, but every browser warns about it until it is
+trusted. Keep the private key readable only by the service user.
+
+### Local development
+
+[mkcert](https://github.com/FiloSottile/mkcert) makes a `localhost` certificate that this
+machine's browsers trust:
+
+```sh
+sudo apt install mkcert libnss3-tools    # or: brew install mkcert
+mkcert -install                          # once: adds mkcert's CA to this machine and its browsers
+mkdir -p ~/.local/share/veneer && cd ~/.local/share/veneer
+mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
+```
+
+Then set `VENEER_HTTPS_CERT` and `VENEER_HTTPS_KEY` in `.env` to those two files and browse
+to `https://localhost:8080`. `npm run dev` restarts when `.env` changes, which ends open
+sessions.
+
 ## IBM i
 
 You need Node.js from the IBM i open-source repositories: `yum install nodejs22` (or

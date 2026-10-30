@@ -168,6 +168,53 @@ any error from it.
 - [ ] Files Veneer creates (`veneer.log`, `inventory.json`, saved screens) are
   `rw-r-----`, not writable by everyone.
 
+## Part C: TLS with the IBM i's own certificate
+
+Not tested yet. pub400's certificate comes from a public authority, so `VENEER_TLS_CA` has
+only been tried against a throwaway certificate on Linux. This part uses a certificate made
+in Digital Certificate Manager (DCM). See "TLS and HTTPS" in
+[deploy/README.md](../README.md#tls-and-https).
+
+**1. Telnet over TLS on the IBM i.**
+
+- [ ] In DCM, the certificate is assigned to `QIBM_QTV_TELNET_SERVER`, and `CHGTELNA
+  ALWSSL(*YES)` is set. Restarting telnet ends active telnet sessions.
+- [ ] In PASE, `openssl s_client -connect localhost:992 </dev/null | grep -E
+  'subject=|issuer='` shows the certificate. Record its name (the `CN`, plus any
+  alternative names) and its issuer.
+- [ ] Export the issuer's certificate (the local CA) from DCM as a PEM file, for example
+  `/QOpenSys/etc/veneer/ibmi-ca.pem`.
+
+**2. Veneer on the IBM i, connecting to itself over TLS.** In the service's config file:
+
+```sh
+VENEER_HOST=<the name in the certificate>   # must resolve to this IBM i
+VENEER_PORT=992
+VENEER_TLS=true
+VENEER_TLS_CA=/QOpenSys/etc/veneer/ibmi-ca.pem
+```
+
+- [ ] `sc restart veneer`, then the sign-on screen comes up through the browser tunnel.
+- [ ] Without `VENEER_TLS_CA`, the log shows `host connect failed` with a certificate error,
+  and the browser says "Host connection failed".
+- [ ] With `VENEER_HOST=localhost`, the log shows `Hostname/IP does not match certificate's
+  altnames` (unless the certificate covers `localhost`).
+
+**3. Veneer on a PC, connecting to the IBM i over TLS.** Forward a local port to the IBM i's
+992, for example `LocalForward 127.0.0.1:9992 localhost:992` in the tunnel's SSH config.
+The name check needs the certificate's name, so map it to 127.0.0.1 in `/etc/hosts`, then
+set that name in `VENEER_HOST`, `VENEER_PORT=9992` and `VENEER_TLS_CA` to a copy of the CA
+file.
+
+- [ ] The sign-on screen comes up, and the log's "listening" line shows `"tls":true`.
+
+**4. HTTPS from the IBM i's certificate (optional).** If DCM lets you export the
+certificate with its private key, convert it to PEM files (deploy/README.md shows how), set
+`VENEER_HTTPS_CERT` and `VENEER_HTTPS_KEY`, and restart.
+
+- [ ] `https://<the name in the certificate>:8080` loads. The browser trusts it only if the
+  local CA is imported into the browser; record what it shows otherwise.
+
 ## What to record
 
 - The output of `node -v`.

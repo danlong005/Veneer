@@ -31,6 +31,11 @@ npm run dev:client    # Vite dev server on :5173 with hot reload; proxies /ws to
 npm run package       # release/veneer-<version>.tar.gz for deployment
 ```
 
+**HTTPS and TLS:** with the defaults, Veneer talks to the IBM i over TLS on port 992 and
+serves plain HTTP on 127.0.0.1. To serve HTTPS locally too, make a `localhost` certificate
+with mkcert and set `VENEER_HTTPS_CERT`/`VENEER_HTTPS_KEY` in `.env`. [TLS and HTTPS](deploy/README.md#tls-and-https)
+has the steps, and covers trusting an IBM i's own certificate.
+
 **Deploying:** `npm run package` builds a self-contained archive that runs on any machine with
 Node.js 20.12 or later, with no `npm install` and no internet access. [deploy/README.md](deploy/README.md)
 covers installing it as a service on IBM i (Service Commander, or `SBMJOB` started at IPL)
