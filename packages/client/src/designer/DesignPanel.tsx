@@ -14,6 +14,7 @@ import { StyleSection } from './StyleSection.tsx';
 import { InventoryDialog } from './InventoryDialog.tsx';
 import { StyleRules } from './StyleRules.tsx';
 import { CardsAndTabs } from './CardsAndTabs.tsx';
+import { ChangesList } from './ChangesList.tsx';
 import { Section, SectionContext, SectionGroup, useSectionState } from './Section.tsx';
 import { ComponentEditor, ComponentsSection, componentForFieldChange } from './Components.tsx';
 import type { ScreenView } from '../transform/types.ts';
@@ -380,6 +381,8 @@ export function DesignPanel(props: Props) {
                 : '✗ Does not match this screen'}
             </p>
           </Section>
+
+          <ChangesList draft={draft} setDraft={setDraft} snap={snap} onSelect={props.onSelect} />
 
           <Section title="Buttons" count={buttons.length}>
             {buttons.map((b, i) => (

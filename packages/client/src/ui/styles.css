@@ -493,6 +493,9 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .dp-x:hover { color: var(--danger); }
 .dp-link { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dp-link:hover { text-decoration: underline; }
+/* Change descriptions wrap rather than cut off. */
+.dp-changes li { align-items: flex-start; }
+.dp-changes .dp-quote { white-space: normal; overflow-wrap: anywhere; }
 .dp-ok { margin: 0; color: #1f8a5b; font-weight: 600; }
 .dp-warn { margin: 0; color: var(--danger); font-weight: 600; }
 .dp-hint, .dp-desc { margin: 0; color: var(--text-muted); }
