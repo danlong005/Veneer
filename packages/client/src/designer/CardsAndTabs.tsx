@@ -4,6 +4,7 @@
 import type { ScreenDefinition } from '@veneer/screens';
 import type { ScreenView } from '../transform/types.ts';
 import { cardsOf, moveTabEdge, removeTab, setCard, setTabs, splitTabs, tabRegion, tabsOf, type Selection } from './edit.ts';
+import { Section } from './Section.tsx';
 
 interface Props {
   draft: ScreenDefinition;
@@ -31,8 +32,7 @@ export function CardsAndTabs({ draft, setDraft, view, selection }: Props) {
 
   return (
     <>
-      <section>
-        <h3>Cards</h3>
+      <Section title="Cards" count={cards.length}>
         {cards.length === 0 && (
           <p className="dp-hint">Group items in a framed panel: select an item, then choose Add card around it.</p>
         )}
@@ -52,10 +52,9 @@ export function CardsAndTabs({ draft, setDraft, view, selection }: Props) {
           </div>
         ))}
         {cards.length > 0 && <p className="dp-hint">Drag a card's corner on the screen to resize it. Move items in or out of it as usual.</p>}
-      </section>
+      </Section>
 
-      <section>
-        <h3>Tabs</h3>
+      <Section title="Tabs" count={tabs.length}>
         {tabs.length === 0 && (
           <p className="dp-hint">Split a long screen into tabs: select something on the row where the second tab should start.</p>
         )}
@@ -83,7 +82,7 @@ export function CardsAndTabs({ draft, setDraft, view, selection }: Props) {
         </button>
         {cutsCard && <p className="dp-hint">Row {row} is inside a card; a tab cannot start there.</p>}
         {tabs.length > 0 && <p className="dp-hint">Click the tab titles on the screen to see each tab. Fields on hidden tabs are still sent.</p>}
-      </section>
+      </Section>
     </>
   );
 }

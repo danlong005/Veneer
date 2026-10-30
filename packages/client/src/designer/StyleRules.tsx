@@ -6,6 +6,7 @@ import { ROLES, STYLE_TESTS, conditionTester, testOf, type Role, type ScreenDefi
 import type { Item, ScreenView } from '../transform/types.ts';
 import { itemAt } from '../transform/customize.ts';
 import { ROLE_LABELS, setStyles, stylesOf, type StyleRule } from './edit.ts';
+import { Section } from './Section.tsx';
 
 const TEST_LABELS: Record<StyleTest, string> = {
   equals: 'is', contains: 'contains', matches: 'matches pattern', lessThan: 'is less than', greaterThan: 'is more than',
@@ -31,8 +32,7 @@ export function StyleRules({ draft, setDraft, view, selected }: Props) {
   };
 
   return (
-    <section>
-      <h3>Styles</h3>
+    <Section title="Styles" count={rules.length}>
       {rules.length === 0 && (
         <p className="dp-hint">Highlight rows, cells or items by their value, such as a job whose Status is MSGW.</p>
       )}
@@ -89,7 +89,7 @@ export function StyleRules({ draft, setDraft, view, selected }: Props) {
         );
       })}
       <button type="button" className="ghost" onClick={add}>Add style</button>
-    </section>
+    </Section>
   );
 }
 

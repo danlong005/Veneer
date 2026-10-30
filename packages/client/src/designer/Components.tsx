@@ -6,6 +6,7 @@ import type { ComponentOptions, ScreenDefinition, Target } from '@veneer/screens
 import type { ScreenSnapshot } from '@veneer/tn5250';
 import { useEffect, useState } from 'react';
 import { componentAt, componentsOf, freeSpot, setComponent } from './edit.ts';
+import { Section } from './Section.tsx';
 
 type Component = NonNullable<ReturnType<typeof componentAt>>;
 
@@ -19,8 +20,7 @@ export function ComponentsSection({ draft, setDraft, snap, installed, onSelect }
   const [pick, setPick] = useState('');
   const name = installed.includes(pick) ? pick : installed[0];
   return (
-    <section>
-      <h3>Components</h3>
+    <Section title="Components" count={placed.length}>
       {placed.length > 0 && (
         <ul className="dp-list">
           {placed.map((c) => (
@@ -53,7 +53,7 @@ export function ComponentsSection({ draft, setDraft, snap, installed, onSelect }
         </div>
       )}
       <p className="dp-hint">To draw an input field with a component, select the field and choose Show as: Component.</p>
-    </section>
+    </Section>
   );
 }
 

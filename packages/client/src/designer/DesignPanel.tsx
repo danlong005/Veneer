@@ -14,6 +14,7 @@ import { StyleSection } from './StyleSection.tsx';
 import { InventoryDialog } from './InventoryDialog.tsx';
 import { StyleRules } from './StyleRules.tsx';
 import { CardsAndTabs } from './CardsAndTabs.tsx';
+import { Section, SectionContext, SectionGroup, useSectionState } from './Section.tsx';
 import { ComponentEditor, ComponentsSection, componentForFieldChange } from './Components.tsx';
 import type { ScreenView } from '../transform/types.ts';
 import {
@@ -91,6 +92,12 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'page', label: 'Page' },
   { id: 'selected', label: 'Selected' },
 ];
+
+/** "3 lines" for code that has some, for a closed section's header. */
+function lineCount(code: string | undefined): string | undefined {
+  const n = code?.trim() ? code.trim().split('\n').length : 0;
+  return n === 0 ? undefined : n === 1 ? '1 line' : `${n} lines`;
+}
 
 function loadToken(): string {
   try { return sessionStorage.getItem(TOKEN_KEY) ?? ''; } catch { return ''; }
@@ -192,6 +199,9 @@ export function DesignPanel(props: Props) {
   const [tab, setTab] = useState<Tab>('page');
   useEffect(() => { if (props.clickedAt) setTab('selected'); }, [props.clickedAt]);
 
+  // Open and closed Page sections; picking another customization or screen starts over.
+  const sections = useSectionState(`${saved?.id ?? ''}|${print.id}`);
+
   const buttons = buttonsOf(draft);
   const setButton = (i: number, button: { label: string; action: ButtonAction }) =>
     setDraft(setButtons(draft, buttons.map((x, j) => (j === i ? button : x))));
@@ -253,9 +263,9 @@ export function DesignPanel(props: Props) {
           </>
         )}
         {tab === 'page' && (
-          <>
-          <section>
-            <h3>Customization</h3>
+          <SectionContext.Provider value={sections}>
+          <SectionGroup title="Page" />
+          <Section title="Customization" inUse>
             <select
               className="dp-pick"
               aria-label="Customization to edit"
@@ -288,10 +298,9 @@ export function DesignPanel(props: Props) {
                 }}
               />
             </label>
-          </section>
+          </Section>
 
-          <section>
-            <h3>Recognised by</h3>
+          <Section title="Recognised by" note={matched ? 'matches' : 'does not match'} inUse={!matched}>
             {screenIds.length > 0 && (
               <ul className="dp-list">
                 {screenIds.map((sid) => (
@@ -331,10 +340,9 @@ export function DesignPanel(props: Props) {
                 : screenIds.length === 0 && draft.match.text.length === 0 ? 'Add a screen ID or a text rule.'
                 : '✗ Does not match this screen'}
             </p>
-          </section>
+          </Section>
 
-          <section>
-            <h3>Buttons</h3>
+          <Section title="Buttons" count={buttons.length}>
             {buttons.map((b, i) => (
               <div className="dp-button" key={i}>
                 <input
@@ -362,14 +370,14 @@ export function DesignPanel(props: Props) {
             <button type="button" className="ghost" onClick={() => setDraft(setButtons(draft, [...buttons, { label: 'New button', action: { aid: 'Enter' } }]))}>
               Add button
             </button>
-          </section>
+          </Section>
 
+          <SectionGroup title="Layout and behavior" />
           <StyleRules draft={draft} setDraft={setDraft} view={props.view} selected={selection?.at} />
           <CardsAndTabs draft={draft} setDraft={setDraft} view={props.view} selection={selection} />
           <ComponentsSection draft={draft} setDraft={setDraft} snap={snap} installed={props.components} onSelect={props.onSelect} />
 
-          <section>
-            <h3>HTML</h3>
+          <Section title="HTML" count={htmlOf(draft).length}>
             {htmlOf(draft).length > 0 && (
               <ul className="dp-list">
                 {htmlOf(draft).map((h) => (
@@ -395,17 +403,16 @@ export function DesignPanel(props: Props) {
               Add HTML
             </button>
             <p className="dp-hint">Or click an empty spot on the screen to add HTML there.</p>
-          </section>
+          </Section>
 
-          <section>
-            <h3>Page CSS</h3>
+          <SectionGroup title="Code" />
+          <Section title="Page CSS" note={lineCount(draft.css)}>
             <p className="dp-hint">While this screen is shown.</p>
             <textarea className="dp-code dp-solo" rows={5} spellCheck={false} aria-label="Page CSS" value={draft.css ?? ''}
               placeholder={`[data-screen="${draft.id}"] .text { … }`}
               onChange={(e) => setDraft(setCss(draft, e.target.value))} />
-          </section>
-          <section>
-            <h3>Page JavaScript</h3>
+          </Section>
+          <Section title="Page JavaScript" count={(Object.keys(PAGE_EVENT_LABELS) as ScreenEvent[]).filter((e) => draft.scripts?.[e]).length}>
             <EventScript
               events={PAGE_EVENT_LABELS}
               event={pageEvent}
@@ -418,9 +425,8 @@ export function DesignPanel(props: Props) {
               onChange={(code) => setDraft(setScript(draft, pageEvent, code))}
               onTest={() => testScript(pageScript, `the ${pageEvent} script of "${draft.name}"`)}
             />
-          </section>
-
-          </>
+          </Section>
+          </SectionContext.Provider>
         )}
         {tab === 'selected' && (
           <>
