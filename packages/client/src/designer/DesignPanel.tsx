@@ -70,6 +70,9 @@ interface Props {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  /** Showing the screen as users see it (no ghosts or outlines). */
+  previewing: boolean;
+  onPreview: (on: boolean) => void;
   /** The saved version of this definition, if it exists on the server. */
   saved: ScreenDefinition | undefined;
   /** True while editing a definition that already existed when design mode began. */
@@ -253,6 +256,11 @@ export function DesignPanel(props: Props) {
               <button type="button" className="ghost dp-undo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={!props.canRedo} onClick={props.onRedo}><UndoIcon redo /></button>
             </>
           )}
+          <button
+            type="button" className={`ghost dp-preview-toggle${props.previewing ? ' on' : ''}`} aria-pressed={props.previewing}
+            title="See the screen as users do: hidden items gone, no outlines. The screen is look-only meanwhile."
+            onClick={() => props.onPreview(!props.previewing)}
+          >Preview</button>
           <button type="button" className="ghost" onClick={() => setInventory(true)} title="Every screen Veneer has shown">Screens</button>
           <button type="button" className="ghost" onClick={props.onClose}>Done</button>
         </div>

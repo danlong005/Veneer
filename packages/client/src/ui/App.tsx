@@ -53,13 +53,18 @@ export function App() {
   const [draftExisting, setDraftExisting] = useState(false);
   const [selectedAt, setSelectedAt] = useState<Target | null>(null);
   const designing = draft !== null;
+  // Preview: the screen as users see it, without design ghosts or outlines,
+  // and look-only so a click cannot send anything to the host.
+  const [previewing, setPreviewing] = useState(false);
+  useEffect(() => { if (!designing) setPreviewing(false); }, [designing]);
+  const designView = designing && !previewing;
   const designingNow = useRef(false);
   designingNow.current = designing;
 
   const baseView = useMemo(() => (snap ? transform(snap) : null), [snap]);
   const view = useMemo(
-    () => (baseView ? customize(baseView, designing ? draft : definition, { design: designing }) : null),
-    [baseView, definition, draft, designing],
+    () => (baseView ? customize(baseView, designing ? draft : definition, { design: designView }) : null),
+    [baseView, definition, draft, designing, designView],
   );
   const selection = useMemo(
     () => (designing && view && snap && selectedAt ? resolveSelection(view, snap, selectedAt) : null),
@@ -538,7 +543,7 @@ export function App() {
             <div className="meta">
               {screenView.meta.map((m) => {
                 const cls = `meta-item${m.role !== 'normal' ? ` role-${m.role}` : ''}`;
-                if (!designing) return <span key={`${m.row}:${m.col}`} className={cls}>{m.text}</span>;
+                if (!designView) return <span key={`${m.row}:${m.col}`} className={cls}>{m.text}</span>;
                 // In the designer, header items are selectable to hide, rename or restyle.
                 const selected = selection?.at.row === m.row && selection.at.col === m.col;
                 return (
@@ -598,7 +603,7 @@ export function App() {
 
         {screenSnap && screenView ? (
           <form
-            className="sheet" ref={sheet} onSubmit={(e) => e.preventDefault()} autoComplete="off" inert={Boolean(help)}
+            className="sheet" ref={sheet} onSubmit={(e) => e.preventDefault()} autoComplete="off" inert={Boolean(help) || previewing}
             onBlurCapture={(e) => { if (screenSnap && (e.target as HTMLElement).dataset.field) lastField.current = caretOf(screenSnap, e.target as HTMLElement); }}
           >
             {mode === 'modern' && screenView.buttons.length > 0 && (
@@ -612,7 +617,7 @@ export function App() {
             {mode === 'modern'
               ? <ModernScreen view={screenView} binding={binding} locked={!keysEnabled} onAction={onAction}
                   onCursor={(row, col) => { clickedCursor.current = { row, col }; }}
-                  design={designing ? { selected: selection?.at ?? null, onSelect: setSelectedAt, onMove: moveItem, onResize: resizeBox } : undefined} />
+                  design={designView ? { selected: selection?.at ?? null, onSelect: setSelectedAt, onMove: moveItem, onResize: resizeBox } : undefined} />
               : <ClassicScreen snap={screenSnap} binding={binding} />}
           </form>
         ) : (
@@ -661,6 +666,8 @@ export function App() {
           canRedo={history.future.length > 0}
           onUndo={() => setHistory(undo)}
           onRedo={() => setHistory(redo)}
+          previewing={previewing}
+          onPreview={setPreviewing}
           saved={savedDraft}
           existing={draftExisting}
           selection={selection}

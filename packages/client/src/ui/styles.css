@@ -351,7 +351,9 @@ kbd {
 .dialog p { margin: 0 0 18px; color: var(--text-muted); }
 .dialog .primary { border-radius: 8px; padding: 9px 16px; cursor: pointer; }
 .dialog .ghost { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
-.dp-head-actions { display: flex; gap: 6px; }
+.dp-head-actions { display: flex; gap: 4px; }
+.dp-head-actions button.ghost { padding: 5px 8px; }
+button.dp-preview-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.dp-undo { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; padding: 3px 6px; }
 .dp-undo:disabled { opacity: 0.35; }
 
@@ -416,7 +418,7 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
   display: flex; flex-direction: column; overflow: hidden; font-size: 13.5px;
   box-shadow: -8px 0 24px rgb(16 24 40 / 8%);
 }
-.dp-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.dp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 12px 14px 16px; border-bottom: 1px solid var(--border); }
 .dp-head h2 { margin: 0; font-size: 16px; }
 .dp-tabs {
   display: flex; align-items: flex-end; gap: 2px; padding: 8px 10px 0;
