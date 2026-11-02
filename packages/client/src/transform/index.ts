@@ -6,6 +6,7 @@ import { activeWindow, findWindows } from '@veneer/screens';
 import type { ScreenSnapshot } from '@veneer/terminal';
 import { TransformContext } from './context.ts';
 import { commandLine } from './rules/commandLine.ts';
+import { asLineMode, lineModeInput } from './lineMode.ts';
 import { fields } from './rules/fields.ts';
 import { functionKeys } from './rules/functionKeys.ts';
 import { menu } from './rules/menu.ts';
@@ -27,7 +28,18 @@ export const DEFAULT_RULES: readonly Rule[] = [
  */
 export const BACKGROUND_RULES: readonly Rule[] = [functionKeys, messageLine, title, text];
 
+/** TSO line mode: its output as text, and the one input. No titles, menus or windows to find in it. */
+export const LINE_MODE_RULES: readonly Rule[] = [fields, text];
+
 export function transform(snap: ScreenSnapshot, rules: readonly Rule[] = DEFAULT_RULES): ScreenView {
+  const input = lineModeInput(snap);
+  if (input) {
+    const view = run(new TransformContext(asLineMode(snap, input)), LINE_MODE_RULES);
+    view.lineMode = true;
+    // TSO writes all its output intensified, which a 3279 shows red: not a sign of errors here.
+    for (const item of view.items) if (item.kind === 'text') item.role = 'normal';
+    return view;
+  }
   const win = activeWindow(snap, findWindows(snap));
   if (!win) return run(new TransformContext(snap), rules);
 

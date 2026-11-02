@@ -2,12 +2,14 @@
 // and screens without fields, and the designer's choices for it.
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { test } from 'node:test';
 import { getCodepage, type ScreenSnapshot } from '@veneer/terminal';
 import { Attr, HostStream, Terminal, snapshot } from '@veneer/tn3270';
 import { describeChange } from '../src/designer/changes.ts';
 import { moveTabEdge } from '../src/designer/edit.ts';
 import { transform } from '../src/transform/index.ts';
+import { lineModeInput } from '../src/transform/lineMode.ts';
 import type { FieldItem } from '../src/transform/types.ts';
 import { acceptsChar, checkFields, erasedInput, erasedToEnd, filterValue, isNumeric, overtyped, takesNumbers } from '../src/ui/fieldRules.ts';
 import { KEYS_3270, buttonAids, keyAction, keyHint, typedKey, type KeyContext } from '../src/ui/keys.ts';
@@ -201,6 +203,61 @@ test('a TSO message in a box of asterisks is not a pop-up window when the cursor
 test('on a 3270 a box with the cursor in it is still a pop-up window', () => {
   const view = transform(tsoReady(3, 20));
   assert.equal(view.window?.title, 'TSO Applications Menu terminated.');
+});
+
+// ---- TSO line mode, from screens recorded on TK4-
+
+const tk4 = JSON.parse(fs.readFileSync(new URL('../../tn3270/test/fixtures/tk4.json', import.meta.url), 'utf8')) as Record<string, { model: number; records: string[] }>;
+function recorded(name: string): ScreenSnapshot {
+  const f = tk4[name]!;
+  const t = new Terminal({ codepage: cp, model: f.model, send3270: () => {}, sendSscpLu: () => {}, onWarning: (w) => { throw new Error(w); } });
+  for (const hex of f.records) t.processRecord(Buffer.from(hex, 'hex'));
+  return snapshot(t.screen, cp);
+}
+const inputIds = (v: ReturnType<typeof transform>) => v.items.filter((i): i is FieldItem => i.kind === 'field').map((i) => i.field.id);
+
+test('TSO line mode shows its output as text and keeps only the input at the cursor', () => {
+  for (const [name, input, label] of [['tsoReady', '5:9', 'READY'], ['tsoListcat', '24:6', '***'], ['tsoPassword', '2:2', undefined]] as const) {
+    const snap = recorded(name);
+    assert.equal(lineModeInput(snap)?.id, input, name);
+    const view = transform(snap);
+    assert.equal(view.lineMode, true, name);
+    assert.deepEqual(inputIds(view), [input], `${name}: one input`);
+    const field = view.items.find((i): i is FieldItem => i.kind === 'field')!;
+    if (label) assert.equal(field.label, label, `${name}: labelled by its prompt`);
+    assert.equal(view.window, undefined, `${name}: a box of asterisks is not a window`);
+    assert.ok(view.items.every((i) => i.kind !== 'text' || i.role === 'normal'), `${name}: not shown as errors`);
+  }
+  const listcat = transform(recorded('tsoListcat'));
+  assert.ok(listcat.items.some((i) => i.kind === 'text' && i.text.includes('NONVSAM ------- SYS1.ACMDLIB')));
+  assert.equal(recorded('tsoPassword').fields.find((f) => f.id === '2:2')?.attr.nonDisplay, true, 'the password stays hidden');
+});
+
+test('full-screen programs are never taken for line mode', () => {
+  for (const name of ['vtamLogon', 'tsoMenu', 'tsoMenuModel5', 'rfeDslist', 'termtest']) {
+    const snap = recorded(name);
+    assert.equal(lineModeInput(snap), undefined, name);
+    assert.equal(transform(snap).lineMode, undefined, name);
+  }
+  assert.deepEqual(inputIds(transform(recorded('rfeDslist'))).slice(0, 3), ['2:15', '2:78', '4:2'], 'RFE keeps its inputs');
+});
+
+test('line mode needs no protected fields, and the cursor in the last field', () => {
+  // An editor's last line: an input running to the end of the screen with the cursor in
+  // it, but the screen has protected fields (labels, line numbers), so it is a form.
+  const editor = screen((s) => s.text(1, 2, 'EDIT ---- HERC01.TEST.DATA').text(24, 1, '000100').at(24, 8).field({ attr: Attr.INPUT }).cursor(24, 9));
+  assert.equal(editor.fields.at(-1)?.bypass, false);
+  assert.equal(lineModeInput(editor), undefined);
+  assert.equal(transform(editor).lineMode, undefined);
+  // The real READY screen with the cursor moved off the input.
+  const snap = recorded('tsoReady');
+  assert.equal(lineModeInput({ ...snap, cursor: { row: 1, col: 10 } }), undefined);
+});
+
+test('line mode is only for 3270 screens, and not for a screen with one field', () => {
+  const snap = recorded('tsoReady');
+  assert.equal(lineModeInput({ ...snap, host: '5250' }), undefined);
+  assert.equal(lineModeInput(screen((s) => s.at(1, 2).chars('READY').cursor(2, 1))), undefined, 'unformatted: just the typing field');
 });
 
 // ---- The designer

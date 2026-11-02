@@ -87,8 +87,12 @@ skips the busy name for 10 minutes. The log records `device name in use` and the
 
 ### Mainframe (3270) hosts
 
-Veneer connects to 3270 hosts, shows their screens and has a 3270 keyboard, but it has
-not yet been tested against a real mainframe (issue #31).
+Veneer connects to 3270 hosts, shows their screens and has a 3270 keyboard. It has been
+tested against MVS 3.8j (TK4-, on the Hercules emulator, over plain TN3270): VTAM and TSO
+logon, TSO's line mode, full-screen tools, models 2 and 5, colour, PF and PA keys and
+Clear. [docs/tk4.md](docs/tk4.md) shows how to set that up. It hasn't been tested against
+z/OS, so TLS, TN3270E with LU names, CICS and IMS have only been tested against Veneer's
+own demo mainframe.
 
 Each server talks to one kind of host. For a mainframe, set `VENEER_HOST_TYPE=3270`:
 
@@ -109,7 +113,7 @@ On a 3270 the browser works like this:
 | Page Up, Page Down | The keys in `VENEER_PAGE_KEYS` (PF7 and PF8). |
 | Pause | Clear: blanks the screen and tells the host. |
 | End | Erase EOF: blanks the field from the caret to its end. |
-| Insert | Switches between inserting (the default) and typing over; **Overtype** shows while typing over. |
+| Insert | Switches between typing over (the default, as on a 3270: host screens are full of pre-filled fields) and inserting; **Insert** shows while inserting. |
 | Esc | Reset: unlocks the keyboard if the host left it locked. |
 | **Keys** menu | Every PF key, PA1-PA3, Clear, Erase Input (blanks every input field), Erase EOF and Insert. |
 | **System** menu | System Request (needs TN3270E with the SYSREQ function; it switches to the system session and back) and Attention. |
@@ -118,10 +122,28 @@ While the host is working, the status shows **X SYSTEM**. Numeric fields take di
 a decimal point and a minus sign, as a 3270's numeric lock does; mandatory entry and
 mandatory fill are checked before Enter. Screens without fields, such as a logon screen
 or the blank screen after Clear, have one input at the cursor: type a command there and
-press Enter. The 27x132 screen of a model 5 fits windows about 1000 pixels wide and
+press Enter. TSO's line mode (`READY`, command output, `***` pauses) shows as on a
+terminal: its output as text in a fixed-width font, with one input after the prompt.
+Classic view shows every screen exactly as the host defines it, including TSO's output
+lines as the input fields TSO makes them. The 27x132 screen of a model 5 fits windows about 1000 pixels wide and
 scrolls sideways in narrower ones. There is no Help key, Field+/Field- or Record
 Backspace on a 3270, and in the designer button keys are named PF1 to PF24, PA1 to PA3
 and Clear.
+
+Known limits on 3270:
+
+- **Display terminals only:** no 3270 printers (SCS or LU 1), no DBCS (double-byte
+  character sets), and no graphics (GDDM, programmed symbols).
+- **Code pages 37 and 1047** only.
+- **TSO line mode has no scrollback:** each screen of output replaces the last, as on a
+  terminal.
+- **Lists in ISPF-like tools** (such as RFE's data set list) are drawn as text and fields,
+  not as tables: no Export, and one-character selection fields can overlap the text
+  beside them. Classic view draws them exactly.
+- **A dropped connection can leave the user logged on.** When Veneer ends a session (an
+  idle timeout, or a tab closed for longer than `VENEER_RESUME_GRACE_SECONDS`), the host
+  sees the terminal go away. z/OS can reconnect a TSO user; MVS 3.8j can't, so log off
+  before closing the tab ([docs/tk4.md](docs/tk4.md)).
 
 To try it without a mainframe, run `npm run demo -- --3270` (or set
 `VENEER_HOST_TYPE=3270` for `npm run demo`). The demo mainframe has a logon screen

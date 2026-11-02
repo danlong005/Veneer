@@ -149,12 +149,12 @@ function overtype(e: ReactKeyboardEvent<HTMLInputElement>, field: FieldSnapshot,
   e.preventDefault();
   const next = overtyped(field, value, at, e.key);
   if (next === null) return true;
+  // Change the input itself first, caret included: React then finds the value
+  // already there and leaves the caret alone, however fast the next key comes.
+  input.value = next;
+  input.setSelectionRange(at + 1, at + 1);
   binding.onChange(field, next);
-  // After React redraws the value, put the caret after the character typed.
-  requestAnimationFrame(() => {
-    if (at + 1 >= field.length) focusNext(input);
-    else input.setSelectionRange(at + 1, at + 1);
-  });
+  if (at + 1 >= field.length) focusNext(input);
   return true;
 }
 

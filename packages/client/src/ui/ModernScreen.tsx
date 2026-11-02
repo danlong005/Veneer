@@ -108,7 +108,7 @@ export function ModernScreen(props: Props) {
   return (
     <div
       ref={drag.ref}
-      className={`canvas${design ? ' designing' : ''}`}
+      className={`canvas${design ? ' designing' : ''}${view.lineMode ? ' line-mode' : ''}`}
       style={{ '--cols': view.cols, height: `calc(${bottom - top + 1} * var(--rh))` } as CSSProperties}
       onClickCapture={design ? (e) => {
         // The tab strip switches tabs while designing too.

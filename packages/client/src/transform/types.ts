@@ -168,6 +168,8 @@ export interface ScreenView {
   items: Item[];
   functionKeys: FunctionKey[];
   message?: { text: string; kind: 'error' | 'info' };
+  /** TSO line mode (3270): output drawn as monospaced text, with one input (see lineMode.ts). */
+  lineMode?: boolean;
   /** Set when a pop-up window is active; `items` are then the dimmed background. */
   window?: WindowView;
   /** Buttons added by a customization, shown above the screen: press a key, or open a web page. */

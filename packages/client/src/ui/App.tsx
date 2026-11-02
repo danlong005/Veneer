@@ -62,8 +62,10 @@ export function App() {
   const keyContext: KeyContext = { host: hostType, paging: pageKeys !== null };
   const keyContextNow = useRef(keyContext);
   keyContextNow.current = keyContext;
-  // A 3270 types over what is there when Insert is off; Insert switches. Inserting is the default, as in other web pages.
-  const [overtype, setOvertype] = useState(false);
+  // A 3270 types over what is there, as a real one does: host screens are full of
+  // pre-filled fields to type over. Insert switches to inserting until pressed again.
+  const [inserting, setInserting] = useState(false);
+  const overtype = is3270 && !inserting;
 
   // Designer: a draft definition previewed live in place of the matched one,
   // with undo history. resetDraft starts over, without a step to undo.
@@ -236,13 +238,13 @@ export function App() {
     value: (f) => edits[f.id] ?? f.value,
     onChange: (f, value) => setEdits((e) => ({ ...e, [f.id]: value })),
     onAutoEnter: (f, value) => submit('Enter', { [f.id]: value }),
-    overtype: is3270 && overtype,
-  }), [edits, submit, is3270, overtype]);
+    overtype,
+  }), [edits, submit, overtype]);
 
   // 3270 editing keys, done in the browser: Erase EOF, Erase Input, Insert.
   const localKey = useCallback((key: LocalKey) => {
     if (!snap) return;
-    if (key === 'Insert') { setOvertype((o) => !o); return; }
+    if (key === 'Insert') { setInserting((i) => !i); return; }
     if (key === 'EraseInput') {
       setEdits(erasedInput(snap.fields));
       const first = snap.fields.find((f) => !f.bypass);
@@ -633,7 +635,7 @@ export function App() {
             {statusText(session.state, busy, hostType)}
             {queued > 0 && <span className="typeahead" title="Keys typed ahead">{queued} typed ahead</span>}
           </span>
-          {is3270 && overtype && connected && <span className="typeahead" title="Typing replaces characters. Insert switches back.">Overtype</span>}
+          {is3270 && inserting && connected && <span className="typeahead" title="Typing inserts, pushing the rest along. Insert switches back to typing over.">Insert</span>}
           {screens.designer && screenSnap && !designing && !help && (
             <button type="button" className="ghost mode-toggle" onClick={startDesign}>Design</button>
           )}
@@ -720,7 +722,7 @@ export function App() {
               ...KEYS_3270.map((aid) => ({ label: keyHint(aid, hostType), title: KEY_TITLES[aid] ?? `The ${keyHint(aid, hostType)} key`, onPick: () => submit(aid) })),
               { label: 'Erase Input', title: 'Blank every input field', onPick: () => localKey('EraseInput'), wide: true },
               { label: 'Erase EOF (End)', title: 'Blank the field from the caret to its end', onPick: () => localKey('EraseEOF'), wide: true },
-              { label: overtype ? 'Insert (now typing over)' : 'Insert (now inserting)', title: 'Switch between inserting and typing over (the Insert key)', onPick: () => localKey('Insert'), wide: true },
+              { label: inserting ? 'Insert (now inserting)' : 'Insert (now typing over)', title: 'Switch between typing over and inserting (the Insert key)', onPick: () => localKey('Insert'), wide: true },
             ]} />
           )}
           {!designing && !is3270 && (
