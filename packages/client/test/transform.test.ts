@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { Attr } from '@veneer/tn5250';
 import { findWindows, transform, type FieldItem, type LinkItem, type TableItem, type TextItem } from '../src/transform/index.ts';
 import { stripLeaders } from '../src/transform/text.ts';
-import { drawnLines, mainMenu, promptWindow, signOn, titled, workWithJobs, type WindowOptions } from './screens.ts';
+import { drawnLines, mainMenu, promptWindow, render, signOn, titled, workWithJobs, type WindowOptions } from './screens.ts';
 
 const texts = (items: unknown[]) => (items as TextItem[]).filter((i) => i.kind === 'text').map((i) => i.text);
 
@@ -152,4 +152,9 @@ for (const [name, opts] of customBorders) {
 test('separator lines, text tables and reverse-image bars are not windows', () => {
   assert.deepEqual(findWindows(drawnLines()), []);
   assert.equal(transform(drawnLines()).window, undefined);
+});
+
+test('on a 5250 a highlighted title right after a short label is still the title (the pair rule is 3270 only)', () => {
+  const v = transform(render((s) => s.text(1, 28, 'Orders').text(1, 36, 'Order Inquiry', Attr.WHITE)));
+  assert.equal(v.title, 'Order Inquiry');
 });

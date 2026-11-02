@@ -6,7 +6,7 @@ import { Attr, HostStream, Terminal, buildRecord, getCodepage, snapshot } from '
 const cp = getCodepage(37);
 const { WHITE, BLUE, NONDISPLAY } = Attr;
 
-function render(build: (s: HostStream) => HostStream, error?: string): ScreenSnapshot {
+export function render(build: (s: HostStream) => HostStream, error?: string): ScreenSnapshot {
   const t = new Terminal({ codepage: cp, terminalType: 'IBM-3179-2', sendRecord: () => {} });
   t.processRecord(buildRecord(0x03, build(new HostStream().clear().write()).readMdt().build()));
   if (error) t.processRecord(buildRecord(0x03, new HostStream().errorMessage(error).build()));

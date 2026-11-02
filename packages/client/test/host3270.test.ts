@@ -271,3 +271,20 @@ test('the designer names 3270 keys by their 3270 names, and tabs can run to row 
   assert.equal(moveTabEdge(tabs, 2, 43, 43)[1]!.to, 43);
   assert.equal(moveTabEdge(tabs, 2, 50, 43)[1]!.to, 43, 'not past the screen');
 });
+
+test('a header row of label/value pairs has no page title; real titles are kept', () => {
+  for (const name of ['vtamLogon', 'tsoMenu', 'tsoMenuModel5']) {
+    const view = transform(recorded(name));
+    assert.equal(view.title, undefined, name);
+    assert.deepEqual(view.meta.map((m) => m.text), ['Terminal CUU0C0', 'Date 02.11.26'], name);
+  }
+  assert.equal(transform(recorded('rfeDslist')).title, 'RFE DSLIST');
+  assert.equal(transform(recorded('termtest')).title, 'TSO 3270 VDU TEST');
+});
+
+test('a title beside other header text is still the title, and a dash run never is', () => {
+  const titled = screen((s) => s.text(1, 33, 'Customer Inquiry').text(1, 51, 'PROD'));
+  assert.equal(transform(titled).title, 'Customer Inquiry', 'too long to be a label, so not one of a pair');
+  const dashes = screen((s) => s.text(1, 2, 'MYAPP').text(1, 30, '--------------------'));
+  assert.equal(transform(dashes).title, undefined);
+});
