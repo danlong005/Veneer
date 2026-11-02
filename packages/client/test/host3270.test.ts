@@ -11,6 +11,7 @@ import { describeChange } from '../src/designer/changes.ts';
 import { moveTabEdge } from '../src/designer/edit.ts';
 import { transform } from '../src/transform/index.ts';
 import { lineModeInput } from '../src/transform/lineMode.ts';
+import { EMPTY_CONSOLE, MAX_HISTORY, nextConsole, type ConsoleLog } from '../src/transform/console.ts';
 import { exportColumns, pageRows } from '../src/export/sheet.ts';
 import type { FieldItem, TableItem } from '../src/transform/types.ts';
 import { acceptsChar, cellInputWidth, checkFields, isShortField, erasedInput, erasedToEnd, filterValue, isNumeric, overtyped, takesNumbers } from '../src/ui/fieldRules.ts';
@@ -362,4 +363,55 @@ test('short fields fit their characters and the attribute byte after them, so th
   assert.equal(cellInputWidth({ length: 10 }), 'calc(10 * var(--cw) + 1.2em)', 'longer fields keep their padding');
   const rfe = tableOf(transform(recorded('rfeDslist')));
   assert.equal(rfe.columns[0]!.width, 2, 'and the selection column is that wide');
+});
+
+// ---- TSO console: earlier pages of line-mode output kept for scrolling back
+
+/** A TSO line-mode screen: each line an unprotected field, then the input to the end of the screen. */
+const tso = (lines: string[], typed = '') => screen((s) => {
+  lines.forEach((l, i) => s.at(i + 1, 1).field({ attr: 0x08 }).chars(l));
+  s.at(lines.length + 1, 1).field({ attr: Attr.INPUT }).chars(typed);
+  return s.cursor(lines.length + 1, 2 + typed.length);
+});
+const run = (log: ConsoleLog, ...snaps: ScreenSnapshot[]) => snaps.reduce(nextConsole, log);
+
+test('the TSO console keeps each page TSO erases, without its ***, and not the page still showing', () => {
+  const log = run(EMPTY_CONSOLE,
+    tso(['READY']),
+    tso(['READY', 'TIME', 'TIME-07:44:03 PM', 'READY']),
+    tso(['READY', 'TIME', 'TIME-07:44:03 PM', 'READY', 'LISTCAT', 'A', 'B', '***']));
+  assert.deepEqual(log.history, [], 'more lines under the same ones: the same page');
+  const next = nextConsole(log, tso(['C', 'D', 'READY']));
+  assert.deepEqual(next.history, [' READY', ' TIME', ' TIME-07:44:03 PM', ' READY', ' LISTCAT', ' A', ' B']);
+  assert.deepEqual(next.page, [' C', ' D', ' READY']);
+});
+
+test('a command typed beside its prompt continues the page, and is kept with it', () => {
+  // TSO's input can start on the prompt's row: what was typed there stays on the screen.
+  const prompt = screen((s) => s.at(1, 1).field({ attr: 0x08 }).chars('READY ').field({ attr: Attr.INPUT }).cursor(1, 9));
+  const typed = screen((s) => s.at(1, 1).field({ attr: 0x08 }).chars('READY ').field({ attr: Attr.INPUT }).chars('TIME')
+    .at(2, 1).field({ attr: 0x08 }).chars('TIME-07:44:03 PM').at(3, 1).field({ attr: 0x08 }).chars('READY ').field({ attr: Attr.INPUT }).cursor(3, 9));
+  const log = run(EMPTY_CONSOLE, prompt, typed);
+  assert.deepEqual(log.history, [], 'the same page');
+  assert.deepEqual(nextConsole(log, tso(['NEXT'])).history, [' READY  TIME', ' TIME-07:44:03 PM', ' READY']);
+});
+
+test('the TSO console leaves out what is being typed, and survives blank screens but not full-screen programs', () => {
+  assert.deepEqual(nextConsole(EMPTY_CONSOLE, tso(['READY'], 'LISTC')).page, [' READY'], 'not yet sent');
+  const log = run(EMPTY_CONSOLE, tso(['A', '***']), tso(['READY']));
+  assert.equal(nextConsole(log, screen((s) => s.cursor(1, 1))), log, 'TSO erasing before it writes, or Clear');
+  assert.equal(nextConsole(log, { ...recorded('tsoMenu'), keyboardLocked: true }), log, 'not while the keyboard is locked');
+  assert.equal(nextConsole(log, recorded('tsoMenu')), EMPTY_CONSOLE, 'a full-screen program ends it');
+});
+
+test('the TSO console on screens recorded from TK4-, and its length limit', () => {
+  const log = run(EMPTY_CONSOLE, recorded('tsoListcat'), recorded('tsoReady'));
+  assert.equal(log.history[1], '        *** TSO Applications Menu terminated.              ***');
+  assert.ok(log.history.some((l) => l.startsWith(' TIME-07:44:03 PM.')));
+  assert.ok(log.history.includes(' NONVSAM ------- SYS1.ACMDLIB'));
+  assert.ok(log.history.every((l) => l.trim() !== '***'));
+  assert.equal(log.page.at(-1), ' READY');
+  const full = nextConsole({ history: Array<string>(MAX_HISTORY).fill('old'), page: [' X'] }, tso(['Y']));
+  assert.equal(full.history.length, MAX_HISTORY);
+  assert.deepEqual([full.history[0], full.history.at(-1)], ['old', ' X'], 'the oldest lines go first');
 });

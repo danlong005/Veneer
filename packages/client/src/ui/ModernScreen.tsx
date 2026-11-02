@@ -19,6 +19,8 @@ interface Props {
   locked: boolean;
   onAction: (action: Action) => void;
   onCursor: (row: number, col: number) => void;
+  /** TSO line mode: earlier pages of output, drawn above the screen to scroll back to. */
+  history?: readonly string[];
   /**
    * Designer mode: clicks select items instead of acting on them, and items
    * can be dragged (or nudged with the arrow keys) to move them. Items are
@@ -107,6 +109,8 @@ export function ModernScreen(props: Props) {
   useReveal(drag.ref, (index) => setPicked({ snap: view.snapshot, index }));
   const group = (g: Group) => <GroupView {...props} group={g} origin={origin} />;
   return (
+    <>
+    {props.history && props.history.length > 0 && <ConsoleHistory lines={props.history} cols={view.cols} />}
     <div
       ref={drag.ref}
       className={`canvas${design ? ' designing' : ''}${view.lineMode ? ' line-mode' : ''}`}
@@ -171,6 +175,22 @@ export function ModernScreen(props: Props) {
         </>
       )}
     </div>
+    </>
+  );
+}
+
+/**
+ * TSO's earlier output, above the live screen and on its character grid, like
+ * a terminal's scrollback. New output scrolls the page to the bottom.
+ */
+function ConsoleHistory({ lines, cols }: { lines: readonly string[]; cols: number }) {
+  useEffect(() => {
+    window.scrollTo({ top: document.documentElement.scrollHeight });
+  }, [lines]);
+  return (
+    <pre className="console-history" aria-label="Earlier output" style={{ '--cols': cols } as CSSProperties}>
+      {lines.join('\n')}
+    </pre>
   );
 }
 

@@ -124,6 +124,9 @@ mandatory fill are checked before Enter. Screens without fields, such as a logon
 or the blank screen after Clear, have one input at the cursor: type a command there and
 press Enter. TSO's line mode (`READY`, command output, `***` pauses) shows as on a
 terminal: its output as text in a fixed-width font, with one input after the prompt.
+When TSO fills the screen and erases it to carry on (after `***`), the earlier output
+stays above the screen to scroll back to, up to 2000 lines, until a full-screen program
+such as ISPF takes over.
 Classic view shows every screen exactly as the host defines it, including TSO's output
 lines as the input fields TSO makes them. The 27x132 screen of a model 5 fits windows about 1000 pixels wide and
 scrolls sideways in narrower ones. There is no Help key, Field+/Field- or Record
@@ -135,8 +138,8 @@ Known limits on 3270:
 - **Display terminals only:** no 3270 printers (SCS or LU 1), no DBCS (double-byte
   character sets), and no graphics (GDDM, programmed symbols).
 - **Code pages 37 and 1047** only.
-- **TSO line mode has no scrollback:** each screen of output replaces the last, as on a
-  terminal.
+- **TSO scrollback is kept only in the browser tab:** reloading the page, or starting a
+  full-screen program, starts it again.
 - **Lists need a selection column to be found.** A list in an ISPF-like tool (such as
   RFE's data set list) becomes a table, with Export and a narrow selection column, when
   it has a heading row in its own colour over three or more rows with the same input

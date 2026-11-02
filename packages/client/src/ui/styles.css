@@ -159,8 +159,15 @@ button.ghost:hover { background: var(--surface-2); }
   width: calc(var(--cols) * var(--cw));
 }
 .canvas > * { position: absolute; }
-/* TSO line mode: output as on the terminal, in a fixed-width font so its columns line up. */
-.canvas.line-mode .text { font-family: var(--mono); white-space: pre; }
+/* TSO line mode: output as on the terminal, in a fixed-width font on the screen's
+   character grid, so its columns line up with each other and with the scrollback. */
+.canvas.line-mode .text { font-family: var(--mono); white-space: pre; letter-spacing: calc(var(--cw) - 1ch); }
+.console-history {
+  margin: 0; font-size: clamp(11px, calc((100vw - 84px) / (var(--cols) * 0.64)), 15px);
+  --cw: 0.64em; line-height: 1.9em; width: calc(var(--cols) * var(--cw));
+  font-family: var(--mono); white-space: pre; letter-spacing: calc(var(--cw) - 1ch);
+  color: var(--text-muted); border-bottom: 1px dashed var(--border);
+}
 .text {
   line-height: var(--rh); white-space: pre; font-size: 1em;
 }

@@ -10,6 +10,7 @@ import { DesignPanel } from '../designer/DesignPanel.tsx';
 import { record, redo, startHistory, undo, type History } from '../designer/history.ts';
 import { cardsOf, componentAt, htmlAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove, toggleTextAreaField } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
+import { EMPTY_CONSOLE, nextConsole } from '../transform/console.ts';
 import { transform } from '../transform/index.ts';
 import type { Action, FunctionKey, ScreenView } from '../transform/types.ts';
 import { ClassicScreen } from './ClassicScreen.tsx';
@@ -87,6 +88,12 @@ export function App() {
   designingNow.current = designing;
 
   const baseView = useMemo(() => (snap ? transform(snap) : null), [snap]);
+  // TSO's line mode: earlier pages of output, to scroll back to (nextConsole gives the same log for the same screen).
+  const consoleLog = useRef(EMPTY_CONSOLE);
+  const consoleHistory = useMemo(() => {
+    if (snap) consoleLog.current = nextConsole(consoleLog.current, snap);
+    return consoleLog.current.history;
+  }, [snap]);
   const view = useMemo(
     () => (baseView ? customize(baseView, designing ? draft : definition, { design: designView }) : null),
     [baseView, definition, draft, designing, designView],
@@ -691,6 +698,7 @@ export function App() {
             )}
             {mode === 'modern'
               ? <ModernScreen view={screenView} binding={binding} locked={!keysEnabled} onAction={onAction}
+                  history={screenView.lineMode && !designing ? consoleHistory : undefined}
                   onCursor={(row, col) => { clickedCursor.current = { row, col }; }}
                   design={designView ? { selected: selection?.at ?? null, onSelect: selectOnScreen, onMove: moveItem, onResize: resizeBox } : undefined} />
               : <ClassicScreen snap={screenSnap} binding={binding} />}
