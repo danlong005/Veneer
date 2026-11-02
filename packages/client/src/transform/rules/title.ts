@@ -33,8 +33,11 @@ export function title(ctx: TransformContext): void {
   // start as 'normal' because the header has its own look.
   const meta: TextItem[] = [];
   let prevEnd = -Infinity;
-  for (const c of chunks) {
-    if (c === best) { prevEnd = -Infinity; continue; }
+  for (const chunk of chunks) {
+    if (chunk === best) { prevEnd = -Infinity; continue; }
+    // ISPF frames its title row with dashes ("----  RFE DSLIST  ---- Row 1 of 129"): not header text.
+    const c = ctx.snap.host === '3270' ? withoutDashes(chunk) : chunk;
+    if (!c) continue;
     const last = meta.at(-1);
     if (c.col - prevEnd <= 4 && last) {
       last.text += ` ${c.text}`;
@@ -46,6 +49,14 @@ export function title(ctx: TransformContext): void {
   }
   ctx.view.meta = meta;
   ctx.claimRow(row);
+}
+
+/** A chunk without dash runs at its ends, or undefined if that is all it is. */
+function withoutDashes<C extends { col: number; end: number; text: string }>(c: C): C | undefined {
+  const lead = /^[-=]{2,}\s*/.exec(c.text)?.[0].length ?? 0;
+  const trail = /\s*[-=]{2,}$/.exec(c.text.slice(lead))?.[0].length ?? 0;
+  const text = c.text.slice(lead, c.text.length - trail);
+  return text ? { ...c, col: c.col + lead, end: c.end - trail, text } : undefined;
 }
 
 /** Inside a window: the first row is a title only if it is entirely highlighted text. */

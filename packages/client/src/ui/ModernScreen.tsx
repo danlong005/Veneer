@@ -10,6 +10,7 @@ import type { Action, Card, Item, ScreenView, TableItem, WindowView } from '../t
 import { useComponents } from '../custom/components.ts';
 import { ComponentBox } from './ComponentBox.tsx';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
+import { cellInputWidth } from './fieldRules.ts';
 import { drawnHeight, layoutOf, tabAtCursor, viewRow, type Group } from './layout.ts';
 
 interface Props {
@@ -421,7 +422,7 @@ function Table({ table, origin, binding, locked, onAction, design }: {
                   dataAt={`${c.field.row}:${c.field.col}`}
                   className={designClass(design, { row: c.field.row, col: c.field.col })}
                   label={table.columns.find((col) => col.col === c.col)?.header}
-                  style={c.options ? undefined : { width: `calc(${Math.max(c.field.length, 1)} * var(--cw) + 1.2em)` }}
+                  style={c.options ? undefined : { width: cellInputWidth(c.field) }}
                 />
               ) : (
                 c.text

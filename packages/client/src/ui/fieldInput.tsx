@@ -4,7 +4,7 @@ import { hostToIso, isoToHost, type Widget } from '@veneer/screens';
 import type { FieldSnapshot } from '@veneer/terminal';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Option } from '../transform/types.ts';
-import { filterValue, isNumeric, overtyped, withSign } from './fieldRules.ts';
+import { filterValue, isNumeric, overtyped, withSign, isShortField } from './fieldRules.ts';
 import { RadioField, SpinnerField, TextAreaField } from './widgets.tsx';
 
 export interface FieldBinding {
@@ -104,7 +104,7 @@ export function FieldInput(props: {
 
   return (
     <input
-      className={className}
+      className={isShortField(field) ? `${className} short` : className}
       style={style}
       data-field={field.id}
       data-at={props.dataAt}

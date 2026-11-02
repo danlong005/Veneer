@@ -85,3 +85,17 @@ export function checkFields(fields: FieldSnapshot[], edits: Record<string, strin
   }
   return null;
 }
+
+/**
+ * Fields this short (option and selection columns) get tight padding, so their
+ * box covers only their characters and the blank attribute byte after them and
+ * never the text that follows.
+ */
+export const SHORT_FIELD = 3;
+export const isShortField = (f: Pick<FieldSnapshot, 'length'>): boolean => f.length <= SHORT_FIELD;
+
+/** The CSS width of a field in a table cell. */
+export function cellInputWidth(f: Pick<FieldSnapshot, 'length'>): string {
+  const n = Math.max(f.length, 1);
+  return isShortField(f) ? `calc(${n + 1} * var(--cw))` : `calc(${n} * var(--cw) + 1.2em)`;
+}

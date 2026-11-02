@@ -5,13 +5,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 import { getCodepage, type ScreenSnapshot } from '@veneer/terminal';
-import { Attr, HostStream, Terminal, snapshot } from '@veneer/tn3270';
+import { Attr, Color, HostStream, Terminal, snapshot } from '@veneer/tn3270';
+import { screenId } from '@veneer/screens';
 import { describeChange } from '../src/designer/changes.ts';
 import { moveTabEdge } from '../src/designer/edit.ts';
 import { transform } from '../src/transform/index.ts';
 import { lineModeInput } from '../src/transform/lineMode.ts';
-import type { FieldItem } from '../src/transform/types.ts';
-import { acceptsChar, checkFields, erasedInput, erasedToEnd, filterValue, isNumeric, overtyped, takesNumbers } from '../src/ui/fieldRules.ts';
+import { exportColumns, pageRows } from '../src/export/sheet.ts';
+import type { FieldItem, TableItem } from '../src/transform/types.ts';
+import { acceptsChar, cellInputWidth, checkFields, isShortField, erasedInput, erasedToEnd, filterValue, isNumeric, overtyped, takesNumbers } from '../src/ui/fieldRules.ts';
 import { KEYS_3270, buttonAids, keyAction, keyHint, typedKey, type KeyContext } from '../src/ui/keys.ts';
 import { layoutOf } from '../src/ui/layout.ts';
 import { stepValue } from '../src/ui/spinner.ts';
@@ -214,6 +216,11 @@ function recorded(name: string): ScreenSnapshot {
   for (const hex of f.records) t.processRecord(Buffer.from(hex, 'hex'));
   return snapshot(t.screen, cp);
 }
+const tableOf = (v: ReturnType<typeof transform>) => {
+  const t = v.items.find((i): i is TableItem => i.kind === 'table');
+  assert.ok(t, 'a table');
+  return t;
+};
 const inputIds = (v: ReturnType<typeof transform>) => v.items.filter((i): i is FieldItem => i.kind === 'field').map((i) => i.field.id);
 
 test('TSO line mode shows its output as text and keeps only the input at the cursor', () => {
@@ -239,7 +246,9 @@ test('full-screen programs are never taken for line mode', () => {
     assert.equal(lineModeInput(snap), undefined, name);
     assert.equal(transform(snap).lineMode, undefined, name);
   }
-  assert.deepEqual(inputIds(transform(recorded('rfeDslist'))).slice(0, 3), ['2:15', '2:78', '4:2'], 'RFE keeps its inputs');
+  const rfe = transform(recorded('rfeDslist'));
+  assert.deepEqual(inputIds(rfe), ['2:15', '2:78'], 'RFE keeps its command and scroll inputs');
+  assert.equal(tableOf(rfe).rows[0]!.cells[0]!.field?.id, '4:2', 'and its selection fields, in the list');
 });
 
 test('line mode needs no protected fields, and the cursor in the last field', () => {
@@ -287,4 +296,70 @@ test('a title beside other header text is still the title, and a dash run never 
   assert.equal(transform(titled).title, 'Customer Inquiry', 'too long to be a label, so not one of a pair');
   const dashes = screen((s) => s.text(1, 2, 'MYAPP').text(1, 30, '--------------------'));
   assert.equal(transform(dashes).title, undefined);
+});
+
+// ---- Lists in ISPF-style tools (RFE's data set list on TK4-)
+
+test('an ISPF-style list is a table: headings in one colour, rows with the same selection field', () => {
+  const view = transform(recorded('rfeDslist'));
+  const table = tableOf(view);
+  assert.deepEqual([table.row, table.col, table.height], [3, 2, 22]);
+  assert.deepEqual(table.columns.map((c) => c.header), ['S', 'DATA-SET-NAME', 'VOLUME', 'ALTRK', 'USTRK', 'ORG', 'FRMT', '%', 'XT', 'LRECL', 'BLKSZ']);
+  assert.equal(table.rows.length, 21);
+  assert.deepEqual(table.rows[0]!.cells.map((c) => c.field ? `[${c.field.id}]` : c.text),
+    ['[4:2]', 'SYS1.ACMDLIB', 'MVSDLB', '71', '47', 'PO', 'U', '66', '1', '', '6144']);
+  assert.deepEqual(table.columns[0], { col: 2, width: 2, header: 'S' }, 'the one-character selection field has its own column');
+  assert.equal(table.more, true, 'Row 1 of 129');
+});
+
+test('every page of an ISPF-style list has the same columns, so it exports', () => {
+  const pages = ['rfeDslist', 'rfeDslistPage2'].map((n) => tableOf(transform(recorded(n))));
+  assert.deepEqual(pages[1]!.columns, pages[0]!.columns, 'page 2 has no LRECL values, and still has the column');
+  assert.deepEqual(exportColumns(pages[1]!), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 'the selection column is left out');
+  assert.deepEqual(pageRows(pages[1]!, exportColumns(pages[1]!))[0], ['SYS1.AOSD8', 'MVSDLB', '32', '22', 'PO', 'U', '68', '1', '', '6144']);
+  assert.equal(screenId(recorded('rfeDslistPage2')), screenId(recorded('rfeDslist')), 'one screen id for every page');
+});
+
+const list3270 = (heading: string, rows: string[], opts: { rowOf?: string; headingAttr?: number } = {}) => screen((s) => {
+  s.text(1, 30, 'MY LIST');
+  if (opts.rowOf) s.text(1, 60, opts.rowOf);
+  s.text(3, 2, heading, { attr: opts.headingAttr ?? Attr.BRIGHT });
+  rows.forEach((r, i) => s.input(4 + i, 2, 1).text(4 + i, 4, r));
+  return s;
+});
+
+test('a heading that values run across stays one column ("DATA SET NAME"); "Row x of y" decides more', () => {
+  const rows = ['SYS1.LINKLIB      MVSRES', 'HERC01.CNTL       PUB001', 'SYS2.PROCLIB      MVS000'];
+  const heading = 'S DATA SET NAME     VOLUME';
+  const table = tableOf(transform(list3270(heading, rows, { rowOf: 'Row 1 of 3' })));
+  assert.deepEqual(table.columns.map((c) => [c.col, c.header]), [[2, 'S'], [4, 'DATA SET NAME'], [22, 'VOLUME']]);
+  assert.equal(table.more, false, 'rows 1 to 3 of 3');
+  assert.equal(tableOf(transform(list3270(heading, rows))).more, true, 'without "Row x of y", paging finds the end');
+});
+
+test('not an ISPF-style list: too few rows, rows with different fields, or headings in the rows\' colour', () => {
+  const noTable = (snap: ScreenSnapshot) => assert.equal(transform(snap).items.some((i) => i.kind === 'table'), false);
+  noTable(list3270('NAME VOLUME SIZE', ['A  V1  1', 'B  V2  2']));
+  noTable(screen((s) => s.text(3, 2, 'NAME VOLUME SIZE', { attr: Attr.BRIGHT })
+    .input(4, 2, 1).text(4, 4, 'A').input(5, 2, 2).text(5, 5, 'B').input(6, 2, 1).text(6, 4, 'C')));
+  noTable(list3270('NAME VOLUME SIZE', ['A  V1  1', 'B  V2  2', 'C  V3  3'], { headingAttr: Attr.TEXT }));
+  noTable(list3270('NAME        VOLUME', ['A  V1', 'B  V2', 'C  V3']));
+  noTable(screen((s) => {
+    s.text(3, 2, 'NAME', { attr: Attr.BRIGHT }).text(3, 8, 'VOLUME', { attr: Attr.BRIGHT, color: Color.YELLOW }).text(3, 16, 'SIZE', { attr: Attr.BRIGHT });
+    ['A', 'B', 'C'].forEach((r, i) => s.input(4 + i, 2, 1).text(4 + i, 4, r));
+    return s;
+  }));
+});
+
+test('ISPF title rows lose their dashes in the page header', () => {
+  assert.deepEqual(transform(recorded('rfeDslist')).meta.map((m) => [m.col, m.text]), [[69, 'Row 1 of 129']]);
+});
+
+test('short fields fit their characters and the attribute byte after them, so they never cover the next column', () => {
+  assert.deepEqual([1, 2, 3, 4].map((length) => isShortField({ length })), [true, true, true, false]);
+  assert.equal(cellInputWidth({ length: 1 }), 'calc(2 * var(--cw))', 'RFE\'s selection field: 2 columns');
+  assert.equal(cellInputWidth({ length: 3 }), 'calc(4 * var(--cw))');
+  assert.equal(cellInputWidth({ length: 10 }), 'calc(10 * var(--cw) + 1.2em)', 'longer fields keep their padding');
+  const rfe = tableOf(transform(recorded('rfeDslist')));
+  assert.equal(rfe.columns[0]!.width, 2, 'and the selection column is that wide');
 });

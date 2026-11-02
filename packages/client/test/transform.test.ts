@@ -158,3 +158,12 @@ test('on a 5250 a highlighted title right after a short label is still the title
   const v = transform(render((s) => s.text(1, 28, 'Orders').text(1, 36, 'Order Inquiry', Attr.WHITE)));
   assert.equal(v.title, 'Order Inquiry');
 });
+
+test('on a 5250, headings over rows of option fields without "More..." or "Bottom" are not a list (3270 only)', () => {
+  const v = transform(render((s) => {
+    s.text(3, 2, 'Opt Name Volume Size', Attr.WHITE);
+    ['A', 'B', 'C'].forEach((r, i) => s.field(4 + i, 2, 1).text(4 + i, 4, r));
+    return s;
+  }));
+  assert.equal(v.items.some((i) => i.kind === 'table'), false);
+});

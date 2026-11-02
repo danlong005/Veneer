@@ -84,7 +84,7 @@ With `VENEER_TRACE=true`, Veneer logs every record from the host in hex, and fro
 browser only the key and cursor (never what was typed). The screens in
 `packages/tn3270/test/fixtures/tk4.json` were recorded this way: the VTAM logon screen,
 TSO's password prompt, the TSO Applications menu on a model 2 and a model 5, TSO line
-mode (READY, LISTCAT), RFE's data set list and TERMTEST. The tests replay them, so a
+mode (READY, LISTCAT), two pages of RFE's data set list, and TERMTEST. The tests replay them, so a
 change that breaks a real host's screens fails the build.
 
 ## What TK4- can't test

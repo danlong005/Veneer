@@ -137,9 +137,10 @@ Known limits on 3270:
 - **Code pages 37 and 1047** only.
 - **TSO line mode has no scrollback:** each screen of output replaces the last, as on a
   terminal.
-- **Lists in ISPF-like tools** (such as RFE's data set list) are drawn as text and fields,
-  not as tables: no Export, and one-character selection fields can overlap the text
-  beside them. Classic view draws them exactly.
+- **Lists need a selection column to be found.** A list in an ISPF-like tool (such as
+  RFE's data set list) becomes a table, with Export and a narrow selection column, when
+  it has a heading row in its own colour over three or more rows with the same input
+  fields. A list without input fields, such as browse output, stays text.
 - **A dropped connection can leave the user logged on.** When Veneer ends a session (an
   idle timeout, or a tab closed for longer than `VENEER_RESUME_GRACE_SECONDS`), the host
   sees the terminal go away. z/OS can reconnect a TSO user; MVS 3.8j can't, so log off

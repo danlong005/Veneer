@@ -183,6 +183,8 @@ button.ghost:hover { background: var(--surface-2); }
 .field.required { border-left: 3px solid var(--accent); }
 .field.command { font-size: 1em; }
 .field.numeric { text-align: right; }
+/* Option and selection fields: just their characters and the attribute byte after them (fieldRules SHORT_FIELD). */
+.field.short { padding: 0 2px; min-width: 0; text-align: center; }
 .widget-select { font-family: var(--font); padding: 0 4px; cursor: pointer; min-width: 10em; }
 .date-field { font-family: var(--font); min-width: 10.5em; }
 .checkbox-field { height: var(--rh); display: inline-flex; align-items: center; }
