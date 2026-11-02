@@ -161,6 +161,19 @@ definitions (`"host": "3270"`), and then only lets them use keys that host has: 
 PA3 on a 3270, Help, Print, Page Up/Down and Record Backspace on a 5250. Definitions
 without `host` match either.
 
+#### Where to run Veneer for a mainframe
+
+z/OS has no equivalent of the IBM i's PASE, which runs AIX programs. Veneer only needs
+Node.js 20.12 or later and a network path to the host's TN3270 server, so it can run in
+any of these places:
+
+| Where | How | Notes |
+| --- | --- | --- |
+| **Off the mainframe** (Linux or Docker on any server) | The Linux or Docker install in [deploy/README.md](deploy/README.md), with `VENEER_HOST` set to the TN3270 server. | The usual place for a 3270 front-end: nothing is installed on z/OS. Use TLS to the host (`VENEER_TLS=true`, port 992). This is how Veneer has been tested. |
+| **Linux on IBM Z** (an LPAR or a z/VM guest) | The same Linux install. Node.js publishes builds for s390x. | Ordinary Linux; the network path to z/OS can stay inside the machine (HiperSockets). Not yet tried. |
+| **zCX** (z/OS Container Extensions) | The Docker image, built for s390x: `docker buildx build --platform linux/s390x -t veneer .` (its base image, `node:22-alpine`, is published for s390x). | Runs Linux containers inside z/OS. Not yet tried. |
+| **z/OS UNIX System Services** | Unpack the release archive and run it with IBM's Node.js for z/OS (IBM Open Enterprise SDK for Node.js). | USS is UNIX, but not AIX or Linux: it runs only programs built for z/OS, and its files are EBCDIC unless tagged. Veneer is plain JavaScript with no native modules, so it should run, but this is untested ([#33](https://github.com/danlong005/Veneer/issues/33)). |
+
 ### Admin page
 
 `/admin` shows who is connected and lets an operator fix stuck sessions without
