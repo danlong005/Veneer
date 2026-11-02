@@ -3,7 +3,7 @@
 // period, during which a new socket can reattach with the resume token.
 
 import { randomBytes, randomUUID } from 'node:crypto';
-import { DeviceNameInUseError, type ScreenSnapshot, type TerminalSession } from '@veneer/terminal';
+import { DeviceNameInUseError, type HostType, type ScreenSnapshot, type TerminalSession } from '@veneer/terminal';
 import WebSocket from 'ws';
 import { DeviceNamePool } from './devices.ts';
 import { createHostSession, deviceNameLength, hostAid, hostLabel, hostTypeOf, type HostSettings } from './host.ts';
@@ -131,7 +131,7 @@ export class SessionManager {
     }
     let retries = 0;
     const host: TerminalSession = createHostSession(this.opts.host, {
-      ...(this.opts.trace ? { trace: (dir: 'in' | 'out', rec: Buffer) => traceRecord(bs, dir, rec) } : {}),
+      ...(this.opts.trace ? { trace: (dir: 'in' | 'out', rec: Buffer) => traceRecord(bs, dir, rec, hostTypeOf(this.opts.host)) } : {}),
       ...(deviceName ? { deviceName, onDeviceNameInUse: (name: string) => this.nextDeviceName(bs, name, ++retries) } : {}),
     });
     const bs: BrowserSession = new BrowserSession(host, deviceName, remote);
@@ -350,15 +350,26 @@ function rejectSocket(socket: WebSocket, message: string): void {
 }
 
 /**
- * Log a 5250 record in hex. What the browser sends (field values, a password
- * among them, and the screen in Save Screen replies) stays out: an outbound
- * record shows only its header and, for an AID, the cursor and AID byte.
+ * Log a host record in hex. What the browser sends (field values, a password
+ * among them, and the screen in Save Screen or Read Buffer replies) stays
+ * out: an outbound record shows only its header and its AID and cursor.
  */
-export function traceRecord(bs: { id: string }, dir: 'in' | 'out', rec: Buffer): void {
-  const header = 6 + (rec[6] ?? 4);
-  const shown = dir === 'in' ? rec : rec.subarray(0, Math.min(rec.length, header + 3));
+export function traceRecord(bs: { id: string }, dir: 'in' | 'out', rec: Buffer, host: HostType = '5250'): void {
+  const shown = dir === 'in' ? rec : rec.subarray(0, Math.min(rec.length, keptOf(rec, host)));
   log.info('record', {
     session: bs.id, dir, length: rec.length, hex: shown.toString('hex'),
     ...(shown.length < rec.length ? { hidden: rec.length - shown.length } : {}),
   });
+}
+
+/** How much of an outbound record a trace may show. */
+function keptOf(rec: Buffer, host: HostType): number {
+  if (host === '5250') {
+    // The GDS header (its variable part's length is byte 6), then cursor and AID.
+    return 6 + (rec[6] ?? 4) + 3;
+  }
+  // 3270: a TN3270E header (data type 0x00-0x08; no AID is that low) of 5 bytes, if any.
+  const header = rec[0] !== undefined && rec[0] <= 0x08 ? 5 : 0;
+  // Only 3270 data has an AID and cursor; SSCP-LU data is typed text (a logon command, maybe a password).
+  return header > 0 && rec[0] !== 0x00 ? header : header + 3;
 }

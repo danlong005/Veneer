@@ -172,6 +172,37 @@ test('a screen without fields offers one input at the cursor, for typing a comma
   assert.ok(JSON.stringify(view).includes('Type the name of an application'), 'the text still shows');
 });
 
+// ---- Boxes of asterisks
+
+/**
+ * What TSO showed after leaving its applications menu (from TK4-): a message
+ * in a box of '*', all of it written as unprotected fields as TSO's line mode
+ * does, then READY and the input area, with the cursor on the next line.
+ */
+const tsoReady = (cursorRow = 6, cursorCol = 1) => screen((s) => {
+  const lines = [
+    '******************************************************',
+    '*** TSO Applications Menu terminated.              ***',
+    '*** Enter TSOAPPLS at the READY prompt to restart. ***',
+    '******************************************************',
+  ];
+  lines.forEach((l, i) => s.input(i + 1, 9, l.length, { value: l, attr: 0x08 }));
+  return s.input(5, 2, 6, { value: 'READY', attr: 0x08 }).input(5, 9, 1591 - 80).cursor(cursorRow, cursorCol);
+});
+
+test('a TSO message in a box of asterisks is not a pop-up window when the cursor is below it', () => {
+  const view = transform(tsoReady());
+  assert.equal(view.window, undefined);
+  const inputs = view.items.filter((i): i is FieldItem => i.kind === 'field').map((i) => i.field.id);
+  assert.ok(inputs.includes('5:9'), 'the READY input is there to type into');
+  assert.match(JSON.stringify(view.items), /TSO Applications Menu terminated/, 'and the message still shows');
+});
+
+test('on a 3270 a box with the cursor in it is still a pop-up window', () => {
+  const view = transform(tsoReady(3, 20));
+  assert.equal(view.window?.title, 'TSO Applications Menu terminated.');
+});
+
 // ---- The designer
 
 test('the designer names 3270 keys by their 3270 names, and tabs can run to row 43', () => {

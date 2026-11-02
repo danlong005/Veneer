@@ -131,10 +131,16 @@ function topEdge(snap: ScreenSnapshot, key: (row: number, col: number) => Key, r
   return /[\p{L}\p{N}]/u.test(title) ? { title } : undefined;
 }
 
-/** The window the user is working in: the one holding the cursor, else the last found. */
+/**
+ * The window the user is working in: the one holding the cursor, else (on a
+ * 5250) the last found. On a 3270 a box the cursor is not in is just text:
+ * TSO frames messages and its welcome in boxes of '*' and puts the cursor
+ * below them, at READY or a *** prompt.
+ */
 export function activeWindow(snap: ScreenSnapshot, boxes: WindowBox[]): WindowBox | undefined {
   const { row, col } = snap.cursor;
   const inside = boxes.filter(({ outer: o }) => row > o.top && row < o.bottom && col > o.left && col < o.right);
+  if (inside.length === 0 && snap.host === '3270') return undefined;
   const pool = inside.length > 0 ? inside : boxes;
   // Prefer the innermost (smallest) window.
   return [...pool].sort((x, y) => area(x.outer) - area(y.outer))[0];

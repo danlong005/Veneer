@@ -48,3 +48,28 @@ test('a record trace keeps what the browser sent out of the log', async () => {
   assert.equal(inbound.hex, '000e12a0000004000003' + '04110018');
   assert.equal(inbound.hidden, undefined);
 });
+
+test('a 3270 record trace keeps typed text out of the log too, with or without TN3270E', async () => {
+  const { traceRecord } = await import('../src/sessions.ts');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veneer-log-'));
+  const file = path.join(dir, 'veneer.log');
+  configureLog({ level: 'info', file });
+  const SECRET = [0xe2, 0xc5, 0xc3, 0xd9, 0xc5, 0xe3];
+  // Plain TN3270, as TK4- sends it: Enter, cursor, then SBA and a password field.
+  traceRecord({ id: 's1' }, 'out', Buffer.from([0x7d, 0xc5, 0xc1, 0x11, 0xc5, 0xc1, ...SECRET]), '3270');
+  // TN3270E 3270 data: the 5-byte header, then the same.
+  traceRecord({ id: 's1' }, 'out', Buffer.from([0x00, 0x00, 0x00, 0x00, 0x01, 0x7d, 0xc5, 0xc1, 0x11, 0xc5, 0xc1, ...SECRET]), '3270');
+  // TN3270E SSCP-LU data: what was typed on the logon screen, all of it text.
+  traceRecord({ id: 's1' }, 'out', Buffer.from([0x07, 0x00, 0x00, 0x00, 0x02, ...SECRET]), '3270');
+  // A short read (PA1) and a query reply are shown as they are, up to the cursor.
+  traceRecord({ id: 's1' }, 'out', Buffer.from([0x6c]), '3270');
+  traceRecord({ id: 's1' }, 'in', Buffer.from([0xf5, 0xc3, 0x11, 0x40, 0x40, ...SECRET]), '3270');
+  const [plain, extended, sscp, pa1, inbound] = fs.readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  const secret = Buffer.from(SECRET).toString('hex');
+  assert.deepEqual([plain.hex, plain.hidden], ['7dc5c1', 9]);
+  assert.deepEqual([extended.hex, extended.hidden], ['00000000017dc5c1', 9]);
+  assert.deepEqual([sscp.hex, sscp.hidden], ['0700000002', 6]);
+  assert.deepEqual([pa1.hex, pa1.hidden], ['6c', undefined]);
+  for (const r of [plain, extended, sscp]) assert.ok(!r.hex.includes(secret));
+  assert.ok(inbound.hex.endsWith(secret), 'what the host sends is all logged');
+});
