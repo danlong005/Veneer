@@ -102,6 +102,17 @@ export class Terminal {
     this.sync();
   }
 
+  /**
+   * The Reset key: clears the alarm, and unlocks the keyboard if the host
+   * left it locked (a write without "restore keyboard"), as emulators let the
+   * user do. Not before the host's first write, when there is nothing to type on.
+   */
+  reset(): void {
+    this.screen.alarm = false;
+    if (!this.awaitingFirst) this.aidPending = false;
+    this.sync();
+  }
+
   /** An application was bound to the LU: 3270 data from now on. */
   bind(): void {
     this.sscpLu = false;

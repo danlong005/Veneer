@@ -16,9 +16,9 @@ import { ClassicScreen } from './ClassicScreen.tsx';
 import { DropMenu, ExportMenu, type ExportFormat } from './ExportMenu.tsx';
 import { HelpPopover } from './HelpPopover.tsx';
 import type { FieldBinding } from './fieldInput.tsx';
-import { keyAction, keyHint, typedKey } from './keys.ts';
+import { KEYS_3270, isLocalKey, keyAction, keyHint, typedKey, type KeyContext, type LocalKey } from './keys.ts';
 import { DEFAULT_BRAND, useBrand } from './brand.ts';
-import { checkFields } from './fieldRules.ts';
+import { checkFields, erasedInput, erasedToEnd } from './fieldRules.ts';
 import { applyTheme, useThemeLogo } from './themes.ts';
 import { ModernScreen, revealField, type BoxKind } from './ModernScreen.tsx';
 import { indexAt, lineAt } from './textArea.ts';
@@ -54,6 +54,16 @@ export function App() {
     link.setAttribute('href', icon ?? link.dataset.veneerIcon);
   }, [themeLogo, brand]);
   const definition = useMemo(() => (snap ? matchScreen(snap, screens.screens) : undefined), [snap, screens.screens]);
+  // The kind of host: from the screen, or before the first one from the server.
+  const hostType = snap?.host ?? screens.host?.type ?? '5250';
+  const is3270 = hostType === '3270';
+  // Page Up and Page Down: a 5250's own keys; on a 3270 what the server maps them to, if anything.
+  const pageKeys = is3270 ? screens.host?.pageKeys ?? null : { up: 'PageUp' as const, down: 'PageDown' as const };
+  const keyContext: KeyContext = { host: hostType, paging: pageKeys !== null };
+  const keyContextNow = useRef(keyContext);
+  keyContextNow.current = keyContext;
+  // A 3270 types over what is there when Insert is off; Insert switches. Inserting is the default, as in other web pages.
+  const [overtype, setOvertype] = useState(false);
 
   // Designer: a draft definition previewed live in place of the matched one,
   // with undo history. resetDraft starts over, without a step to undo.
@@ -226,7 +236,28 @@ export function App() {
     value: (f) => edits[f.id] ?? f.value,
     onChange: (f, value) => setEdits((e) => ({ ...e, [f.id]: value })),
     onAutoEnter: (f, value) => submit('Enter', { [f.id]: value }),
-  }), [edits, submit]);
+    overtype: is3270 && overtype,
+  }), [edits, submit, is3270, overtype]);
+
+  // 3270 editing keys, done in the browser: Erase EOF, Erase Input, Insert.
+  const localKey = useCallback((key: LocalKey) => {
+    if (!snap) return;
+    if (key === 'Insert') { setOvertype((o) => !o); return; }
+    if (key === 'EraseInput') {
+      setEdits(erasedInput(snap.fields));
+      const first = snap.fields.find((f) => !f.bypass);
+      if (first) focusTarget.current = { id: first.id, offset: 0 };
+      return;
+    }
+    // Erase EOF: the field the caret is in, from the caret on. From the Keys
+    // menu, which takes the focus, the field the user was last in.
+    const el = document.activeElement;
+    const caret = el instanceof HTMLInputElement && el.dataset.field ? { id: el.dataset.field, offset: el.selectionStart ?? 0 } : lastField.current;
+    const f = caret ? snap.fields.find((x) => x.id === caret.id) : undefined;
+    if (!f || !caret || f.bypass) return;
+    setEdits((e) => ({ ...e, [f.id]: erasedToEnd(e[f.id] ?? f.value, caret.offset) }));
+    focusTarget.current = { id: f.id, offset: caret.offset };
+  }, [snap]);
 
   const onAction = useCallback((a: Action) => submit(a.aid, a.fields), [submit]);
 
@@ -506,7 +537,7 @@ export function App() {
       // While designing, keys belong to the design panel, not the host.
       if (designingNow.current) return;
       if (typingAheadNow.current || awaitingNow.current) {
-        const key = typedKey(e);
+        const key = typedKey(e, keyContextNow.current);
         if (!key) return;
         e.preventDefault();
         if (queue.current.length < MAX_TYPEAHEAD) {
@@ -515,10 +546,11 @@ export function App() {
         }
         return;
       }
-      const action = keyAction(e);
+      const action = keyAction(e, keyContextNow.current);
       if (!action) return;
       e.preventDefault();
       if (action === 'Reset') session.send({ type: 'reset' });
+      else if (isLocalKey(action)) localKeyNow.current(action);
       else submit(action);
     };
     // Text that arrives without a usable keydown (mobile keyboards, IMEs, paste).
@@ -533,12 +565,16 @@ export function App() {
       setQueued(queue.current.length);
     };
     window.addEventListener('keydown', onKey);
+    // (Typing ahead ignores the local keys: they need the screen they are pressed on.)
     window.addEventListener('beforeinput', onBeforeInput, true);
     return () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('beforeinput', onBeforeInput, true);
     };
   }, [submit, session]);
+
+  const localKeyNow = useRef(localKey);
+  localKeyNow.current = localKey;
 
   const toggleMode = () => {
     const next = mode === 'modern' ? 'classic' : 'modern';
@@ -590,10 +626,14 @@ export function App() {
           {screenView?.definition && mode === 'modern' && (
             <span className="custom-badge" title={`Customized: ${screenView.definition.name}`}>Customized</span>
           )}
-          <span className={`status status-${session.state}`}>
-            {statusText(session.state, busy)}
+          <span
+            className={`status status-${session.state}`}
+            title={is3270 && busy ? 'X SYSTEM: the keyboard waits for the host. If it stays locked, Esc (Reset) unlocks it.' : undefined}
+          >
+            {statusText(session.state, busy, hostType)}
             {queued > 0 && <span className="typeahead" title="Keys typed ahead">{queued} typed ahead</span>}
           </span>
+          {is3270 && overtype && connected && <span className="typeahead" title="Typing replaces characters. Insert switches back.">Overtype</span>}
           {screens.designer && screenSnap && !designing && !help && (
             <button type="button" className="ghost mode-toggle" onClick={startDesign}>Design</button>
           )}
@@ -603,7 +643,11 @@ export function App() {
             </button>
           )}
           {session.state !== 'closed' && !designing && (
-            <DropMenu label="System" title="System Request and Attention keys" disabled={!connected || Boolean(help)} items={[
+            <DropMenu label="System" title="System Request and Attention keys" disabled={!connected || Boolean(help)} items={is3270 ? [
+              { label: 'System Request', title: 'The 3270 SysReq key: to the system (SSCP) session and back', onPick: () => systemRequest(false) },
+              { label: 'Attention', title: 'The 3270 Attn key, which interrupts a command', onPick: () => session.send({ type: 'attn' }) },
+              { label: 'New session', title: 'Another session, in a new browser tab', onPick: openSession },
+            ] : [
               { label: 'System Request', title: 'The 5250 SysReq key', onPick: () => systemRequest(false) },
               { label: 'Transfer to secondary job', title: 'SysReq, option 1', onPick: () => systemRequest(true) },
               { label: 'Attention', title: 'The 5250 Attn key', onPick: () => session.send({ type: 'attn' }) },
@@ -650,7 +694,7 @@ export function App() {
               : <ClassicScreen snap={screenSnap} binding={binding} />}
           </form>
         ) : (
-          session.state !== 'closed' && <div className="placeholder">Connecting to IBM i…</div>
+          session.state !== 'closed' && <div className="placeholder">Connecting to {is3270 ? 'the mainframe' : 'IBM i'}…</div>
         )}
       </main>
 
@@ -661,17 +705,25 @@ export function App() {
           </button>
           {keys.map((k) => (
             <button key={k.aid} type="button" disabled={!keysEnabled} onClick={() => submit(k.aid)}>
-              <kbd>{keyHint(k.aid)}</kbd>{k.label}
+              <kbd>{keyHint(k.aid, hostType)}</kbd>{k.label}
             </button>
           ))}
-          {(hasTable || mode === 'classic') && (
+          {(hasTable || mode === 'classic') && pageKeys && (
             <>
-              <button type="button" disabled={!keysEnabled} onClick={() => submit('PageUp')}><kbd>PgUp</kbd>Previous</button>
-              <button type="button" disabled={!keysEnabled} onClick={() => submit('PageDown')}><kbd>PgDn</kbd>Next</button>
+              <button type="button" disabled={!keysEnabled} title={is3270 ? `Page Up: sends ${keyHint(pageKeys.up, hostType)}` : undefined} onClick={() => submit('PageUp')}><kbd>PgUp</kbd>Previous</button>
+              <button type="button" disabled={!keysEnabled} title={is3270 ? `Page Down: sends ${keyHint(pageKeys.down, hostType)}` : undefined} onClick={() => submit('PageDown')}><kbd>PgDn</kbd>Next</button>
             </>
           )}
-          {hasTable && mode === 'modern' && !designing && <ExportMenu disabled={!canSubmit || Boolean(help)} onExport={startExport} />}
-          {!designing && (
+          {hasTable && pageKeys && mode === 'modern' && !designing && <ExportMenu disabled={!canSubmit || Boolean(help)} onExport={startExport} />}
+          {is3270 && !designing && (
+            <DropMenu label="Keys" title="Every 3270 key, and the editing keys" disabled={!keysEnabled} up start columns={6} items={[
+              ...KEYS_3270.map((aid) => ({ label: keyHint(aid, hostType), title: KEY_TITLES[aid] ?? `The ${keyHint(aid, hostType)} key`, onPick: () => submit(aid) })),
+              { label: 'Erase Input', title: 'Blank every input field', onPick: () => localKey('EraseInput'), wide: true },
+              { label: 'Erase EOF (End)', title: 'Blank the field from the caret to its end', onPick: () => localKey('EraseEOF'), wide: true },
+              { label: overtype ? 'Insert (now typing over)' : 'Insert (now inserting)', title: 'Switch between inserting and typing over (the Insert key)', onPick: () => localKey('Insert'), wide: true },
+            ]} />
+          )}
+          {!designing && !is3270 && (
             <button
               type="button"
               className="help-button"
@@ -733,7 +785,7 @@ export function App() {
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="closed-title">
           <div className="dialog">
             <h2 id="closed-title">Session ended</h2>
-            <p>{session.closedReason ?? 'The connection to the IBM i was closed.'}</p>
+            <p>{session.closedReason ?? `The connection to ${is3270 ? 'the mainframe' : 'the IBM i'} was closed.`}</p>
             <div className="dialog-actions">
               <button type="button" className="primary" autoFocus onClick={session.newSession}>Start a new session</button>
               <button type="button" className="ghost" onClick={openSession}>New session in a new tab</button>
@@ -750,8 +802,17 @@ function openSession() {
   window.open(`${location.pathname}?${NEW_SESSION}`, '_blank', 'noopener');
 }
 
-function statusText(state: string, busy: boolean): string {
-  if (state === 'connected') return busy ? 'Working…' : 'Connected';
+/** What the 3270 keys in the Keys menu do. */
+const KEY_TITLES: Partial<Record<AidName, string>> = {
+  PA1: 'Program attention 1: sends no field data',
+  PA2: 'Program attention 2: sends no field data (often: redisplay)',
+  PA3: 'Program attention 3: sends no field data',
+  Clear: 'Blanks the screen and tells the host (Pause key)',
+};
+
+function statusText(state: string, busy: boolean, host: string): string {
+  // A 3270 shows "X SYSTEM" while its keyboard waits for the host.
+  if (state === 'connected') return busy ? (host === '3270' ? 'X SYSTEM' : 'Working…') : 'Connected';
   if (state === 'connecting') return 'Connecting…';
   return 'Disconnected';
 }

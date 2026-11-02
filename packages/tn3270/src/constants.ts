@@ -5,6 +5,8 @@ export const Telnet = {
   IAC: 0xff, DONT: 0xfe, DO: 0xfd, WONT: 0xfc, WILL: 0xfb, SB: 0xfa,
   /** Interrupt Process: the 3270 Attention key. */
   IP: 0xf4,
+  /** Abort Output: the System Request key, when TN3270E's SYSREQ function is agreed (RFC 2355 10.5.2). */
+  AO: 0xf5,
   SE: 0xf0, EOR: 0xef,
 } as const;
 

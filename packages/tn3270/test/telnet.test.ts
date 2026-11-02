@@ -45,11 +45,12 @@ test('TN3270E: asks for the device type and LU, then the functions', () => {
   host(...sub(TN3270E, SEND, DEVICE_TYPE));
   assert.deepEqual(sent.shift(), sub(TN3270E, DEVICE_TYPE, REQUEST, ...ascii('IBM-3278-2-E'), CONNECT, ...ascii('VENLU01')));
   host(...sub(TN3270E, DEVICE_TYPE, IS, ...ascii('IBM-3278-2-E'), CONNECT, ...ascii('VENLU01')));
-  assert.deepEqual(sent.shift(), sub(TN3270E, FUNCTIONS, REQUEST, 0x00, 0x02), 'BIND-IMAGE and RESPONSES');
+  assert.deepEqual(sent.shift(), sub(TN3270E, FUNCTIONS, REQUEST, 0x00, 0x02, 0x04), 'BIND-IMAGE, RESPONSES and SYSREQ');
   assert.equal(c.tn3270e, false, 'not until the functions are agreed');
   host(...sub(TN3270E, FUNCTIONS, IS, 0x00, 0x02));
   assert.equal(c.tn3270e, true);
-  assert.deepEqual(c.agreedFunctions, [0x00, 0x02]);
+  assert.deepEqual(c.agreedFunctions, [0x00, 0x02], 'the host may agree to fewer');
+  assert.equal(c.systemRequestAgreed, false);
   assert.equal(c.deviceName, 'VENLU01');
   assert.deepEqual(sent, []);
 });
@@ -68,9 +69,11 @@ test('TN3270E: a host counter-proposal is accepted if we support it all, else na
   assert.deepEqual(t.sent.at(-1), sub(TN3270E, FUNCTIONS, IS, 0x00));
   assert.equal(t.c.tn3270e, true);
   const u = codec();
-  u.host(IAC, DO, TN3270E, ...sub(TN3270E, FUNCTIONS, REQUEST, 0x00, 0x04));
-  assert.deepEqual(u.sent.at(-1), sub(TN3270E, FUNCTIONS, REQUEST, 0x00), 'SYSREQ is not supported');
+  u.host(IAC, DO, TN3270E, ...sub(TN3270E, FUNCTIONS, REQUEST, 0x00, 0x01, 0x04));
+  assert.deepEqual(u.sent.at(-1), sub(TN3270E, FUNCTIONS, REQUEST, 0x00, 0x04), 'DATA-STREAM-CTL is not supported');
   assert.equal(u.c.tn3270e, false);
+  u.host(...sub(TN3270E, FUNCTIONS, IS, 0x00, 0x04));
+  assert.equal(u.c.systemRequestAgreed, true);
 });
 
 test('TN3270E records carry a header: data types are told apart and the header is stripped', () => {

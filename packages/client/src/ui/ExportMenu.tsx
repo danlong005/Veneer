@@ -1,5 +1,5 @@
 // Small drop-down menus: the keybar's Export button (Excel or CSV for the list
-// on screen) and the header's System menu (SysReq, Attn).
+// on screen), its Keys menu on a 3270, and the header's System menu (SysReq, Attn).
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -9,10 +9,17 @@ export interface MenuItem {
   label: string;
   title?: string;
   onPick: () => void;
+  /** Takes a whole row of a menu laid out in columns. */
+  wide?: boolean;
 }
 
-export function DropMenu({ label, title, disabled, up, items }: {
-  label: string; title: string; disabled: boolean; up?: boolean; items: MenuItem[];
+export function DropMenu({ label, title, disabled, up, start, columns, items }: {
+  label: string; title: string; disabled: boolean; up?: boolean;
+  /** Line the menu up with the button's left edge (for a button on the left). */
+  start?: boolean;
+  /** Lay the items out in this many columns. */
+  columns?: number;
+  items: MenuItem[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -35,9 +42,16 @@ export function DropMenu({ label, title, disabled, up, items }: {
         {label} ▾
       </button>
       {open && (
-        <div className={`export-pop${up ? '' : ' down'}`} role="menu">
+        <div
+          className={`export-pop${up ? '' : ' down'}${start ? ' start' : ''}`} role="menu"
+          style={columns ? { gridTemplateColumns: `repeat(${columns}, auto)` } : undefined}
+        >
           {items.map((item) => (
-            <button key={item.label} type="button" role="menuitem" title={item.title} onClick={() => { setOpen(false); item.onPick(); }}>
+            <button
+              key={item.label} type="button" role="menuitem" title={item.title}
+              style={item.wide && columns ? { gridColumn: '1 / -1' } : undefined}
+              onClick={() => { setOpen(false); item.onPick(); }}
+            >
               {item.label}
             </button>
           ))}

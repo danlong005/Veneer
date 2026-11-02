@@ -1,10 +1,10 @@
-// An input bound to a 5250 field, shared by the modern and classic views.
+// An input bound to a host field, shared by the modern and classic views.
 
 import { hostToIso, isoToHost, type Widget } from '@veneer/screens';
 import type { FieldSnapshot } from '@veneer/terminal';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Option } from '../transform/types.ts';
-import { filterValue, isNumeric, withSign } from './fieldRules.ts';
+import { filterValue, isNumeric, overtyped, withSign } from './fieldRules.ts';
 import { RadioField, SpinnerField, TextAreaField } from './widgets.tsx';
 
 export interface FieldBinding {
@@ -12,6 +12,8 @@ export interface FieldBinding {
   onChange: (f: FieldSnapshot, value: string) => void;
   /** An auto-enter field was filled: submit Enter with this value. */
   onAutoEnter: (f: FieldSnapshot, value: string) => void;
+  /** Typing replaces the character at the caret (a 3270 with Insert off) rather than inserting. */
+  overtype?: boolean;
 }
 
 const NUMERIC_KEYBOARD: ReadonlySet<string | undefined> = new Set(['numericOnly', 'digitsOnly', 'signedNumeric']);
@@ -108,7 +110,7 @@ export function FieldInput(props: {
       data-at={props.dataAt}
       aria-label={label}
       type={field.attr.nonDisplay ? 'password' : 'text'}
-      inputMode={NUMERIC_KEYBOARD.has(field.shift) ? 'decimal' : undefined}
+      inputMode={NUMERIC_KEYBOARD.has(field.shift) || field.numeric ? 'decimal' : undefined}
       autoComplete={field.attr.nonDisplay ? 'current-password' : 'off'}
       spellCheck={false}
       maxLength={field.length}
@@ -125,6 +127,7 @@ export function FieldInput(props: {
         }
       }}
       onKeyDown={(e) => {
+        if (binding.overtype && overtype(e, field, value, binding)) return;
         // Field+ / Field- on the numeric keypad set the sign and move on.
         if (!isNumeric(field) || (e.code !== 'NumpadAdd' && e.code !== 'NumpadSubtract')) return;
         e.preventDefault();
@@ -133,6 +136,26 @@ export function FieldInput(props: {
       }}
     />
   );
+}
+
+/**
+ * Typing over: a printable key replaces the character at the caret, as a
+ * 3270 does with Insert off. Returns true when it handled the key.
+ */
+function overtype(e: ReactKeyboardEvent<HTMLInputElement>, field: FieldSnapshot, value: string, binding: FieldBinding): boolean {
+  const input = e.currentTarget;
+  const at = input.selectionStart ?? 0;
+  if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey || at !== input.selectionEnd || at >= value.length) return false;
+  e.preventDefault();
+  const next = overtyped(field, value, at, e.key);
+  if (next === null) return true;
+  binding.onChange(field, next);
+  // After React redraws the value, put the caret after the character typed.
+  requestAnimationFrame(() => {
+    if (at + 1 >= field.length) focusNext(input);
+    else input.setSelectionRange(at + 1, at + 1);
+  });
+  return true;
 }
 
 /** Move to the next field, as a full 5250 field does (a radio group: its chosen button). */

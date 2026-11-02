@@ -6,7 +6,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { DeviceNameInUseError, type ScreenSnapshot, type TerminalSession } from '@veneer/terminal';
 import WebSocket from 'ws';
 import { DeviceNamePool } from './devices.ts';
-import { createHostSession, deviceNameLength, hostLabel, hostTypeOf, type HostSettings } from './host.ts';
+import { createHostSession, deviceNameLength, hostAid, hostLabel, hostTypeOf, type HostSettings } from './host.ts';
 import type { ScreenInventory } from './inventory.ts';
 import { log } from './log.ts';
 import { CloseCode, parseClientMessage, type ClientMessage, type ServerMessage } from './protocol.ts';
@@ -215,7 +215,8 @@ export class SessionManager {
         case 'submit':
           bs.pendingUser = submittedUser(bs.host.snapshot(), msg.fields);
           bs.host.submit({
-            aid: msg.aid,
+            // On a 3270, Page Up and Page Down send the keys VENEER_PAGE_KEYS names.
+            aid: hostAid(this.opts.host, msg.aid),
             ...(msg.fields ? { fields: msg.fields } : {}),
             ...(msg.cursor ? { cursor: msg.cursor } : {}),
           });

@@ -11,6 +11,8 @@ import type { SessionManager } from './sessions.ts';
 import type { ScreenStore } from './store.ts';
 import { ThemeError, type ThemeStore } from './themes.ts';
 import { brandInfo, type Brand } from './brand.ts';
+import type { HostType } from '@veneer/terminal';
+import type { PageKeys } from './host.ts';
 
 const MAX_BODY = 1024 * 1024;
 
@@ -32,6 +34,13 @@ export interface ApiOptions {
   /** Server facts for the admin page. */
   info?: (() => Record<string, unknown>) | undefined;
   brand?: Brand | undefined;
+  /** The kind of host, and what Page Up and Page Down send (null: nothing), for the browser's keys. */
+  host?: HostInfo | undefined;
+}
+
+export interface HostInfo {
+  type: HostType;
+  pageKeys: PageKeys | null;
 }
 
 /** How a request may use the designer or admin page: freely, with the token, or not at all. */
@@ -73,7 +82,10 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
 
   if (pathname === '/api/config' && req.method === 'GET') {
     const access = accessFor(req, designerRole(opts));
-    return json(res, 200, { designer: access !== 'off', tokenRequired: access === 'token', brand: brandInfo(opts.brand ?? {}) });
+    return json(res, 200, {
+      designer: access !== 'off', tokenRequired: access === 'token', brand: brandInfo(opts.brand ?? {}),
+      host: opts.host ?? { type: '5250', pageKeys: { up: 'PageUp', down: 'PageDown' } },
+    });
   }
   if (pathname === '/api/screens' && req.method === 'GET') {
     const theme = opts.themes ? await opts.themes.activeTheme() : undefined;

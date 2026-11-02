@@ -7,6 +7,7 @@ import {
   type Target,
 } from '@veneer/screens';
 import type { AidName, ScreenSnapshot } from '@veneer/terminal';
+import { buttonAids, keyHint } from '../ui/keys.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { runScript } from '../custom/runtime.ts';
 import { ThemesTab } from './ThemesTab.tsx';
@@ -57,10 +58,7 @@ function UrlEditor({ url, snap, at, onChange }: { url: string; snap: ScreenSnaps
   );
 }
 
-const AIDS: AidName[] = [
-  'Enter', 'PageUp', 'PageDown', 'Help', 'Print',
-  ...Array.from({ length: 24 }, (_, i) => `F${i + 1}` as AidName),
-];
+
 
 interface Props {
   snap: ScreenSnapshot;
@@ -418,7 +416,7 @@ export function DesignPanel(props: Props) {
                   aria-label="What the button does"
                   onChange={(e) => setButton(i, { ...b, action: actionFor(b.action, e.target.value) })}
                 >
-                  {AIDS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {buttonAids(snap.host).map((a) => <option key={a} value={a}>{keyHint(a, snap.host)}</option>)}
                   <option value={URL_ACTION}>Open URL</option>
                 </select>
                 <button type="button" className="dp-x" aria-label="Remove button" onClick={() => setDraft(setButtons(draft, buttons.filter((_, j) => j !== i)))}>×</button>
@@ -496,7 +494,7 @@ export function DesignPanel(props: Props) {
           <section>
             <h3>Selected</h3>
             {selection && selection.kind !== 'empty' && <p className="dp-hint">Changes here are part of this page's customization.</p>}
-            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} name={labelAt(props.view, snap, selection.at, { shown: true })} cols={snap.cols} onSelect={props.onSelect} components={props.components}
+            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} name={labelAt(props.view, snap, selection.at, { shown: true })} cols={snap.cols} rows={snap.rows} onSelect={props.onSelect} components={props.components}
               snap={snap} joining={selection.kind === 'field' && props.joining === selection.field.id} onJoining={(on) => props.onJoining(on && selection.kind === 'field' ? selection.field.id : null)} /> : (
               <p className="dp-hint">Click any text, field or table on the screen, or an empty spot to add HTML.</p>
             )}
@@ -559,8 +557,8 @@ export function DesignPanel(props: Props) {
   );
 }
 
-function SelectionEditor({ draft, setDraft, selection, name, cols, onSelect, components, snap, joining, onJoining }: {
-  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; selection: Selection; cols: number; onSelect: (at: Target) => void;
+function SelectionEditor({ draft, setDraft, selection, name, cols, rows, onSelect, components, snap, joining, onJoining }: {
+  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; selection: Selection; cols: number; rows: number; onSelect: (at: Target) => void;
   snap: ScreenSnapshot;
   /** Clicks on fields add them to (or take them out of) the selected text area. */
   joining: boolean;
@@ -587,12 +585,12 @@ function SelectionEditor({ draft, setDraft, selection, name, cols, onSelect, com
   if (selection.kind === 'item' && selection.item.kind === 'component') {
     const component = componentAt(draft, at);
     return component
-      ? <ComponentEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} component={component} installed={components} cols={cols} onSelect={onSelect} />
+      ? <ComponentEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} component={component} installed={components} cols={cols} rows={rows} onSelect={onSelect} />
       : null;
   }
   if (selection.kind === 'item' && selection.item.kind === 'html') {
     const html = htmlAt(draft, at);
-    return html ? <HtmlEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} html={html} cols={cols} onSelect={onSelect} /> : null;
+    return html ? <HtmlEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} html={html} cols={cols} rows={rows} onSelect={onSelect} /> : null;
   }
   const hidden = isHidden(draft, at);
   const hideToggle = (
@@ -626,7 +624,7 @@ function SelectionEditor({ draft, setDraft, selection, name, cols, onSelect, com
         </p>
         {hideToggle}
         {!selection.item && <p className="dp-hint">Part of a table: drag the table to move it.</p>}
-        {selection.item && !(area && area.first !== f.id) && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />}
+        {selection.item && !(area && area.first !== f.id) && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} rows={rows} />}
         {area && area.first !== f.id ? (
           <TextAreaPart first={area.first} field={f.id} draft={draft} setDraft={setDraft} onSelect={(id) => onSelect(fieldAt(id))} />
         ) : (
@@ -657,7 +655,7 @@ function SelectionEditor({ draft, setDraft, selection, name, cols, onSelect, com
         {name ? <><strong>{name}</strong>{item.kind === 'table' ? '' : `, ${kind}`}</> : kind[0]!.toUpperCase() + kind.slice(1)} <code>{at.row},{at.col}</code>
       </p>
       {hideToggle}
-      {!selection.header && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} />}
+      {!selection.header && <PositionEditor draft={draft} setDraft={setDraft} at={at} cols={cols} rows={rows} />}
       {(item.kind === 'text' || item.kind === 'link') && (
         <label className="dp-row">Text
           <input
@@ -680,16 +678,16 @@ function SelectionEditor({ draft, setDraft, selection, name, cols, onSelect, com
 }
 
 /** Where an item is drawn; drag it on the screen or use the arrow keys too. */
-function PositionEditor({ draft, setDraft, at, cols }: {
-  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; at: Target; cols: number;
+function PositionEditor({ draft, setDraft, at, cols, rows }: {
+  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; at: Target; cols: number; rows: number;
 }) {
   const to = moveOf(draft, at) ?? at;
   const num = (value: string, max: number) => Math.min(max, Math.max(1, Math.trunc(Number(value)) || 1));
   return (
     <>
       <div className="dp-pair">
-        <label className="dp-row">Row<input type="number" min={1} max={27} value={to.row}
-          onChange={(e) => setDraft(setMove(draft, at, { ...to, row: num(e.target.value, 27) }))} /></label>
+        <label className="dp-row">Row<input type="number" min={1} max={rows} value={to.row}
+          onChange={(e) => setDraft(setMove(draft, at, { ...to, row: num(e.target.value, rows) }))} /></label>
         <label className="dp-row">Column<input type="number" min={1} max={cols} value={to.col}
           onChange={(e) => setDraft(setMove(draft, at, { ...to, col: num(e.target.value, cols) }))} /></label>
       </div>
@@ -730,8 +728,8 @@ function EventScript<E extends string>({ events, event, onEvent, has, code, plac
   );
 }
 
-function HtmlEditor({ draft, setDraft, html, cols, onSelect }: {
-  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; html: NonNullable<ReturnType<typeof htmlAt>>; cols: number;
+function HtmlEditor({ draft, setDraft, html, cols, rows, onSelect }: {
+  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; html: NonNullable<ReturnType<typeof htmlAt>>; cols: number; rows: number;
   onSelect: (at: Target) => void;
 }) {
   const update = (next: Partial<typeof html>) => {
@@ -777,16 +775,16 @@ function HtmlEditor({ draft, setDraft, html, cols, onSelect }: {
       </div>
       {result && <p className={result.kind === 'ok' ? 'dp-ok' : 'dp-warn'} role="status">{result.text}</p>}
       <div className="dp-pair">
-        <label className="dp-row">Row<input type="number" min={1} max={27} value={html.at.row}
-          onChange={(e) => update({ at: { ...html.at, row: num(e.target.value, 1, 27) } })} /></label>
+        <label className="dp-row">Row<input type="number" min={1} max={rows} value={html.at.row}
+          onChange={(e) => update({ at: { ...html.at, row: num(e.target.value, 1, rows) } })} /></label>
         <label className="dp-row">Column<input type="number" min={1} max={cols} value={html.at.col}
           onChange={(e) => update({ at: { ...html.at, col: num(e.target.value, 1, cols) } })} /></label>
       </div>
       <div className="dp-pair">
         <label className="dp-row">Width (columns)<input type="number" min={1} max={cols} value={html.width}
           onChange={(e) => update({ width: num(e.target.value, 1, cols) })} /></label>
-        <label className="dp-row">Height (rows)<input type="number" min={1} max={27} value={html.height}
-          onChange={(e) => update({ height: num(e.target.value, 1, 27) })} /></label>
+        <label className="dp-row">Height (rows)<input type="number" min={1} max={rows} value={html.height}
+          onChange={(e) => update({ height: num(e.target.value, 1, rows) })} /></label>
       </div>
       <button type="button" className="ghost danger" onClick={() => setDraft(setHtml(draft, html.at, null))}>Remove HTML</button>
     </>

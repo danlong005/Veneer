@@ -14,6 +14,8 @@ interface HostOptions {
   plain?: boolean;
   /** LU names to report as in use. */
   busy?: string[];
+  /** TN3270E functions this host does not agree to. */
+  withoutFunctions?: number[];
 }
 
 /** A fake TN3270(E) host: negotiates, then hands each record to the test. */
@@ -47,7 +49,9 @@ async function fakeHost(opts: HostOptions = {}) {
         if (opts.busy?.includes(lu)) s.write(Buffer.from([IAC, SB, TN3270E, 0x02, 0x06, 0x05, 0x01, IAC, SE]));
         else s.write(Buffer.from([IAC, SB, TN3270E, 0x02, 0x04, ...Buffer.from(type), 0x01, ...Buffer.from(lu), IAC, SE]));
       } else if (option === TN3270E && rest[0] === 0x03 && rest[1] === 0x07) {
-        s.write(Buffer.from([IAC, SB, TN3270E, 0x03, 0x04, ...rest.slice(2), IAC, SE]));
+        // Agree to what the client asks for, less any functions this host lacks.
+        const agreed = rest.slice(2).filter((f) => !opts.withoutFunctions?.includes(f));
+        s.write(Buffer.from([IAC, SB, TN3270E, 0x03, 0x04, ...agreed, IAC, SE]));
         extended = true;
         done();
       }
@@ -65,7 +69,7 @@ async function fakeHost(opts: HostOptions = {}) {
             wake?.();
           } else if (b === SB) { sub = []; state = 'sb'; }
           else if (b === WILL && !opts.plain) state = 'verb';
-          else if (b === 0xf4) { raw.push([IAC, 0xf4]); wake?.(); }
+          else if (b === 0xf4 || b === 0xf5) { raw.push([IAC, b]); wake?.(); } // IP (Attention), AO (System Request)
           else state = b >= 0xfb ? 'verb' : 'data';
         } else if (state === 'verb') {
           state = 'data';
@@ -148,7 +152,48 @@ test('a TN3270E session: screens in, keys and fields out', async () => {
   }
 });
 
-test('keys a 3270 lacks, and System Request, are refused without changing anything', async () => {
+test('System Request is Telnet AO, when the host agreed to TN3270E\'s SYSREQ function; refused otherwise', async () => {
+  const host = await fakeHost();
+  const session = await connected(host);
+  const without = await fakeHost({ withoutFunctions: [0x04] });
+  const lacking = await connected(without);
+  const plainHost = await fakeHost({ plain: true });
+  const plain = await connected(plainHost, {}, true);
+  try {
+    session.systemRequest();
+    await host.received(1);
+    assert.deepEqual(host.raw[0], [IAC, 0xf5]);
+    assert.throws(() => lacking.systemRequest(), /did not agree to System Request/);
+    assert.throws(() => plain.systemRequest(), /needs TN3270E/);
+    assert.equal(without.raw.length + plainHost.raw.length, 0, 'nothing sent');
+  } finally {
+    for (const s of [session, lacking, plain]) s.close();
+    for (const h of [host, without, plainHost]) h.close();
+  }
+});
+
+test('Reset unlocks a keyboard the host left locked, but not before the host first writes', async () => {
+  const host = await fakeHost();
+  const session = await connected(host);
+  try {
+    session.reset();
+    assert.equal(session.snapshot().keyboardLocked, true, 'nothing on the screen yet');
+    // A write without "restore keyboard" (WCC 0x00) after a key: still locked.
+    host.send(signOnScreen());
+    await session.waitForInput();
+    session.submit({ aid: 'Enter' });
+    host.send([0xf1, 0x00, 0x11, 0x5d, 0x7f, 0xc1]);
+    await until(() => session.snapshot().lines[23]!.trim() === 'A');
+    assert.equal(session.snapshot().keyboardLocked, true);
+    session.reset();
+    assert.equal(session.snapshot().keyboardLocked, false);
+  } finally {
+    session.close();
+    host.close();
+  }
+});
+
+test('keys a 3270 lacks are refused without changing anything', async () => {
   const host = await fakeHost();
   const session = await connected(host);
   try {
@@ -158,7 +203,6 @@ test('keys a 3270 lacks, and System Request, are refused without changing anythi
     const user = session.snapshot().fields.find((f) => f.id === '5:30')!;
     assert.deepEqual([user.value, user.modified], ['', false]);
     assert.throws(() => session.submit({ aid: 'Enter', fields: { '9:9': 'x' } }), /No field 9:9/);
-    assert.throws(() => session.systemRequest(), /not supported/);
     session.attention();
     await host.received(1);
     assert.deepEqual(host.raw[0], [IAC, 0xf4]);

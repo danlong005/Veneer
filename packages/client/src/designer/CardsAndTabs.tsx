@@ -19,9 +19,9 @@ export function selectedRow(selection: Selection | null): number | undefined {
   return selection.kind === 'empty' ? selection.at.row : selection.item?.row ?? selection.at.row;
 }
 
-const num = (value: string) => Math.min(27, Math.max(1, Math.trunc(Number(value)) || 1));
-
 export function CardsAndTabs({ draft, setDraft, view, selection }: Props) {
+  // Rows go to the bottom of this screen: 24 to 43 of them.
+  const num = (value: string) => Math.min(view.rows, Math.max(1, Math.trunc(Number(value)) || 1));
   const cards = cardsOf(draft);
   const tabs = tabsOf(draft);
   const row = selectedRow(selection);
@@ -66,13 +66,13 @@ export function CardsAndTabs({ draft, setDraft, view, selection }: Props) {
               onChange={(e) => setDraft(setTabs(draft, tabs.map((x, j) => (j === i ? { ...x, title: e.target.value } : x))))}
             />
             <label className="dp-row">From row
-              <input type="number" min={1} max={27} value={t.from}
-                onChange={(e) => setDraft(setTabs(draft, moveTabEdge(tabs, i, num(e.target.value))))} />
+              <input type="number" min={1} max={view.rows} value={t.from}
+                onChange={(e) => setDraft(setTabs(draft, moveTabEdge(tabs, i, num(e.target.value), view.rows)))} />
             </label>
             <label className="dp-row">to
-              <input type="number" min={1} max={27} value={t.to} disabled={i < tabs.length - 1}
+              <input type="number" min={1} max={view.rows} value={t.to} disabled={i < tabs.length - 1}
                 title={i < tabs.length - 1 ? 'Ends where the next tab starts' : undefined}
-                onChange={(e) => setDraft(setTabs(draft, moveTabEdge(tabs, tabs.length, num(e.target.value))))} />
+                onChange={(e) => setDraft(setTabs(draft, moveTabEdge(tabs, tabs.length, num(e.target.value), view.rows)))} />
             </label>
             <button type="button" className="dp-x" aria-label={`Remove tab ${t.title}`} onClick={() => setDraft(setTabs(draft, removeTab(tabs, i)))}>×</button>
           </div>

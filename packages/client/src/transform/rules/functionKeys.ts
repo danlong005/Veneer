@@ -1,16 +1,19 @@
 // "F3=Exit   F5=Refresh   F12=Cancel" rows near the bottom -> a button bar.
+// 3270 screens say "PF3=Exit  PA2=Redisplay  Clear=Blank screen".
 
 import type { AidName } from '@veneer/terminal';
 import type { TransformContext } from '../context.ts';
 import { legendTokens, rowLine } from '../text.ts';
 
-const KEY = String.raw`F(?:2[0-4]|1\d|[1-9])|Enter|Help|Print|Page ?Up|Page ?Down|Roll ?Up|Roll ?Down|PgUp|PgDn`;
+const KEY = String.raw`P?F(?:2[0-4]|1\d|[1-9])|PA[1-3]|Clear|Enter|Help|Print|Page ?Up|Page ?Down|Roll ?Up|Roll ?Down|PgUp|PgDn`;
 
 export function aidForKey(key: string): AidName | undefined {
   const k = key.replace(/\s/g, '').toLowerCase();
-  if (/^f\d+$/.test(k)) return `F${Number(k.slice(1))}` as AidName;
+  if (/^p?f\d+$/.test(k)) return `F${Number(k.replace(/^p/, '').slice(1))}` as AidName;
+  if (/^pa[1-3]$/.test(k)) return k.toUpperCase() as AidName;
   switch (k) {
     case 'enter': return 'Enter';
+    case 'clear': return 'Clear';
     case 'help': return 'Help';
     case 'print': return 'Print';
     case 'pageup': case 'rolldown': case 'pgup': return 'PageUp';

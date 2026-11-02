@@ -165,9 +165,16 @@ export class Session extends EventEmitter<TerminalSessionEvents> implements Term
     this.emit('screen', this.snapshot());
   }
 
-  /** Not available yet: TN3270E's SYSREQ function is not negotiated. */
+  /**
+   * The System Request key: with TN3270E's SYSREQ function, switches to the
+   * SSCP-LU session (and back). Refused when the host did not agree to it.
+   */
   systemRequest(): void {
-    throw new ProtocolError('System Request is not supported on 3270 sessions yet');
+    try {
+      this.telnet.sendSystemRequest();
+    } catch (err) {
+      throw new ProtocolError((err as Error).message);
+    }
   }
 
   /** The Attention key (Telnet Interrupt Process), which TSO uses to interrupt a command. */
@@ -175,9 +182,9 @@ export class Session extends EventEmitter<TerminalSessionEvents> implements Term
     this.telnet.sendAttention();
   }
 
-  /** A 3270 has no keyboard errors for Veneer to clear; this just clears the alarm. */
+  /** The Reset key: clears the alarm and unlocks a keyboard the host left locked. */
   reset(): void {
-    this.terminal.screen.alarm = false;
+    this.terminal.reset();
     this.emit('screen', this.snapshot());
   }
 

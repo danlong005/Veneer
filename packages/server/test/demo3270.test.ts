@@ -65,6 +65,9 @@ async function until(done: () => boolean): Promise<void> {
   for (let i = 0; i < 200 && !done(); i++) await new Promise((r) => setTimeout(r, 5));
 }
 
+/** No fields of its own: just the one input at the cursor that takes typing. */
+const unformatted = (snap: ScreenSnapshot) => snap.fields.length === 1 && snap.fields[0]!.id === `${snap.cursor.row}:${snap.cursor.col}`;
+
 const at = (snap: ScreenSnapshot) => `${snap.cursor.row}:${snap.cursor.col}`;
 const text = (snap: ScreenSnapshot) => snap.lines.join('\n');
 
@@ -76,7 +79,7 @@ test('TN3270E: the logon screen is SSCP-LU text, then a BIND, a Query and the si
   assert.equal(c.conn().mode, 'tn3270e');
   assert.equal(c.conn().lu, 'VENLU001', 'the LU asked for');
   assert.equal(c.conn().terminalType, 'IBM-3278-2-E');
-  assert.equal(c.first.fields.length, 0, 'no fields: plain text');
+  assert.ok(unformatted(c.first), 'no fields: plain text, typed at the cursor');
   assert.equal(c.first.lines[0]!.trim(), LOGON_LINES[0]);
 
   let snap = await c.go('Enter', { [at(c.first)]: 'logon applid(tso)' });
@@ -101,7 +104,7 @@ test('plain TN3270: the logon screen is an unformatted 3270 screen, and the LU g
   assert.equal(c.conn().mode, 'tn3270');
   assert.equal(c.conn().lu, 'VENLU002');
   assert.equal(c.conn().terminalType, 'IBM-3278-3-E');
-  assert.equal(c.first.fields.length, 0);
+  assert.ok(unformatted(c.first));
   assert.equal(c.first.lines[1]!.trim(), LOGON_LINES[0]);
 
   const snap = await c.go('Enter', { [at(c.first)]: 'DEMO' });
@@ -120,7 +123,7 @@ test('a terminal type the host does not take: TN3270E is refused and plain TN327
   const c = await connect(t, { terminalType: 'IBM-3278-2' });
   assert.equal(c.session.tn3270e, false);
   assert.equal(c.conn().mode, 'tn3270');
-  assert.equal(c.first.fields.length, 0);
+  assert.ok(unformatted(c.first));
 });
 
 // ---- What the terminal sends
@@ -188,7 +191,7 @@ test('Clear sends only its AID and blanks the screen; Enter on the blank screen 
   let snap = await c.go('Enter', { [FIELDS.menu.option]: '1' });
   snap = await c.go('Clear', { [FIELDS.inquiry.number]: '100100' });
   assert.deepEqual(c.sent(), [0x6d]);
-  assert.equal(snap.fields.length, 0, 'unformatted');
+  assert.ok(unformatted(snap));
   assert.equal(text(snap).trim(), '');
   assert.equal(snap.keyboardLocked, false, 'the host unlocked the keyboard');
   assert.deepEqual(snap.cursor, { row: 1, col: 1 });
@@ -202,10 +205,38 @@ test('Clear sends only its AID and blanks the screen; Enter on the blank screen 
   assert.match(snap.lines[0]!, /WHATEVER is not a command here/);
   snap = await c.go('Enter', { '3:1': 'logoff' });
   assert.deepEqual(c.types().slice(-2), [0x04, 0x07], 'UNBIND, then SSCP-LU data');
-  assert.equal(snap.fields.length, 0);
+  assert.ok(unformatted(snap));
   assert.equal(snap.lines[0]!.trim(), LOGON_LINES[0], 'UNBIND, then the SSCP-LU logon screen');
   snap = await c.go('Enter');
   assert.match(snap.lines[0]!, /Sign On/, 'and logging on again works');
+});
+
+test('System Request goes to the SSCP-LU session and back, and LOGOFF there ends the session', async (t) => {
+  const c = await signedOn(t);
+  let snap = await c.go('Enter', { [FIELDS.menu.option]: '1' });
+  c.session.systemRequest();
+  await until(() => c.session.snapshot().lines[0]!.startsWith('System request'));
+  snap = c.session.snapshot();
+  assert.equal(c.conn().systemRequests, 1, 'Telnet AO');
+  assert.ok(unformatted(snap));
+  snap = await c.go('Enter', { [at(snap)]: 'hello' });
+  assert.match(text(snap), /Type LOGOFF, or press SysReq to go back/);
+
+  c.session.systemRequest();
+  await until(() => /Customer Inquiry/.test(c.session.snapshot().lines[0]!));
+  snap = c.session.snapshot();
+  assert.equal(snap.fields.find((f) => f.id === FIELDS.inquiry.number)?.bypass, false, 'the application\'s screen, drawn again');
+
+  c.session.systemRequest();
+  await until(() => c.session.snapshot().lines[0]!.startsWith('System request'));
+  snap = await c.go('Enter', { [at(c.session.snapshot())]: 'logoff' });
+  assert.equal(snap.lines[0]!.trim(), LOGON_LINES[0]);
+  assert.deepEqual(c.types().slice(-2), [0x04, 0x07], 'UNBIND, then the logon screen');
+});
+
+test('without TN3270E there is no System Request', async (t) => {
+  const c = await connect(t, { tn3270e: false });
+  assert.throws(() => c.session.systemRequest(), /needs TN3270E/);
 });
 
 // ---- Errors, paging and screen sizes

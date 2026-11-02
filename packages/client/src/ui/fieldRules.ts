@@ -1,5 +1,6 @@
-// 5250 field rules applied in the browser: allowed characters, the
-// Field+/Field- keys, and the mandatory checks a terminal makes before Enter.
+// Field rules applied in the browser: allowed characters, the 5250 Field+/
+// Field- keys, and the mandatory checks a terminal makes before Enter.
+// 3270 numeric fields take what a 3270's numeric lock lets through.
 
 import type { FieldSnapshot } from '@veneer/terminal';
 
@@ -10,13 +11,21 @@ const NUMERIC_CHARS = /^[0-9 ,.+-]$/;
  * record (CPF0886) if one is sent. The sign is typed or set with Field+/Field-.
  */
 const SIGNED_CHARS = /^[0-9+-]$/;
+/** A 3270 numeric field: digits, the decimal point and a minus sign. */
+const NUMERIC_3270_CHARS = /^[0-9.-]$/;
 
-/** Signed and numeric-only fields: right-aligned, numbers and signs only. */
+/** 5250 signed and numeric-only fields: right-aligned, numbers and signs only, with Field+/Field-. */
 export function isNumeric(f: FieldSnapshot): boolean {
   return f.shift === 'numericOnly' || f.shift === 'signedNumeric';
 }
 
+/** Fields that take a number of some kind: 5250 numeric and digits-only fields, and 3270 numeric ones. */
+export function takesNumbers(f: FieldSnapshot): boolean {
+  return isNumeric(f) || f.shift === 'digitsOnly' || f.numeric === true;
+}
+
 export function acceptsChar(f: FieldSnapshot, ch: string): boolean {
+  if (f.numeric) return NUMERIC_3270_CHARS.test(ch);
   if (f.shift === 'signedNumeric') return SIGNED_CHARS.test(ch);
   if (f.shift === 'numericOnly') return NUMERIC_CHARS.test(ch);
   if (f.shift === 'digitsOnly') return ch >= '0' && ch <= '9';
@@ -26,6 +35,27 @@ export function acceptsChar(f: FieldSnapshot, ch: string): boolean {
 /** Drop characters the field does not accept. */
 export function filterValue(f: FieldSnapshot, value: string): string {
   return [...value].filter((ch) => acceptsChar(f, ch)).join('');
+}
+
+/**
+ * Typing over (a 3270 with Insert off): the character at the caret is
+ * replaced. Null when the field refuses the character; past the end of the
+ * value, typing is ordinary.
+ */
+export function overtyped(f: FieldSnapshot, value: string, at: number, ch: string): string | null {
+  const c = f.monocase ? ch.toUpperCase() : ch;
+  if (!acceptsChar(f, c)) return null;
+  return (value.slice(0, at) + c + value.slice(at + 1)).slice(0, f.length);
+}
+
+/** Erase EOF: the value up to the caret. */
+export function erasedToEnd(value: string, at: number): string {
+  return value.slice(0, Math.max(0, at));
+}
+
+/** Erase Input: every input field blank. */
+export function erasedInput(fields: FieldSnapshot[]): Record<string, string> {
+  return Object.fromEntries(fields.filter((f) => !f.bypass).map((f) => [f.id, '']));
 }
 
 /** Field+ / Field-: set the sign of a numeric value ("123" -> "123-"). */

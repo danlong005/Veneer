@@ -26,8 +26,12 @@ export interface TelnetOptions {
   trace?: ((direction: 'in' | 'out', record: Buffer) => void) | undefined;
 }
 
-/** Functions we ask for: BIND-IMAGE tells us when an application is bound, RESPONSES lets hosts ask for acknowledgements. */
-const WANTED_FUNCTIONS = [Func.BIND_IMAGE, Func.RESPONSES];
+/**
+ * Functions we ask for: BIND-IMAGE tells us when an application is bound,
+ * RESPONSES lets hosts ask for acknowledgements, SYSREQ gives the System
+ * Request key.
+ */
+const WANTED_FUNCTIONS = [Func.BIND_IMAGE, Func.RESPONSES, Func.SYSREQ];
 
 const State = { Data: 0, Iac: 1, Will: 2, Wont: 3, Do: 4, Dont: 5, Sb: 6, SbIac: 7 } as const;
 type State = (typeof State)[keyof typeof State];
@@ -118,6 +122,25 @@ export class TelnetCodec {
   /** The Attention key: Telnet Interrupt Process. */
   sendAttention(): void {
     this.opts.send(Buffer.from([Telnet.IAC, Telnet.IP]));
+  }
+
+  /** True when the host agreed to TN3270E's SYSREQ function, so the System Request key works. */
+  get systemRequestAgreed(): boolean {
+    return this.extended && this.functions.includes(Func.SYSREQ);
+  }
+
+  /**
+   * The System Request key: Telnet Abort Output (RFC 2355 10.5.2). The host
+   * then switches to the SSCP-LU session; pressing it again switches back.
+   * Plain TN3270 has no way to send it, so there it is refused.
+   */
+  sendSystemRequest(): void {
+    if (!this.systemRequestAgreed) {
+      throw new Error(this.extended
+        ? 'This host did not agree to System Request (the TN3270E SYSREQ function)'
+        : 'System Request needs TN3270E, which this connection is not using');
+    }
+    this.opts.send(Buffer.from([Telnet.IAC, Telnet.AO]));
   }
 
   private sendRecord(type: number, data: Iterable<number>, responseFlag: number = ResponseFlag.NO, seq?: number): void {

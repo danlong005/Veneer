@@ -7,7 +7,8 @@
 //
 // Screens: logon, sign-on, a menu, a customer inquiry, an update form with
 // numeric and mandatory fields, and an order list paged with PF7/PF8. PF3 goes
-// back, Clear blanks the screen as transaction systems do, PA1/PA2 work, and
+// back, Clear blanks the screen as transaction systems do, PA1/PA2 work,
+// System Request (TN3270E only) switches to the SSCP-LU session and back, and
 // mistakes are reported the way host programs do: alarm, message, and the
 // cursor on the field to fix. Any user ID and password sign on.
 //
@@ -24,7 +25,12 @@ const BINARY = 0x00, TTYPE = 0x18, OPT_EOR = 0x19, TN3270E = 0x28;
 /** TN3270E words and data types (RFC 2355). */
 const E = { CONNECT: 0x01, DEVICE_TYPE: 0x02, FUNCTIONS: 0x03, IS: 0x04, REASON: 0x05, REJECT: 0x06, REQUEST: 0x07, SEND: 0x08 };
 const T = { DATA: 0x00, RESPONSE: 0x02, BIND: 0x03, UNBIND: 0x04, SSCP_LU: 0x07 };
-const FUNCTIONS = [0x00, 0x02]; // BIND-IMAGE, RESPONSES
+const FUNCTIONS = [0x00, 0x02, 0x04]; // BIND-IMAGE, RESPONSES, SYSREQ
+/** Telnet Abort Output: the System Request key under TN3270E's SYSREQ function. */
+const AO = 0xf5;
+
+/** What the SSCP-LU session says after System Request. */
+export const SYSREQ_LINES = ['System request. Type LOGOFF to end the session, or press SysReq to go back.', ''];
 
 /** AIDs. */
 export const AID = {
@@ -36,6 +42,9 @@ const PF_NAMES = new Map([
   0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0x7a, 0x7b, 0x7c,
   0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0x4a, 0x4b, 0x4c,
 ].map((b, i) => [b, `PF${i + 1}`]));
+
+/** Simulated host latency, as for the 5250 demo (VENEER_DEMO_DELAY_MS). */
+const DELAY_MS = Number(process.env.VENEER_DEMO_DELAY_MS ?? 0);
 
 /** The application name the logon screen takes. */
 export const APPLICATION = 'DEMO';
@@ -402,6 +411,8 @@ export interface Connection {
   sscp: string[];
   /** TN3270E responses to records sent with "always respond". */
   responses: Array<{ seq: number; positive: boolean }>;
+  /** System Request keys received (Telnet AO). */
+  systemRequests: number;
   caps: Capabilities;
   user?: string;
 }
@@ -422,7 +433,9 @@ export class DemoHost3270 {
 
   private onConnection(socket: net.Socket): void {
     socket.on('error', () => {});
-    const conn: Connection = { mode: 'negotiating', records: [], sscp: [], responses: [], caps: BASIC };
+    const conn: Connection = { mode: 'negotiating', records: [], sscp: [], responses: [], systemRequests: 0, caps: BASIC };
+    /** After System Request: on the SSCP-LU session, the application's screen set aside. */
+    let suspended = false;
     this.connections.push(conn);
     const customers = CUSTOMERS.map((c) => ({ ...c }));
     let state: State = { screen: 'logon' };
@@ -436,7 +449,9 @@ export class DemoHost3270 {
       const head = conn.mode === 'tn3270e' ? [type, 0x00, respond ? 0x02 : 0x00, (seq >> 8) & 0x7f, seq & 0xff] : [];
       seq = (seq + 1) & 0x7fff;
       const body = [...head, ...data].flatMap((b) => (b === IAC ? [b, b] : [b]));
-      raw([...body, IAC, EOR]);
+      // Delayed records keep their order: every one waits the same time.
+      if (DELAY_MS > 0) setTimeout(() => raw([...body, IAC, EOR]), DELAY_MS);
+      else raw([...body, IAC, EOR]);
     };
     const show = (data: number[], respond = false) => record(T.DATA, data, respond);
     /** An unformatted screen: remember its text, which comes back with what the user types. */
@@ -491,7 +506,7 @@ export class DemoHost3270 {
         if (aid !== AID.ENTER) return logon();
         return onLogonText(stripHostText(input.text, hostText));
       }
-      if (s.screen === 'query') return;
+      if (s.screen === 'query' || suspended) return;
       if (aid === AID.CLEAR) {
         // The screen is already blank at the terminal; unlock the keyboard.
         state = { screen: 'blank' };
@@ -591,6 +606,17 @@ export class DemoHost3270 {
       return show(update(conn.caps, customer, { text }));
     };
 
+    /** System Request: to the SSCP-LU session and back. Only once an application is in use. */
+    const onSystemRequest = () => {
+      conn.systemRequests++;
+      if (conn.mode !== 'tn3270e' || state.screen === 'logon' || state.screen === 'query') return;
+      suspended = !suspended;
+      if (suspended) return record(T.SSCP_LU, SYSREQ_LINES.flatMap((l) => [...cp.encode(l), 0x15]));
+      // Back to the application, which draws its screen again.
+      if (state.screen === 'blank') return show(new HostStream().eraseWrite().build());
+      return redisplay();
+    };
+
     const redisplay = () => {
       const s = state;
       if (s.screen === 'signon') return show(signOn(conn.caps));
@@ -637,6 +663,12 @@ export class DemoHost3270 {
       const [type, , flag, s1, s2] = rec;
       const data = rec.slice(5);
       if (type === T.RESPONSE) return void conn.responses.push({ seq: (s1! << 8) | s2!, positive: flag === 0x00 });
+      if (type === T.SSCP_LU && suspended) {
+        const typed = cp.decode(data);
+        conn.sscp.push(typed);
+        if (/^\s*LOGOFF\s*$/i.test(typed)) { suspended = false; return signOff(); }
+        return record(T.SSCP_LU, [...cp.encode('Type LOGOFF, or press SysReq to go back.'), 0x15]);
+      }
       if (type === T.SSCP_LU && state.screen === 'logon') {
         const typed = cp.decode(data);
         conn.sscp.push(typed);
@@ -657,6 +689,7 @@ export class DemoHost3270 {
           if (b === IAC) rec.push(b);
           else if (b === EOR) { const r = rec; rec = []; if (r.length) onRecord(r); }
           else if (b === SB) { body = []; mode = 'sb'; }
+          else if (b === AO) onSystemRequest();
           else if (b >= WILL && b <= 0xfe) { verb = b; mode = 'verb'; }
         } else if (mode === 'verb') {
           mode = 'data';

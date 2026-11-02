@@ -87,9 +87,8 @@ skips the busy name for 10 minutes. The log records `device name in use` and the
 
 ### Mainframe (3270) hosts
 
-Mainframe support is being built in stages (issues #26 to #31): Veneer connects to
-3270 hosts and shows their screens, but its keys, field rules and designer are
-still made for 5250, and it has not yet been tested against a real mainframe.
+Veneer connects to 3270 hosts, shows their screens and has a 3270 keyboard, but it has
+not yet been tested against a real mainframe (issue #31).
 
 Each server talks to one kind of host. For a mainframe, set `VENEER_HOST_TYPE=3270`:
 
@@ -100,6 +99,29 @@ Each server talks to one kind of host. For a mainframe, set `VENEER_HOST_TYPE=32
 | `VENEER_DEVNAME_PREFIX` | LU names `PREFIX01`, `PREFIX02`, … (prefix 1-6 characters). The host's TN3270 server must define them. Blank lets the host pick an LU. |
 | `VENEER_TN3270E` | `false` uses plain TN3270 even if the host offers TN3270E (default: TN3270E when offered). |
 | `VENEER_CCSID` | The host code page: `37` (default) or `1047`. Also works for 5250. |
+| `VENEER_PAGE_KEYS` | What Page Up and Page Down send: `PF7,PF8` (the default, the usual convention), two other keys such as `PF19,PF20`, or `off`. |
+
+On a 3270 the browser works like this:
+
+| Key | Does |
+| --- | --- |
+| F1-F12, Shift+F1-F12 | PF1-PF24. Screens' "PF3=Exit" legends become buttons too. |
+| Page Up, Page Down | The keys in `VENEER_PAGE_KEYS` (PF7 and PF8). |
+| Pause | Clear: blanks the screen and tells the host. |
+| End | Erase EOF: blanks the field from the caret to its end. |
+| Insert | Switches between inserting (the default) and typing over; **Overtype** shows while typing over. |
+| Esc | Reset: unlocks the keyboard if the host left it locked. |
+| **Keys** menu | Every PF key, PA1-PA3, Clear, Erase Input (blanks every input field), Erase EOF and Insert. |
+| **System** menu | System Request (needs TN3270E with the SYSREQ function; it switches to the system session and back) and Attention. |
+
+While the host is working, the status shows **X SYSTEM**. Numeric fields take digits,
+a decimal point and a minus sign, as a 3270's numeric lock does; mandatory entry and
+mandatory fill are checked before Enter. Screens without fields, such as a logon screen
+or the blank screen after Clear, have one input at the cursor: type a command there and
+press Enter. The 27x132 screen of a model 5 fits windows about 1000 pixels wide and
+scrolls sideways in narrower ones. There is no Help key, Field+/Field- or Record
+Backspace on a 3270, and in the designer button keys are named PF1 to PF24, PA1 to PA3
+and Clear.
 
 To try it without a mainframe, run `npm run demo -- --3270` (or set
 `VENEER_HOST_TYPE=3270` for `npm run demo`). The demo mainframe has a logon screen
@@ -108,8 +130,8 @@ form and an order list. Its update form and order list come with screen definiti
 (radio buttons, a spinner, and buttons for PA2 and PF7/PF8). With
 `VENEER_TERMINAL_TYPE=IBM-3278-5-E` the order list uses the 27x132 screen, and with
 `VENEER_TN3270E=false` the logon is a plain 3270 screen instead of TN3270E's SSCP-LU
-text. Until the browser gets 3270 keys and typing on screens without fields (#30), the
-logon and the blank screen after Clear take Enter only.
+text. System Request works there too (TN3270E only): type LOGOFF to end the session.
+`VENEER_DEMO_DELAY_MS=1500` makes it slow, to see X SYSTEM.
 
 A 3270 screen never gets the same screen id as a 5250 screen, so definitions made for
 one host type never match the other. The designer records the host type in new

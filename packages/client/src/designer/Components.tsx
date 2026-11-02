@@ -75,8 +75,8 @@ function parseOptions(text: string): { options?: ComponentOptions; error?: strin
   }
 }
 
-export function ComponentEditor({ draft, setDraft, component, installed, cols, onSelect }: {
-  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; component: Component; installed: string[]; cols: number;
+export function ComponentEditor({ draft, setDraft, component, installed, cols, rows, onSelect }: {
+  draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; component: Component; installed: string[]; cols: number; rows: number;
   onSelect: (at: Target) => void;
 }) {
   const update = (next: Partial<Component>) => {
@@ -124,16 +124,16 @@ export function ComponentEditor({ draft, setDraft, component, installed, cols, o
       </label>
       {error && <p className="dp-warn" role="status">{error}</p>}
       <div className="dp-pair">
-        <label className="dp-row">Row<input type="number" min={1} max={27} value={component.at.row}
-          onChange={(e) => update({ at: { ...component.at, row: num(e.target.value, 1, 27) } })} /></label>
+        <label className="dp-row">Row<input type="number" min={1} max={rows} value={component.at.row}
+          onChange={(e) => update({ at: { ...component.at, row: num(e.target.value, 1, rows) } })} /></label>
         <label className="dp-row">Column<input type="number" min={1} max={cols} value={component.at.col}
           onChange={(e) => update({ at: { ...component.at, col: num(e.target.value, 1, cols) } })} /></label>
       </div>
       <div className="dp-pair">
         <label className="dp-row">Width (columns)<input type="number" min={1} max={cols} value={component.width}
           onChange={(e) => update({ width: num(e.target.value, 1, cols) })} /></label>
-        <label className="dp-row">Height (rows)<input type="number" min={1} max={27} value={component.height}
-          onChange={(e) => update({ height: num(e.target.value, 1, 27) })} /></label>
+        <label className="dp-row">Height (rows)<input type="number" min={1} max={rows} value={component.height}
+          onChange={(e) => update({ height: num(e.target.value, 1, rows) })} /></label>
       </div>
       <p className="dp-hint">Drag the component to move it, or its corner to resize it.</p>
       <button type="button" className="ghost danger" onClick={() => setDraft(setComponent(draft, component.at, null))}>Remove component</button>

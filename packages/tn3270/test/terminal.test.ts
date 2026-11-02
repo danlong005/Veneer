@@ -109,7 +109,8 @@ test('Erase/Write Alternate uses the model size; Erase/Write and Clear go back t
   t.terminal.sendAid(0x6d);
   assert.deepEqual(t.sent.at(-1), [0x6d], 'Clear sends only its AID');
   snap = t.snap();
-  assert.deepEqual([snap.rows, snap.cols, snap.fields.length], [24, 80, 0], 'Clear blanks the screen at the default size');
+  assert.deepEqual([snap.rows, snap.cols], [24, 80], 'Clear blanks the screen at the default size');
+  assert.deepEqual(snap.fields.map((f) => [f.id, f.length]), [['1:1', 1920]], 'unformatted: typing from the cursor');
   // Erase/Reset (a structured field) can pick either size.
   t.host([0xf3, 0x00, 0x04, 0x03, 0x80]);
   assert.deepEqual([t.snap().rows, t.snap().cols], [27, 132]);
@@ -298,7 +299,10 @@ test('the host can read the screen: Read Buffer, Read Modified and Read Modified
 test('an unformatted screen sends everything on it', () => {
   const t = makeTerminal();
   t.host(stream().eraseWrite().at(1, 1).chars('READY').cursor(2, 1).build());
-  assert.equal(t.snap().fields.length, 0);
+  // No fields, so one input from the cursor to the end of the screen, where typing goes.
+  const [typing, ...rest] = t.snap().fields;
+  assert.deepEqual(rest, []);
+  assert.deepEqual([typing!.id, typing!.length, typing!.value, typing!.bypass, typing!.modified], ['2:1', 1840, '', false, false]);
   t.terminal.writeText(t.terminal.screen.address(2, 1), 'LOGON IBMUSER');
   t.terminal.sendAid(ENTER);
   assert.deepEqual(t.sent[0], [ENTER, ...encodeAddress(80, 1920), ...e('READY'), ...e('LOGON IBMUSER')]);
@@ -390,6 +394,7 @@ test('unbinding blanks the screen and locks the keyboard until the host writes',
   const t = signOn();
   t.terminal.unbind();
   const snap = t.snap();
-  assert.equal(snap.fields.length, 0);
+  assert.deepEqual(snap.fields.map((f) => f.id), ['1:1'], 'unformatted');
+  assert.equal(snap.lines.join('').trim(), '');
   assert.equal(snap.keyboardLocked, true);
 });

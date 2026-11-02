@@ -202,7 +202,7 @@ export function snapshot(screen: Screen, cp: Codepage): ScreenSnapshot {
     segments.push(rowSegs);
   }
 
-  const fields = screen.fields().map((f): FieldSnapshot => {
+  const fields = screen.formatted ? screen.fields().map((f): FieldSnapshot => {
     const { row, col } = screen.rowCol(f.start);
     const attr = displayAttribute(f.attr);
     const protect = isProtected(f.attr);
@@ -221,7 +221,7 @@ export function snapshot(screen: Screen, cp: Codepage): ScreenSnapshot {
     if (!protect && (f.attr.fa & FA.NUMERIC)) snap.numeric = true;
     if (f.attr.validation & Validation.MANDATORY_FILL) snap.adjust = 'mandatoryFill';
     return snap;
-  });
+  }) : [typingAtCursor(screen)];
 
   return {
     host: '3270',
@@ -234,6 +234,26 @@ export function snapshot(screen: Screen, cp: Codepage): ScreenSnapshot {
     lines,
     segments,
     fields,
+  };
+}
+
+/**
+ * An unformatted screen (a logon screen, or the blank screen after Clear)
+ * takes typing anywhere. It is offered as one input at the cursor, running to
+ * the end of the screen; Session.submit types it there by its "row:col" id.
+ */
+function typingAtCursor(screen: Screen): FieldSnapshot {
+  const { row, col } = screen.rowCol(screen.cursor);
+  return {
+    id: fieldId(row, col),
+    row,
+    col,
+    length: screen.size - screen.cursor,
+    value: '',
+    bypass: false,
+    modified: false,
+    mandatoryEnter: false,
+    attr: displayAttribute(undefined),
   };
 }
 

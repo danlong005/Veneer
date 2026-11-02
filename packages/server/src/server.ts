@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { handleApi } from './api.ts';
-import { defaultPort, hostTypeOf } from './host.ts';
+import { defaultPort, hostTypeOf, pageKeysOf } from './host.ts';
 import type { ServerConfig } from './config.ts';
 import { ScreenInventory } from './inventory.ts';
 import { log } from './log.ts';
@@ -72,6 +72,7 @@ export function createServer(config: ServerConfig): VeneerServer {
       store: screens, themes, inventory, sessions, info, componentsDir: config.componentsDir,
       designerToken: config.designerToken, designerLocal: config.designerLocal,
       adminToken: config.adminToken, adminLocal: config.adminLocal, brand: config.brand,
+      host: { type: hostTypeOf(config.host), pageKeys: pageKeysOf(config.host) },
     })) {
       // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {

@@ -258,10 +258,11 @@ export function removeTab(tabs: TabBand[], i: number): TabBand[] {
 }
 
 /** Move where tab `i` starts, or with `i` equal to the count, where the last one ends. Kept at least one row each. */
-export function moveTabEdge(tabs: TabBand[], i: number, row: number): TabBand[] {
+/** `rows` is the screen's height, which the last tab may run to. */
+export function moveTabEdge(tabs: TabBand[], i: number, row: number, rows = 27): TabBand[] {
   if (i === tabs.length) {
     const last = tabs[i - 1]!;
-    return tabs.map((t, j) => (j === i - 1 ? { ...t, to: Math.min(27, Math.max(last.from, row)) } : t));
+    return tabs.map((t, j) => (j === i - 1 ? { ...t, to: Math.min(rows, Math.max(last.from, row)) } : t));
   }
   if (i === 0) return tabs.map((t, j) => (j === 0 ? { ...t, from: Math.max(1, Math.min(t.to, row)) } : t));
   const r = Math.max(tabs[i - 1]!.from + 1, Math.min(tabs[i]!.to, row));

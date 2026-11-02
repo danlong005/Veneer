@@ -4,11 +4,8 @@
 import { DATE_FORMATS, type DateFormat, type ScreenDefinition, type Widget } from '@veneer/screens';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
 import { useState } from 'react';
-import { isNumeric } from '../ui/fieldRules.ts';
+import { takesNumbers } from '../ui/fieldRules.ts';
 import { fieldsBelow, formatOptions, parseOptions, toggleTextAreaField, widgetOf } from './edit.ts';
-
-/** Fields a spinner suits: numbers only. */
-export const takesNumbers = (f: FieldSnapshot) => isNumeric(f) || f.shift === 'digitsOnly';
 
 /** The "Show as" choices for a field, besides Component. */
 export function showAsChoices(f: FieldSnapshot, current: Widget | undefined): Array<{ value: string; label: string }> {

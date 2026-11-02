@@ -2,7 +2,9 @@
 
 import type { ActiveTheme, ScreenDefinition, SiteCustomization } from '@veneer/screens';
 import { useCallback, useEffect, useState } from 'react';
+import type { HostType } from '@veneer/terminal';
 import { setInstalled } from '../custom/components.ts';
+import type { PageKeys } from './keys.ts';
 
 export interface ScreensApi {
   screens: ScreenDefinition[];
@@ -16,6 +18,8 @@ export interface ScreensApi {
   designer: boolean;
   /** Whether saving needs the designer token (false for a browser on the server's machine in local mode). */
   tokenRequired: boolean;
+  /** The kind of host, and what Page Up and Page Down send there (null: nothing); null until loaded. */
+  host: { type: HostType; pageKeys: PageKeys | null } | null;
   reload: () => void;
 }
 
@@ -27,17 +31,19 @@ export function useScreens(version: number): ScreensApi {
   const [tokenRequired, setTokenRequired] = useState(true);
   const [tick, setTick] = useState(0);
   const [components, setComponents] = useState<string[]>([]);
+  const [host, setHost] = useState<ScreensApi['host']>(null);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([fetch('/api/config'), fetch('/api/screens')])
       .then(async ([config, list]) => {
         if (!config.ok || !list.ok) throw new Error(`HTTP ${config.status}/${list.status}`);
-        const c = (await config.json()) as { designer: boolean; tokenRequired?: boolean };
+        const c = (await config.json()) as { designer: boolean; tokenRequired?: boolean; host?: ScreensApi['host'] };
         const l = (await list.json()) as { screens: ScreenDefinition[]; site?: SiteCustomization; theme?: ActiveTheme };
         if (cancelled) return;
         setDesigner(c.designer);
         setTokenRequired(c.tokenRequired ?? true);
+        setHost((h) => (JSON.stringify(h) === JSON.stringify(c.host ?? null) ? h : c.host ?? null));
         setScreens(l.screens);
         setSite(l.site ?? { css: '', scripts: { load: '', screen: '' } });
         // Kept when unchanged, so the page doesn't restyle on every reload.
@@ -62,5 +68,5 @@ export function useScreens(version: number): ScreensApi {
   }, [version, tick]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
-  return { screens, site, theme, components, designer, tokenRequired, reload };
+  return { screens, site, theme, components, designer, tokenRequired, host, reload };
 }

@@ -362,7 +362,10 @@ button:disabled { cursor: default; opacity: 0.55; }
 .export-pop {
   position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 30; min-width: 150px; padding: 4px;
   display: grid; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+  /* A long menu scrolls rather than running off the window. */
+  max-height: calc(100vh - 140px); overflow-y: auto;
 }
+.export-pop.start { right: auto; left: 0; }
 .keybar .export-pop button { border: 0; justify-content: flex-start; text-align: left; width: 100%; }
 .keybar button.primary, .dialog .primary {
   background: var(--accent); color: #fff; border-color: transparent; font-weight: 600;

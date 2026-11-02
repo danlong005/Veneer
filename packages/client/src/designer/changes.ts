@@ -6,6 +6,7 @@ import type { ScreenSnapshot } from '@veneer/terminal';
 import type { ScreenView } from '../transform/types.ts';
 import { ROLE_LABELS } from './edit.ts';
 import { clip, nameAt } from './names.ts';
+import { keyHint } from '../ui/keys.ts';
 
 export interface ChangeLine {
   label: string;
@@ -40,7 +41,7 @@ export function describeChange(change: Change, view: ScreenView, snap: ScreenSna
     case 'move':
       return { label: `Move ${name(change.at)} to row ${change.to.row}, column ${change.to.col}`, at: change.at };
     case 'button':
-      return { label: `Button “${clip(change.label)}”: ${'url' in change.action ? 'opens a web page' : `presses ${change.action.aid}`}` };
+      return { label: `Button “${clip(change.label)}”: ${'url' in change.action ? 'opens a web page' : `presses ${keyHint(change.action.aid, snap.host)}`}` };
     case 'style': {
       const { test, value } = testOf(change.when);
       const subject = change.when.column !== undefined ? `column “${change.when.column}”` : name(change.when.at!);

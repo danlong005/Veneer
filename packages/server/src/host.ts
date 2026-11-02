@@ -3,7 +3,7 @@
 // the only server code that knows there are two host types.
 
 import fs from 'node:fs';
-import { getCodepage, type ConnectionSettings, type HostType, type TerminalSession } from '@veneer/terminal';
+import { getCodepage, hostHasAid, isAidName, type AidName, type ConnectionSettings, type HostType, type TerminalSession } from '@veneer/terminal';
 import { Session as Session3270, modelOf } from '@veneer/tn3270';
 import { Session as Session5250 } from '@veneer/tn5250';
 
@@ -18,6 +18,32 @@ export interface HostSettings extends ConnectionSettings {
   ccsid?: number;
   /** 3270 only: use TN3270E when the host offers it (default true). */
   tn3270e?: boolean;
+  /**
+   * 3270 only: the keys Page Up and Page Down send (default PF7 and PF8, the
+   * usual convention); null when they send nothing.
+   */
+  pageKeys?: PageKeys | null;
+}
+
+/** What Page Up and Page Down send on a host without paging keys. */
+export interface PageKeys {
+  up: AidName;
+  down: AidName;
+}
+
+export const DEFAULT_PAGE_KEYS: PageKeys = { up: 'F7', down: 'F8' };
+
+/** The keys Page Up and Page Down send on this host: its own on a 5250, else the setting. */
+export function pageKeysOf(settings: HostSettings): PageKeys | null {
+  if (hostTypeOf(settings) === '5250') return { up: 'PageUp', down: 'PageDown' };
+  return settings.pageKeys === undefined ? DEFAULT_PAGE_KEYS : settings.pageKeys;
+}
+
+/** The key to send for one pressed: Page Up and Page Down become the host's page keys. */
+export function hostAid(settings: HostSettings, aid: AidName): AidName {
+  if (aid !== 'PageUp' && aid !== 'PageDown') return aid;
+  const keys = pageKeysOf(settings);
+  return (keys && (aid === 'PageUp' ? keys.up : keys.down)) ?? aid;
 }
 
 /** What each session adds to the shared settings. */
@@ -67,6 +93,8 @@ export function hostSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): HostS
   if (tn3270e !== '' && tn3270e !== 'true' && tn3270e !== 'false') throw new Error(`VENEER_TN3270E must be true or false, got "${tn3270e}"`);
   if (tn3270e !== '' && type !== '3270') throw new Error('VENEER_TN3270E is for 3270 hosts (VENEER_HOST_TYPE=3270)');
 
+  const pageKeys = parsePageKeys(env.VENEER_PAGE_KEYS ?? '', type);
+
   return {
     type,
     host: env.VENEER_HOST,
@@ -78,12 +106,27 @@ export function hostSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): HostS
     ...(terminalType ? { terminalType } : {}),
     ...(ccsid !== undefined ? { ccsid } : {}),
     ...(tn3270e === 'false' ? { tn3270e: false } : {}),
+    ...(pageKeys !== undefined ? { pageKeys } : {}),
   };
+}
+
+/** VENEER_PAGE_KEYS: "PF7,PF8" (or "F7,F8"), "off", or blank for the default. */
+function parsePageKeys(raw: string, type: HostType): PageKeys | null | undefined {
+  const value = raw.trim();
+  if (value === '') return undefined;
+  if (type !== '3270') throw new Error('VENEER_PAGE_KEYS is for 3270 hosts (VENEER_HOST_TYPE=3270); a 5250 has its own page keys');
+  if (value.toLowerCase() === 'off') return null;
+  const keys = value.split(',').map((k) => k.trim().toUpperCase().replace(/^PF(?=\d)/, 'F'));
+  const valid = (k: string | undefined): k is AidName => isAidName(k) && hostHasAid('3270', k) && k !== 'Clear';
+  if (keys.length !== 2 || !valid(keys[0]) || !valid(keys[1])) {
+    throw new Error(`VENEER_PAGE_KEYS must be two 3270 keys for Page Up and Page Down, such as PF7,PF8, or off; got "${raw}"`);
+  }
+  return { up: keys[0], down: keys[1] };
 }
 
 /** A session to the host, speaking its protocol. */
 export function createHostSession(settings: HostSettings, extras: SessionExtras = {}): TerminalSession {
-  const { type, tn3270e, ...common } = settings;
+  const { type, tn3270e, pageKeys: _pageKeys, ...common } = settings;
   if ((type ?? '5250') === '3270') return new Session3270({ ...common, ...(tn3270e === false ? { tn3270e } : {}), ...extras });
   return new Session5250({ ...common, ...extras });
 }
