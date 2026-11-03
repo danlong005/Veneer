@@ -4,17 +4,21 @@
 
 # Veneer
 
-Veneer renders IBM i 5250 green-screen applications as modern web pages without
-changing host code.
+Veneer renders green-screen applications as modern web pages without changing host
+code: IBM i 5250 applications, and IBM Z mainframe 3270 applications such as TSO and
+ISPF on z/OS. Each server talks to one kind of host, chosen in its configuration; see
+[Mainframe (3270) hosts](#mainframe-3270-hosts).
 
-**Where it runs:** on the IBM i itself, installed in the IFS and run in PASE as a service
-(Service Commander or `SBMJOB`), or off the IBM i on any machine with Node.js 20.12 or
-later: Linux with systemd, Docker, or a developer's PC. Either way it reaches the IBM i
-over telnet; no libraries or programs are added to QSYS. See [deploy/README.md](deploy/README.md).
+**Where it runs:** on any machine with Node.js 20.12 or later (Linux with systemd, Docker,
+or a developer's PC), or on the host's own platform: in PASE on the IBM i (Service
+Commander or `SBMJOB`), or on Linux on IBM Z, zCX or z/OS UNIX beside a mainframe (see
+[Where to run Veneer for a mainframe](#where-to-run-veneer-for-a-mainframe)). Either way
+it reaches the host over telnet, as an emulator does, and the host's applications are not
+changed: no libraries or programs are added to QSYS. See [deploy/README.md](deploy/README.md).
 
-**Security:** Veneer can be secured end to end, on or off the IBM i. It connects to the
-IBM i over TLS with the certificate checked, serves browsers over HTTPS, runs as a
-low-authority service user, and locks the designer and admin page behind tokens.
+**Security:** Veneer can be secured end to end. It connects to the host over TLS with the
+certificate checked, serves browsers over HTTPS, runs as a low-authority service user,
+and locks the designer and admin page behind tokens.
 [Securing Veneer](deploy/README.md#securing-veneer) is the checklist for a production
 install.
 
@@ -134,9 +138,13 @@ disabled profile).
 Veneer connects to 3270 hosts, shows their screens and has a 3270 keyboard. It has been
 tested against MVS 3.8j (TK4-, on the Hercules emulator, over plain TN3270): VTAM and TSO
 logon, TSO's line mode, full-screen tools, models 2 and 5, colour, PF and PA keys and
-Clear. [docs/tk4.md](docs/tk4.md) shows how to set that up. It hasn't been tested against
-z/OS, so TLS, TN3270E with LU names, CICS and IMS have only been tested against Veneer's
-own demo mainframe.
+Clear. [docs/tk4.md](docs/tk4.md) shows how to set that up.
+
+It has also been tested against z/OS (ISPF 8.1, on IBM Z Xplore, over TN3270E without
+TLS): logon and reconnect, TSO line mode, ISPF panels, action bars, pull-downs and
+pop-up windows, the data set list, View, the Command Shell, Attention, Clear, PA2 and
+System Request. TLS to a mainframe, requesting LU names, CICS, IMS and code pages other
+than 37 have only been tested against Veneer's own demo mainframe.
 
 Each server talks to one kind of host. For a mainframe, set `VENEER_HOST_TYPE=3270`:
 
