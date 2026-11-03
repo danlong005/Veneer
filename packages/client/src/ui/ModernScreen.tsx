@@ -9,6 +9,7 @@ import { homeOf } from '../transform/customize.ts';
 import type { Action, Card, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
 import { useComponents } from '../custom/components.ts';
 import { ComponentBox } from './ComponentBox.tsx';
+import { copyingInField, selectedScreenText } from './copyText.ts';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
 import { cellInputWidth } from './fieldRules.ts';
 import { drawnHeight, layoutOf, tabAtCursor, viewRow, type Group } from './layout.ts';
@@ -107,6 +108,7 @@ export function ModernScreen(props: Props) {
   const drag = useDrag(design, bottom - top + 1, view.cols);
   useNudge(design);
   useReveal(drag.ref, (index) => setPicked({ snap: view.snapshot, index }));
+  useCopy(drag.ref, view.cols, bottom - top + 1);
   const group = (g: Group) => <GroupView {...props} group={g} origin={origin} />;
   return (
     <>
@@ -563,6 +565,25 @@ function useNudge(design: Props['design']) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [active]);
+}
+
+/**
+ * Copy what is selected on the screen as it is laid out, a line per row with
+ * field values included (see copyText.ts), not as the browser would.
+ */
+function useCopy(ref: RefObject<HTMLDivElement | null>, cols: number, rows: number) {
+  useEffect(() => {
+    const onCopy = (e: ClipboardEvent) => {
+      const canvas = ref.current;
+      if (!canvas || !e.clipboardData || copyingInField(canvas.ownerDocument)) return;
+      const text = selectedScreenText(canvas, cols, rows);
+      if (text === undefined) return;
+      e.preventDefault();
+      e.clipboardData.setData('text/plain', text);
+    };
+    document.addEventListener('copy', onCopy);
+    return () => document.removeEventListener('copy', onCopy);
+  }, [ref, cols, rows]);
 }
 
 /**
