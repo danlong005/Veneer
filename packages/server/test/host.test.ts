@@ -28,6 +28,18 @@ test('the host type defaults to 5250, and 3270 is chosen with VENEER_HOST_TYPE',
   assert.equal(hostSettingsFromEnv({ ...HOST, VENEER_HOST_TYPE: '3270', VENEER_TN3270E: 'true' }).tn3270e, undefined, 'true is the default');
 });
 
+test('automatic sign-on: VENEER_SIGNON=auto with the password level that picks the substitute', () => {
+  assert.equal(hostSettingsFromEnv(HOST).autoSignOn, undefined);
+  assert.equal(hostSettingsFromEnv({ ...HOST, VENEER_SIGNON: 'host' }).autoSignOn, undefined);
+  assert.deepEqual(hostSettingsFromEnv({ ...HOST, VENEER_SIGNON: 'auto', VENEER_QPWDLVL: '1' }).autoSignOn, { substitute: 'des' });
+  assert.deepEqual(hostSettingsFromEnv({ ...HOST, VENEER_SIGNON: 'auto', VENEER_QPWDLVL: '3' }).autoSignOn, { substitute: 'sha' });
+  assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_SIGNON: 'auto' }), /needs VENEER_QPWDLVL.*DSPSYSVAL QPWDLVL/);
+  assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_SIGNON: 'auto', VENEER_QPWDLVL: '4' }), /got "4"/);
+  assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_SIGNON: 'yes' }), /must be auto or host/);
+  assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_QPWDLVL: '2' }), /is for automatic sign-on/);
+  assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_HOST_TYPE: '3270', VENEER_SIGNON: 'auto', VENEER_QPWDLVL: '2' }), /for IBM i hosts/);
+});
+
 test('host settings are checked when the server starts', () => {
   assert.throws(() => hostSettingsFromEnv({}), /VENEER_HOST is not set/);
   assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_HOST_TYPE: '3179' }), /must be 5250 or 3270/);

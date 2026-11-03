@@ -10,7 +10,8 @@ import { DemoHost3270 } from './demoHost3270.ts';
 import { demoEnv, demoHostType } from './demoEnv.ts';
 
 const type = demoHostType(process.argv.slice(2), process.env);
-const hostPort = await (type === '3270' ? new DemoHost3270() : new DemoHost()).listen();
+// VENEER_SIGNON=auto: the demo IBM i signs users on from Veneer's page, with the password "demo".
+const hostPort = await (type === '3270' ? new DemoHost3270() : new DemoHost({ autoSignOn: process.env.VENEER_SIGNON === 'auto' })).listen();
 const config = loadConfig(demoEnv(type, hostPort, process.env));
 const server = createServer(config);
 const addr = await server.listen();

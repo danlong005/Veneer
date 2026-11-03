@@ -50,6 +50,7 @@ log.info('veneer listening', {
   tls: Boolean(config.host.tls),
   screens: config.screensDir,
   designer: [config.designerLocal && 'local', config.designerToken && 'token'].filter(Boolean).join('+') || 'off',
+  signOn: config.host.autoSignOn ? `auto (${config.host.autoSignOn.substitute === 'des' ? 'DES, QPWDLVL 0-1' : 'SHA-1, QPWDLVL 2-3'})` : 'host',
 });
 // An install is replaced on upgrade (and its owner may not let the service write
 // there), so a production server should keep what it writes somewhere else.

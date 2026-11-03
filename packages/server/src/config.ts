@@ -44,6 +44,8 @@ export interface ServerConfig {
   log: { level: string; file?: string; maxBytes: number; keep: number };
   /** Product name, logo and accent colors (VENEER_BRAND_*). */
   brand?: Brand;
+  /** For tests: the first wait after repeated failed sign-ons from one address (default 2 seconds). */
+  signOnDelayMs?: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {

@@ -32,6 +32,7 @@ import { MAX_TYPEAHEAD, caretAtCursor, caretPosition, replay, type Caret, type R
 import { useScreens } from './useScreens.ts';
 import { sysreqField } from './sysreq.ts';
 import { NEW_SESSION, useSession } from './useSession.ts';
+import { SignOnPage } from './SignOnPage.tsx';
 
 type Mode = 'modern' | 'classic';
 const MODE_KEY = 'veneer.mode';
@@ -731,6 +732,8 @@ export function App() {
   const message = screenView?.window ? screenView.window.message : screenView?.message;
   const hasTable = [...(screenView?.items ?? []), ...(screenView?.window?.items ?? [])].some((i) => i.kind === 'table');
   const busy = typingAhead;
+  // Veneer's own sign-on page is up: no host session yet.
+  const signingOn = session.signOn !== null && !screenSnap && session.state !== 'closed';
   const goToMacros = screens.macros.filter((m) => m.menu && (!m.host || m.host === hostType));
 
   return (
@@ -765,14 +768,14 @@ export function App() {
             <span className="custom-badge" title={`Customized: ${screenView.definition.name}`}>Customized</span>
           )}
           <span
-            className={`status status-${session.state}`}
+            className={`status status-${signingOn ? 'signon' : session.state}`}
             title={is3270 && busy ? 'X SYSTEM: the keyboard waits for the host. If it stays locked, Esc (Reset) unlocks it.' : undefined}
           >
-            {statusText(session.state, busy, hostType)}
+            {signingOn ? 'Not signed on' : statusText(session.state, busy, hostType)}
             {queued > 0 && <span className="typeahead" title="Keys typed ahead">{queued} typed ahead</span>}
           </span>
           {is3270 && inserting && connected && <span className="typeahead" title="Typing inserts, pushing the rest along. Insert switches back to typing over.">Insert</span>}
-          {goToMacros.length > 0 && !designing && (
+          {goToMacros.length > 0 && !designing && !signingOn && (
             <DropMenu label="Go to" title="Shortcuts to screens you use often" disabled={!keysEnabled || macroNote !== null}
               items={goToMacros.map((m) => ({ label: m.label, title: `Run the ${m.label} macro`, onPick: () => goTo(m) }))} />
           )}
@@ -782,12 +785,12 @@ export function App() {
           {screens.designer && screenSnap && !designing && !help && (
             <button type="button" className="ghost mode-toggle" onClick={startDesign}>Design</button>
           )}
-          {!designing && (
+          {!designing && !signingOn && (
             <button type="button" className="ghost mode-toggle" onClick={toggleMode}>
               {mode === 'modern' ? 'Classic view' : 'Modern view'}
             </button>
           )}
-          {session.state !== 'closed' && !designing && (
+          {session.state !== 'closed' && !designing && !signingOn && (
             <DropMenu label="System" title="System Request and Attention keys" disabled={!connected || Boolean(help)} items={is3270 ? [
               { label: 'System Request', title: 'The 3270 SysReq key: to the system (SSCP) session and back', onPick: () => systemRequest(false) },
               { label: 'Attention', title: 'The 3270 Attn key, which interrupts a command', onPick: () => session.send({ type: 'attn' }) },
@@ -815,6 +818,7 @@ export function App() {
           </div>
         )}
         <Toast error={notice} />
+        {session.notice && screenSnap && <div className="banner" role="status"><span>{session.notice}</span></div>}
         {help && (
           <HelpPopover page={help.page} anchor={help.anchor} busy={!canSubmit} onMore={helpMore} onClose={helpClose} />
         )}
@@ -839,6 +843,9 @@ export function App() {
                   design={designView ? { selected: selection?.at ?? null, onSelect: selectOnScreen, onMove: moveItem, onResize: resizeBox } : undefined} />
               : <ClassicScreen snap={screenSnap} binding={binding} />}
           </form>
+        ) : signingOn && session.signOn ? (
+          <SignOnPage name={brand?.name ?? 'IBM i'} password={session.signOn.password}
+            error={session.signOn.error} waiting={session.signOn.waiting} send={session.send} />
         ) : (
           session.state !== 'closed' && <div className="placeholder">Connecting to {is3270 ? 'the mainframe' : 'IBM i'}…</div>
         )}
@@ -971,9 +978,9 @@ export function App() {
   );
 }
 
-/** Whether a key belongs to a side panel or dialog (its inputs and buttons) rather than the screen. */
+/** Whether a key belongs to a side panel, dialog or the sign-on page (its inputs and buttons) rather than the screen. */
 function ownKeys(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest('.macros-panel, .overlay') !== null;
+  return target instanceof Element && target.closest('.macros-panel, .overlay, .signon-page') !== null;
 }
 
 /** Another session: Veneer in a new browser tab, which starts its own. */

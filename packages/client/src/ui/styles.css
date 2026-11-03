@@ -110,6 +110,7 @@ button, input, select { font: inherit; color: inherit; }
 .status-connected::before { background: #22a06b; }
 .status-connecting::before { background: var(--warning); }
 .status-closed::before { background: var(--danger); }
+.status-signon::before { background: var(--text-muted); }
 .typeahead {
   margin-left: 6px; padding: 1px 7px; border-radius: 999px;
   background: var(--accent-soft); color: var(--accent); font-weight: 600;
@@ -128,6 +129,30 @@ button.ghost:hover { background: var(--surface-2); }
   box-shadow: var(--shadow); padding: 20px 24px; max-width: 100%; overflow-x: auto;
 }
 .placeholder { color: var(--text-muted); padding: 60px 0; }
+
+/* Veneer's sign-on page (automatic sign-on). */
+.signon-page { display: grid; place-items: center; width: 100%; padding: 48px 16px; }
+.signon-card {
+  display: flex; flex-direction: column; gap: 14px; width: min(380px, 100%);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; box-shadow: var(--shadow);
+}
+.signon-card h2 { margin: 0; font-size: 20px; }
+.signon-card label { display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; font-weight: 550; }
+.signon-card input {
+  font: inherit; font-weight: 400; color: var(--text); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 11px;
+}
+.signon-card input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.signon-card .primary {
+  background: var(--accent); color: #fff; border: 0; border-radius: var(--radius);
+  padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer; margin-top: 4px;
+}
+.signon-card .primary:disabled { opacity: 0.6; cursor: progress; }
+.signon-error { margin: 0; padding: 9px 12px; border-radius: var(--radius); background: var(--danger-soft); color: var(--danger); font-size: 14px; font-weight: 550; }
+.signon-hint { margin: -6px 0 0; font-size: 12.5px; color: var(--text-muted); }
+.signon-more { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 12px; margin: 0; }
+.signon-more legend { font-size: 12.5px; color: var(--text-muted); padding: 0 4px; }
+.signon-more-toggle { align-self: flex-start; background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-size: 13.5px; cursor: pointer; }
 
 .banner {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

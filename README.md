@@ -70,6 +70,8 @@ hosts](#mainframe-3270-hosts)). The browser cannot choose the host. Messages are
 
 1. The client sends `{"type":"hello"}`, or `{"type":"hello","resumeToken":"..."}` after a reload.
 2. The server replies with `hello` (session id + resume token), `status`, and then a `screen` each time the display changes.
+   With [automatic sign-on](#automatic-sign-on) it first sends `signon`, and the client answers with `signon` (user,
+   password, and optionally program, menu and library) before the host session starts.
 3. The client sends `submit` (`aid`, changed `fields` by `"row:col"` id, optional `cursor`), `reset`, `sysreq`, `attn` or `disconnect`.
 
 If a socket drops, its host session stays alive for `VENEER_RESUME_GRACE_SECONDS`
@@ -84,6 +86,48 @@ restart or by another emulator, IBM i first checks that the session holding it i
 alive, then asks for another name. Veneer offers the next free one (up to three more) and
 skips the busy name for 10 minutes. The log records `device name in use` and the
 `device assigned` to each session.
+
+### Automatic sign-on
+
+With `VENEER_SIGNON=auto`, Veneer signs users on to the IBM i itself, so they never see
+its sign-on screen: a new session shows Veneer's own sign-on page, in the site's theme
+under its logo and name, and the user lands straight on their initial menu or program.
+**More options** on the page sets the program, menu and current library to start with,
+as on the IBM i's screen. A [deep link](#macros-and-deep-links) opened before signing
+on shows the page, then runs its macro.
+
+It uses IBM i Telnet's automatic sign-on (RFC 4777), so nothing is installed on the IBM
+i. The password goes from the browser to Veneer once and is turned into a *password
+substitute* (encrypted with random seeds from the IBM i and Veneer), which is all the IBM
+i gets. It is never logged or kept. Two settings are needed:
+
+| Setting | Meaning |
+| --- | --- |
+| `VENEER_SIGNON` | `auto` for Veneer's sign-on page; blank (or `host`) shows the IBM i's sign-on screen. IBM i only. |
+| `VENEER_QPWDLVL` | The IBM i's `QPWDLVL` system value (`DSPSYSVAL QPWDLVL`): `0` or `1` (passwords of up to 10 characters, not case-sensitive, checked with DES) or `2` or `3` (up to 128, case-sensitive, checked with SHA-1). Telnet doesn't say which the IBM i uses, so Veneer must be told. |
+
+On the IBM i, the `QRMTSIGN` system value must be `*VERIFY` or `*SAMEPRF`. If the IBM i
+turns automatic sign-on down (`*FRCSIGNON` or `*REJECT`), Veneer logs `automatic
+sign-on is not allowed` once with the fix, shows that user the IBM i's own sign-on
+screen, and does the same for every session until it is restarted.
+
+What the user sees when signing on doesn't work:
+
+- **A wrong password, an unknown user or a disabled profile:** the reason, on Veneer's
+  page, to try again. Each failure counts against the profile as usual (`QMAXSIGN`).
+  After two failures from one browser address, each further try waits, starting at 2
+  seconds and doubling up to a minute, until 15 minutes pass without a failure.
+- **An expired password:** the IBM i's sign-on screen, with a note to sign on there,
+  which goes on to its Change Password screen as on a terminal.
+
+Veneer's page takes a password only on HTTPS, or from a browser on the server's own
+machine; elsewhere it says to use the https:// address. New sessions (System ▸ New
+session, or a deep link in another tab) ask for the password again: Veneer doesn't keep
+it. Signing on with a Windows login (Kerberos) isn't supported.
+
+To try it, run `VENEER_SIGNON=auto npm run demo`: the demo IBM i signs on any user with
+the password `demo` (`expired` shows an expired password; the user `DISABLED`, a
+disabled profile).
 
 ### Mainframe (3270) hosts
 
@@ -184,7 +228,7 @@ any of these places:
 restarting the server:
 
 - **Active sessions**, refreshed every two seconds: the IBM i user (read from the sign-on
-  screen once the host accepts it), device name, browser address, when it connected, last
+  screen once the host accepts it, or known from the start with automatic sign-on), device name, browser address, when it connected, last
   activity, and whether a browser is attached or the session is waiting for a page reload.
 - **End** closes the host connection, which ends the IBM i job and frees the device. The
   user's browser shows that an administrator ended the session. Each end is logged.
@@ -284,8 +328,9 @@ https://veneer.example.com/?macro=order-inquiry&order=12345
 
 A macro starts in three ways:
 
-- **A deep link** opens a new session in that tab. The user signs on as usual, and the
-  macro starts when its first screen appears (normally the initial menu).
+- **A deep link** opens a new session in that tab. The user signs on as usual (on
+  Veneer's page with [automatic sign-on](#automatic-sign-on)), and the macro starts when
+  its first screen appears (normally the initial menu).
 - **A button** on a customized screen (the designer's Buttons section, **Run macro**)
   runs it from that screen. Its values can come from the screen: `{6:22}` is the field or
   text at row 6, column 22, including what the user typed.

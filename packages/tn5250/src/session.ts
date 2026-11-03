@@ -6,12 +6,13 @@ import net from 'node:net';
 import tls from 'node:tls';
 import {
   DeviceNameInUseError, fieldId,
-  type ConnectionSettings, type ScreenSnapshot, type SubmitInput, type TerminalSession, type TerminalSessionEvents,
+  type ConnectionSettings, type ScreenSnapshot, type SignOnResult, type SubmitInput, type TerminalSession, type TerminalSessionEvents,
 } from '@veneer/terminal';
 import { aidByte } from './constants.ts';
 import { getCodepage, type Codepage } from '@veneer/terminal';
 import { snapshot } from './screen.ts';
-import { TelnetCodec } from './telnet.ts';
+import { signOnOutcome, startupResponse } from './signon.ts';
+import { TelnetCodec, type AutoSignOn } from './telnet.ts';
 import { ProtocolError, Terminal } from './terminal.ts';
 
 export interface SessionOptions extends ConnectionSettings {
@@ -21,6 +22,8 @@ export interface SessionOptions extends ConnectionSettings {
   onDeviceNameInUse?: (name: string) => string | undefined;
   ccsid?: number;
   connectTimeoutMs?: number;
+  /** Sign on during negotiation; the result comes as a signOn event. */
+  autoSignOn?: AutoSignOn;
   /** Receives every 5250 record in both directions, for debugging and fixtures. */
   trace?: (direction: 'in' | 'out', record: Buffer) => void;
 }
@@ -32,10 +35,15 @@ export class Session extends EventEmitter<TerminalSessionEvents> implements Term
   private readonly telnet: TelnetCodec;
   private socket: net.Socket | null = null;
   private closed = false;
+  /** Automatic sign-on was asked for and its result not yet reported. */
+  private signOnPending: boolean;
 
   constructor(opts: SessionOptions) {
     super();
-    this.opts = opts;
+    // The password goes to the Telnet codec, which drops it once it has the substitute.
+    const { autoSignOn, ...rest } = opts;
+    this.opts = rest;
+    this.signOnPending = autoSignOn !== undefined;
     this.codepage = getCodepage(opts.ccsid ?? 37);
     const terminalType = opts.terminalType ?? 'IBM-3179-2';
     this.terminal = new Terminal({
@@ -51,6 +59,7 @@ export class Session extends EventEmitter<TerminalSessionEvents> implements Term
       terminalType,
       deviceName: opts.deviceName,
       onDeviceNameInUse: opts.onDeviceNameInUse,
+      autoSignOn,
       send: (bytes) => this.socket?.write(bytes),
       onRecord: (rec) => this.onRecord(rec),
     });
@@ -156,12 +165,28 @@ export class Session extends EventEmitter<TerminalSessionEvents> implements Term
 
   private onRecord(rec: Buffer): void {
     this.opts.trace?.('in', rec);
+    const startup = startupResponse(rec);
+    if (startup) return this.onStartup(startup.code, startup.device);
+    // A host that took no part in sign-on still shows its sign-on screen.
+    if (this.signOnPending && this.telnet.autoSignOnOffered === false) this.reportSignOn({ outcome: 'not-allowed' });
     try {
       this.terminal.processRecord(rec);
     } catch (err) {
       this.emit('warning', `Failed to process record: ${(err as Error).message}`);
     }
     this.emit('screen', this.snapshot());
+  }
+
+  /** The Startup Response Record: how starting the device, and signing on, went. */
+  private onStartup(code: string, device: string | undefined): void {
+    if (!this.signOnPending) return;
+    const outcome = this.telnet.autoSignOnOffered === false ? 'not-allowed' : signOnOutcome(code);
+    if (outcome) this.reportSignOn({ outcome, ...(this.telnet.autoSignOnOffered ? { code } : {}), ...(device ? { device } : {}) });
+  }
+
+  private reportSignOn(result: SignOnResult): void {
+    this.signOnPending = false;
+    this.emit('signOn', result);
   }
 
   private shutdown(err?: Error): void {

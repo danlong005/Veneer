@@ -10,6 +10,8 @@ test('accepts well-formed messages', () => {
   );
   assert.deepEqual(parseClientMessage('{"type":"macro","macro":"order-inquiry","outcome":"failed","step":3,"order":"123"}'),
     { type: 'macro', macro: 'order-inquiry', outcome: 'failed', step: 3 }, 'anything else is dropped');
+  assert.deepEqual(parseClientMessage('{"type":"signon","user":"dlong","password":"pw","program":"","menu":"main","extra":1}'),
+    { type: 'signon', user: 'dlong', password: 'pw', menu: 'main' }, 'blank and unknown parts dropped');
 });
 
 test('rejects malformed messages', () => {
@@ -22,6 +24,10 @@ test('rejects malformed messages', () => {
     '{"type":"macro","macro":"Order Inquiry","outcome":"done"}',
     '{"type":"macro","macro":"order-inquiry","outcome":"great"}',
     '{"type":"macro","macro":"order-inquiry","outcome":"failed","step":0}',
+    '{"type":"signon","user":"DLONG"}',
+    '{"type":"signon","user":"TOOLONGUSERNAME","password":"x"}',
+    `{"type":"signon","user":"DLONG","password":"${'x'.repeat(129)}"}`,
+    '{"type":"signon","user":"DLONG","password":"x","library":7}',
   ]) {
     assert.throws(() => parseClientMessage(raw), Error, raw);
   }

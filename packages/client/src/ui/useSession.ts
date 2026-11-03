@@ -1,7 +1,7 @@
 // WebSocket connection to the Veneer server, with resume after reloads and
 // automatic reconnects after network drops.
 
-import type { ClientMessage, ServerMessage } from '@veneer/server';
+import type { ClientMessage, PasswordRules, ServerMessage } from '@veneer/server';
 import type { ScreenSnapshot } from '@veneer/terminal';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -16,6 +16,13 @@ export interface SessionApi {
   closedReason: string | null;
   /** Latest transient error from the server. */
   error: { id: number; message: string } | null;
+  /**
+   * Automatic sign-on: Veneer's sign-on page shows while this is set, with
+   * the error from the last try. `waiting` while a sign-on is under way.
+   */
+  signOn: { password: PasswordRules; error?: string; waiting: boolean } | null;
+  /** Something to tell the user until they next press a key (e.g. why the host's sign-on screen shows). */
+  notice: string | null;
   /** Bumped when the server reports changed screen definitions. */
   screensVersion: number;
   send: (msg: ClientMessage) => void;
@@ -40,6 +47,8 @@ export function useSession(): SessionApi {
   const [user, setUser] = useState<string | null>(null);
   const [closedReason, setClosedReason] = useState<string | null>(null);
   const [error, setError] = useState<SessionApi['error']>(null);
+  const [signOn, setSignOn] = useState<SessionApi['signOn']>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [screensVersion, setScreensVersion] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const retries = useRef(0);
@@ -76,7 +85,17 @@ export function useSession(): SessionApi {
             setState(msg.state);
           }
           break;
+        case 'signon':
+          // Also after signing off: the last screen goes with the host connection.
+          setScreen(null);
+          setUser(null);
+          setSignOn({ password: msg.password, ...(msg.error ? { error: msg.error } : {}), waiting: false });
+          break;
+        case 'notice':
+          setNotice(msg.message);
+          break;
         case 'screen':
+          setSignOn(null);
           setScreen({ seq: msg.seq, snap: msg.screen });
           setUser(msg.user ?? null);
           setState('connected');
@@ -121,7 +140,10 @@ export function useSession(): SessionApi {
 
   const send = useCallback((msg: ClientMessage) => {
     const ws = wsRef.current;
-    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    if (ws?.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify(msg));
+    if (msg.type === 'submit') setNotice(null);
+    if (msg.type === 'signon') setSignOn((s) => (s ? { password: s.password, waiting: true } : s));
   }, []);
 
   const disconnect = useCallback(() => {
@@ -132,9 +154,11 @@ export function useSession(): SessionApi {
   const newSession = useCallback(() => {
     storage()?.removeItem(TOKEN_KEY);
     setScreen(null);
+    setSignOn(null);
+    setNotice(null);
     retries.current = 0;
     connect(false);
   }, [connect]);
 
-  return { state, screen, user, closedReason, error, screensVersion, send, disconnect, newSession };
+  return { state, screen, user, closedReason, error, signOn, notice, screensVersion, send, disconnect, newSession };
 }

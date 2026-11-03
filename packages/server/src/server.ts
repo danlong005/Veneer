@@ -42,6 +42,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     maxSessions: config.maxSessions,
     deviceNamePrefix: config.deviceNamePrefix,
     trace: config.trace,
+    ...(config.signOnDelayMs !== undefined ? { signOnDelayMs: config.signOnDelayMs } : {}),
   });
   const screens = new ScreenStore(config.screensDir);
   screens.on('changed', (version) => sessions.broadcast({ type: 'screens', version }));
@@ -111,7 +112,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     wss.handleUpgrade(req, socket, head, (ws) => {
       alive.add(ws);
       ws.on('pong', () => alive.add(ws));
-      sessions.accept(ws, req.socket.remoteAddress ?? 'unknown');
+      sessions.accept(ws, req.socket.remoteAddress ?? 'unknown', passwordSafe(req));
     });
   });
 
@@ -160,6 +161,25 @@ export function createServer(config: ServerConfig): VeneerServer {
 }
 
 /** Browsers always send Origin on WebSocket upgrades; require it to match. */
+/**
+ * Whether a browser may send a password on this socket: its page is on HTTPS
+ * (directly, or through a proxy that handles HTTPS), or on this machine.
+ * The page's Origin says how the browser reached it, whatever is in between.
+ */
+export function passwordSafe(req: http.IncomingMessage): boolean {
+  if ((req.socket as { encrypted?: boolean }).encrypted) return true;
+  const origin = req.headers.origin;
+  const loopback = /^(::1|(::ffff:)?127\.)/.test(req.socket.remoteAddress ?? '');
+  if (!origin) return loopback;
+  try {
+    const url = new URL(origin);
+    if (url.protocol === 'https:') return true;
+    return url.protocol === 'http:' && loopback && (url.hostname === 'localhost' || url.hostname === '[::1]' || /^127\./.test(url.hostname));
+  } catch {
+    return false;
+  }
+}
+
 function originAllowed(req: http.IncomingMessage, allowed: string[]): boolean {
   const origin = req.headers.origin;
   if (!origin) return true; // not a browser

@@ -24,6 +24,9 @@ export function demoEnv(type: HostType, hostPort: number, env: NodeJS.ProcessEnv
     VENEER_TN3270E: type === '3270' ? env.VENEER_TN3270E ?? '' : '',
     // LU names are at most 8 characters: a longer 5250 device name prefix is dropped.
     VENEER_DEVNAME_PREFIX: type === '3270' && (env.VENEER_DEVNAME_PREFIX ?? '').length > 6 ? '' : env.VENEER_DEVNAME_PREFIX ?? '',
+    // Automatic sign-on is for IBM i; the demo one takes either password level (default 3).
+    VENEER_SIGNON: type === '3270' ? '' : env.VENEER_SIGNON ?? '',
+    VENEER_QPWDLVL: type === '3270' || env.VENEER_SIGNON !== 'auto' ? '' : env.VENEER_QPWDLVL || '3',
     VENEER_HOST: '127.0.0.1', VENEER_PORT: String(hostPort), VENEER_TLS: 'false',
   };
 }

@@ -188,6 +188,13 @@ does all of these:
 - [ ] **End idle sessions.** `VENEER_IDLE_TIMEOUT_MINUTES` (default 30) ends sessions left
   open, and `VENEER_MAX_SESSIONS` (default 100) caps how many devices Veneer can use.
 
+- [ ] **With automatic sign-on** (`VENEER_SIGNON=auto`), set `QRMTSIGN` on the IBM i to
+  `*VERIFY` (or `*SAMEPRF`) and `VENEER_QPWDLVL` to its `QPWDLVL`. Veneer's sign-on page
+  refuses passwords over plain HTTP except from the server's own machine, and the IBM i
+  gets only a password substitute, never the password. Keep the IBM i connection on TLS
+  anyway, so the user name isn't sent in the clear either. See
+  [Automatic sign-on](../README.md#automatic-sign-on).
+
 Logs record who signed on (the IBM i user name) but never passwords or other field values.
 `VENEER_TRACE=true` logs host records for diagnosis, but shows only the key and cursor of
 what browsers send, never field values.

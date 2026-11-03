@@ -23,9 +23,24 @@ export interface SubmitInput {
   cursor?: { row: number; col: number };
 }
 
+/**
+ * How automatic sign-on went (IBM i only): signed on; not allowed by the host,
+ * which shows its sign-on screen; the password has expired, so the host's
+ * sign-on screen leads on to changing it; or rejected, with the host's code.
+ */
+export interface SignOnResult {
+  outcome: 'signed-on' | 'not-allowed' | 'expired' | 'rejected';
+  /** The host's code (I902, 0004, ...); absent when the host didn't offer automatic sign-on. */
+  code?: string;
+  /** The device the session got, if the host said. */
+  device?: string;
+}
+
 export interface TerminalSessionEvents {
   /** The host changed the screen. */
   screen: [ScreenSnapshot];
+  /** After an automatic sign-on was asked for, before the first screen. */
+  signOn: [SignOnResult];
   warning: [string];
   close: [Error | undefined];
 }

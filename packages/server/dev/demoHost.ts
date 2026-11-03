@@ -1,9 +1,11 @@
 // A fake IBM i for trying Veneer without one: sign-on, main menu, a pageable
 // Work with Active Jobs subfile, and screens for the demo customizations.
-// Any user and password sign on.
+// Any user and password sign on. With automatic sign-on (VENEER_SIGNON=auto),
+// any user signs on with the password "demo", as IBM i does it (RFC 4777).
 
+import { randomBytes } from 'node:crypto';
 import net from 'node:net';
-import { Attr, HostStream, buildRecord, getCodepage } from '@veneer/tn5250';
+import { Attr, HostStream, buildRecord, getCodepage, passwordSubstitute } from '@veneer/tn5250';
 
 const cp = getCodepage(37);
 const IAC = 0xff;
@@ -63,8 +65,17 @@ type State =
 /** Simulated host latency, to exercise type-ahead (VENEER_DEMO_DELAY_MS). */
 const DELAY_MS = Number(process.env.VENEER_DEMO_DELAY_MS ?? 0);
 
+/** The password every user signs on with automatically; "expired" and user DISABLED show those answers. */
+export const DEMO_PASSWORD = 'demo';
+
 export class DemoHost {
   readonly server = net.createServer((s) => this.onConnection(s));
+  /** Offer automatic sign-on: send a seed, check the substitute, answer with a Startup Response Record. */
+  readonly autoSignOn: boolean;
+
+  constructor(opts: { autoSignOn?: boolean } = {}) {
+    this.autoSignOn = opts.autoSignOn ?? false;
+  }
 
   async listen(port = 0): Promise<number> {
     await new Promise<void>((r) => this.server.listen(port, '127.0.0.1', r));
@@ -76,9 +87,25 @@ export class DemoHost {
     socket.write(Buffer.from([IAC, 0xfd, 0x18, IAC, 0xfd, 0x19, IAC, 0xfb, 0x19, IAC, 0xfd, 0x00, IAC, 0xfb, 0x00]));
     let state: State = { screen: 'signon' };
     const show = (stream: number[]) => send(socket, stream);
-    show(signOn());
+    const seed = randomBytes(8);
+    if (this.autoSignOn) {
+      // Ask for the environment with a seed; the first screen waits for the answer.
+      const escaped = [...seed].flatMap((b) => (b <= 3 ? [0x02, b] : b === IAC ? [IAC, IAC] : [b]));
+      socket.write(Buffer.from([IAC, 0xfd, 0x27, IAC, 0xfa, 0x27, 0x01, 0x03, ...Buffer.from('IBMRSEED'), ...escaped, 0x03, ...Buffer.from('IBMSUBSPW'), 0x00, 0x03, IAC, 0xf0]));
+    } else {
+      show(signOn());
+    }
+    const onEnvironment = (env: Record<string, Buffer>) => {
+      const user = env.USER?.toString('latin1').toUpperCase();
+      if (!user) return show(signOn());
+      const code = demoSignOn(user, env, seed);
+      socket.write(startupRecord(code, 'DEMO', 'QPADEV0001'));
+      if (code !== 'I902') return show(signOn());
+      state = { screen: 'menu', user };
+      show(mainMenu(user));
+    };
 
-    onRecords(socket, (rec) => {
+    onRecords(socket, onEnvironment, (rec) => {
       if (rec[9] !== 0x03 || rec.length < 13) return;
       const aid = rec[12]!;
       const fields = parseFields(rec.subarray(13));
@@ -531,25 +558,80 @@ export function contacts(page: number, message?: string, plain = false): number[
 }
 
 /** Split inbound bytes into 5250 records, dropping Telnet negotiation. */
-function onRecords(socket: net.Socket, onRecord: (rec: Buffer) => void): void {
+function onRecords(socket: net.Socket, onEnvironment: (env: Record<string, Buffer>) => void, onRecord: (rec: Buffer) => void): void {
   let pending: number[] = [];
+  let sub: number[] = [];
   let skip = 0, inSub = false, iac = false;
   socket.on('data', (chunk) => {
     for (const b of chunk) {
       if (skip > 0) { skip--; continue; }
       if (iac) {
         iac = false;
-        if (b === IAC) { if (!inSub) pending.push(b); }
+        if (b === IAC) { if (inSub) sub.push(b); else pending.push(b); }
         else if (b === 0xef) { onRecord(Buffer.from(pending)); pending = []; }
         else if (b >= 0xfb && b <= 0xfe) skip = 1;
-        else if (b === 0xfa) inSub = true;
-        else if (b === 0xf0) inSub = false;
+        else if (b === 0xfa) { inSub = true; sub = []; }
+        else if (b === 0xf0) {
+          inSub = false;
+          if (sub[0] === 0x27 && sub[1] === 0x00) onEnvironment(environmentVars(sub.slice(2)));
+        }
         continue;
       }
       if (b === IAC) iac = true;
-      else if (!inSub) pending.push(b);
+      else if (inSub) sub.push(b);
+      else pending.push(b);
     }
   });
+}
+
+/** The demo's answer to an automatic sign-on: any user with the password "demo", checked as DES or SHA-1. */
+function demoSignOn(user: string, env: Record<string, Buffer>, serverSeed: Buffer): string {
+  const clientSeed = env.IBMRSEED, given = env.IBMSUBSPW;
+  if (!clientSeed || clientSeed.length !== 8 || !given) return '0004';
+  if (user === 'DISABLED') return '0003';
+  const matches = (password: string) => {
+    try {
+      return given.equals(passwordSubstitute(given.length === 8 ? 'des' : 'sha', user, password, serverSeed, clientSeed));
+    } catch {
+      return false;
+    }
+  };
+  if (matches('expired')) return '0005';
+  return matches(DEMO_PASSWORD) ? 'I902' : '0004';
+}
+
+/** NEW-ENVIRON IS variables by name (after IS); values are bytes, with ESC-escaped codes undone. */
+export function environmentVars(body: number[]): Record<string, Buffer> {
+  const out: Record<string, Buffer> = {};
+  let i = 0;
+  while (i < body.length) {
+    if (body[i] !== 0x00 && body[i] !== 0x03) { i++; continue; }
+    i++;
+    const name: number[] = [];
+    while (i < body.length && body[i]! > 0x03) name.push(body[i++]!);
+    const value: number[] = [];
+    if (body[i] === 0x01) {
+      i++;
+      while (i < body.length && body[i] !== 0x00 && body[i] !== 0x01 && body[i] !== 0x03) {
+        if (body[i] === 0x02) i++;
+        value.push(body[i++]!);
+      }
+    }
+    out[Buffer.from(name).toString('latin1')] = Buffer.from(value);
+  }
+  return out;
+}
+
+/** A Startup Response Record (RFC 4777 section 10), framed for Telnet. */
+export function startupRecord(code: string, system: string, device: string): Buffer {
+  const rec = Buffer.alloc(0x49);
+  Buffer.from('004912a090000560060020c0003d0000', 'hex').copy(rec);
+  Buffer.from(cp.encode(code)).copy(rec, 16);
+  Buffer.from(cp.encode(system.padEnd(8))).copy(rec, 20);
+  Buffer.from(cp.encode(device.padEnd(10))).copy(rec, 28);
+  const out: number[] = [];
+  for (const b of rec) { out.push(b); if (b === IAC) out.push(IAC); }
+  return Buffer.from([...out, IAC, 0xef]);
 }
 
 /** Parse "SBA row col data..." entries from a Read MDT Fields response. */

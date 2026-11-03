@@ -5,7 +5,10 @@
 import fs from 'node:fs';
 import { getCodepage, hostHasAid, isAidName, type AidName, type ConnectionSettings, type HostType, type TerminalSession } from '@veneer/terminal';
 import { Session as Session3270, modelOf } from '@veneer/tn3270';
-import { Session as Session5250 } from '@veneer/tn5250';
+import { Session as Session5250, substituteFor, type AutoSignOn, type PasswordSubstitute } from '@veneer/tn5250';
+
+// Automatic sign-on is IBM i's; the session code checks a sign-on with these.
+export { USER_PROFILE, passwordProblem, type AutoSignOn } from '@veneer/tn5250';
 
 export const HOST_TYPES: readonly HostType[] = ['5250', '3270'];
 
@@ -23,6 +26,11 @@ export interface HostSettings extends ConnectionSettings {
    * usual convention); null when they send nothing.
    */
   pageKeys?: PageKeys | null;
+  /**
+   * IBM i only: sign users on from Veneer's own sign-on page, with the
+   * password substitute the host's password level (QPWDLVL) checks.
+   */
+  autoSignOn?: { substitute: PasswordSubstitute };
 }
 
 /** What Page Up and Page Down send on a host without paging keys. */
@@ -51,6 +59,8 @@ export interface SessionExtras {
   /** Device (5250) or LU (3270) name to ask for. */
   deviceName?: string;
   onDeviceNameInUse?: (name: string) => string | undefined;
+  /** 5250 only: sign on with these during negotiation. */
+  autoSignOn?: AutoSignOn;
   trace?: (direction: 'in' | 'out', record: Buffer) => void;
 }
 
@@ -94,6 +104,7 @@ export function hostSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): HostS
   if (tn3270e !== '' && type !== '3270') throw new Error('VENEER_TN3270E is for 3270 hosts (VENEER_HOST_TYPE=3270)');
 
   const pageKeys = parsePageKeys(env.VENEER_PAGE_KEYS ?? '', type);
+  const autoSignOn = parseSignOn(env, type);
 
   return {
     type,
@@ -107,7 +118,28 @@ export function hostSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): HostS
     ...(ccsid !== undefined ? { ccsid } : {}),
     ...(tn3270e === 'false' ? { tn3270e: false } : {}),
     ...(pageKeys !== undefined ? { pageKeys } : {}),
+    ...(autoSignOn ? { autoSignOn } : {}),
   };
+}
+
+/**
+ * VENEER_SIGNON=auto signs users on from Veneer's sign-on page. Telnet doesn't
+ * say which password substitute the IBM i checks, so VENEER_QPWDLVL (the
+ * system value QPWDLVL: 0 or 1 for DES, 2 or 3 for SHA-1) must say.
+ */
+function parseSignOn(env: NodeJS.ProcessEnv, type: HostType): HostSettings['autoSignOn'] {
+  const mode = (env.VENEER_SIGNON ?? '').trim();
+  const level = (env.VENEER_QPWDLVL ?? '').trim();
+  if (mode === '' || mode === 'host') {
+    if (level !== '') throw new Error('VENEER_QPWDLVL is for automatic sign-on (VENEER_SIGNON=auto)');
+    return undefined;
+  }
+  if (mode !== 'auto') throw new Error(`VENEER_SIGNON must be auto or host, got "${env.VENEER_SIGNON}"`);
+  if (type !== '5250') throw new Error('VENEER_SIGNON=auto is for IBM i hosts (VENEER_HOST_TYPE=5250)');
+  if (!/^[0-3]$/.test(level)) {
+    throw new Error(`VENEER_SIGNON=auto needs VENEER_QPWDLVL: the IBM i's QPWDLVL system value (0, 1, 2 or 3; DSPSYSVAL QPWDLVL shows it)${level ? `, got "${level}"` : ''}`);
+  }
+  return { substitute: substituteFor(Number(level)) };
 }
 
 /** VENEER_PAGE_KEYS: "PF7,PF8" (or "F7,F8"), "off", or blank for the default. */
@@ -126,7 +158,10 @@ function parsePageKeys(raw: string, type: HostType): PageKeys | null | undefined
 
 /** A session to the host, speaking its protocol. */
 export function createHostSession(settings: HostSettings, extras: SessionExtras = {}): TerminalSession {
-  const { type, tn3270e, pageKeys: _pageKeys, ...common } = settings;
-  if ((type ?? '5250') === '3270') return new Session3270({ ...common, ...(tn3270e === false ? { tn3270e } : {}), ...extras });
+  const { type, tn3270e, pageKeys: _pageKeys, autoSignOn: _autoSignOn, ...common } = settings;
+  if ((type ?? '5250') === '3270') {
+    const { autoSignOn: _signOn, ...rest } = extras;
+    return new Session3270({ ...common, ...(tn3270e === false ? { tn3270e } : {}), ...rest });
+  }
   return new Session5250({ ...common, ...extras });
 }

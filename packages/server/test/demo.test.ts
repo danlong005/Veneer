@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 import { matchScreen, validateDefinition, type ScreenDefinition } from '@veneer/screens';
-import { type ScreenSnapshot } from '@veneer/terminal';
+import { type ScreenSnapshot, type SignOnResult } from '@veneer/terminal';
 import { Session, Terminal, buildRecord, getCodepage, snapshot } from '@veneer/tn5250';
 // The browser's view of a screen, as the client builds it for components.
 import { tablesOf } from '../../client/src/custom/components.ts';
@@ -262,4 +262,34 @@ test('on the demo host, the widgets send what typing would', async (t) => {
   assert.equal(snap.fields.find((x) => x.id === '13:22')!.value, 'Use door <B>');
   assert.equal(snap.fields.find((x) => x.id === '6:22')!.value, 'O');
   assert.equal(snap.fields.find((x) => x.id === '11:22')!.value, 'Leave at the loading dock if nobody is', 'lines not sent keep the host\'s text');
+});
+
+test('the demo host signs on automatically with the password "demo", at either password level', async (t) => {
+  const host = new DemoHost({ autoSignOn: true });
+  const port = await host.listen();
+  t.after(() => host.server.close());
+  const attempt = async (user: string, password: string, substitute: 'des' | 'sha') => {
+    const session = new Session({ host: '127.0.0.1', port, connectTimeoutMs: 5000, autoSignOn: { user, password, substitute } });
+    const result = new Promise<SignOnResult>((resolve, reject) => {
+      session.once('signOn', resolve);
+      setTimeout(() => reject(new Error('no signOn event')), 5000).unref();
+    });
+    try {
+      await session.connect();
+      const [outcome, snap] = await Promise.all([result, session.waitForInput(5000)]);
+      return { outcome, title: snap.lines.join('\n') };
+    } finally {
+      session.close();
+    }
+  };
+  for (const substitute of ['des', 'sha'] as const) {
+    const ok = await attempt('demo', 'demo', substitute);
+    assert.deepEqual(ok.outcome, { outcome: 'signed-on', code: 'I902', device: 'QPADEV0001' }, substitute);
+    assert.match(ok.title, /Main Menu/);
+    assert.equal((await attempt('demo', 'nope', substitute)).outcome.code, '0004');
+    const expired = await attempt('demo', 'expired', substitute);
+    assert.equal(expired.outcome.outcome, 'expired');
+    assert.match(expired.title, /Sign On/);
+  }
+  assert.equal((await attempt('disabled', 'demo', 'sha')).outcome.code, '0003');
 });

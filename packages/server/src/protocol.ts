@@ -9,6 +9,13 @@ export type ServerMessage =
   /** `seq` increases with every screen sent for this session. `user` is who signed on, once known. */
   | { type: 'screen'; seq: number; screen: ScreenSnapshot; user?: string }
   | { type: 'error'; message: string }
+  /**
+   * Automatic sign-on: show Veneer's sign-on page (again, with `error`, after
+   * a failure). `password` says what the IBM i's password level allows.
+   */
+  | { type: 'signon'; password: PasswordRules; error?: string }
+  /** Something the user should know that isn't an error, e.g. why the host's sign-on screen is showing. */
+  | { type: 'notice'; message: string }
   /** Screen definitions changed; refetch /api/screens. */
   | { type: 'screens'; version: number };
 
@@ -21,8 +28,19 @@ export type ClientMessage =
   | { type: 'attn' }
   /** Ends the host session now instead of waiting for the resume grace period. */
   | { type: 'disconnect' }
+  /** Automatic sign-on, after a signon message. The password is used for the substitute and dropped. */
+  | { type: 'signon'; user: string; password: string; program?: string; menu?: string; library?: string }
   /** How a macro run ended, for the log (never its parameter values). `step` counts from 1. */
   | { type: 'macro'; macro: string; outcome: MacroOutcome; step?: number };
+
+/** Passwords at QPWDLVL 0 and 1: up to 10 characters, any case; at 2 and 3, up to 128, case-sensitive. */
+export interface PasswordRules {
+  maxLength: number;
+  caseSensitive: boolean;
+}
+
+/** The optional things a sign-on can ask for: an IBM i object name each. */
+export const SIGN_ON_EXTRAS = ['program', 'menu', 'library'] as const;
 
 export const MACRO_OUTCOMES = ['done', 'failed', 'cancelled'] as const;
 export type MacroOutcome = (typeof MACRO_OUTCOMES)[number];
@@ -64,6 +82,18 @@ export function parseClientMessage(raw: string): ClientMessage {
     case 'attn':
     case 'disconnect':
       return { type: m.type };
+    case 'signon': {
+      const str = (v: unknown, name: string, max: number) => {
+        if (typeof v !== 'string' || v.length > max) throw new Error(`signon.${name} must be a string of at most ${max} characters`);
+        return v;
+      };
+      const out: ClientMessage = { type: 'signon', user: str(m.user, 'user', 10), password: str(m.password, 'password', 128) };
+      for (const key of SIGN_ON_EXTRAS) {
+        if (m[key] === undefined || m[key] === '') continue;
+        out[key] = str(m[key], key, 10);
+      }
+      return out;
+    }
     case 'macro': {
       if (typeof m.macro !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(m.macro)) throw new Error('macro.macro must be a macro name');
       if (!(MACRO_OUTCOMES as readonly unknown[]).includes(m.outcome)) throw new Error(`macro.outcome must be one of ${MACRO_OUTCOMES.join(', ')}`);
