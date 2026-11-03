@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { HostStream, Terminal, buildRecord, getCodepage, snapshot } from '@veneer/tn5250';
-import { fillUrl, isWebTemplate, placeholders, validateDefinition } from '../src/index.ts';
+import { fillText, fillUrl, isWebTemplate, placeholders, validateDefinition } from '../src/index.ts';
 
 const cp = getCodepage(37);
 const t = new Terminal({ codepage: cp, terminalType: 'IBM-3179-2', sendRecord: () => {} });
@@ -43,5 +43,21 @@ test('definitions validate URL buttons', () => {
   assert.deepEqual(ok.changes[0], { op: 'button', label: 'Map', action: { url: 'https://maps.example.com/?q={6:18}' } });
   for (const [url, why] of [['javascript:alert(1)', /http/], ['https://{6:18}.example.com/', /host/], ['https://x.example/{44:1}', /screen position/]] as const) {
     assert.throws(() => validateDefinition({ ...base, changes: [{ op: 'button', label: 'L', action: { url } }] }), why);
+  }
+});
+
+test('macro buttons: parameter values from the screen, as plain text', () => {
+  assert.equal(fillText('{4:18}', snap), '004521');
+  assert.equal(fillText('{6:18} in {7:18}', snap, {}), '1 Main St in Saint Louis');
+  assert.equal(fillText('{4:18}', snap, { '4:18': 'A&B' }), 'A&B', 'typed values win; not URL-encoded');
+  const base = { id: 'x', name: 'X', match: { text: [{ row: 1, col: 30, text: 'Customer Details' }] } };
+  const ok = validateDefinition({ ...base, changes: [{ op: 'button', label: 'Orders', action: { macro: 'customer-orders', params: { customer: '{4:18}' } } }] });
+  assert.deepEqual(ok.changes[0], { op: 'button', label: 'Orders', action: { macro: 'customer-orders', params: { customer: '{4:18}' } } });
+  for (const [action, why] of [
+    [{ macro: 'Customer Orders' }, /must be a macro name/],
+    [{ macro: 'x', params: { 'bad name': '1' } }, /is not a parameter name/],
+    [{ macro: 'x', params: { customer: '{99:1}' } }, /\{99:1\} is not a screen position/],
+  ] as const) {
+    assert.throws(() => validateDefinition({ ...base, changes: [{ op: 'button', label: 'L', action }] }), why);
   }
 });

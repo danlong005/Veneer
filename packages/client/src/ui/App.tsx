@@ -1,12 +1,17 @@
 import type { AidName, ScreenSnapshot } from '@veneer/terminal';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fillUrl, matchScreen, screenId, type ScreenDefinition, type Target } from '@veneer/screens';
+import {
+  DefinitionError, MacroRun, fillText, fillUrl, macroValues, matchScreen, screenId,
+  type ButtonAction, type Macro, type MacroAction, type MacroResult, type MacroStart, type MacroStep, type ScreenDefinition, type Target,
+} from '@veneer/screens';
 import { download, fileBase } from '../export/download.ts';
 import { ListExporter, listOf, type Progress, type Step } from '../export/exporter.ts';
 import { HelpReader, type HelpPage, type HelpStep } from '../help/help.ts';
 import { toCsv, toXlsx } from '../export/sheet.ts';
 import { connectHost, notifyScreen, runScript, runSiteScript, screenInfo, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
+import { MacrosPanel } from '../macros/MacrosPanel.tsx';
+import { linkedMacro, macroFieldCheck, recordStep } from '../macros/edit.ts';
 import { record, redo, startHistory, undo, type History } from '../designer/history.ts';
 import { cardsOf, componentAt, htmlAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove, toggleTextAreaField } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
@@ -220,11 +225,16 @@ export function App() {
       const f = snap.fields.find((x) => x.id === id);
       if (f && (value !== f.value || f.attr.nonDisplay)) fields[id] = value;
     }
+    // Recording a macro: the user's own keys, not paging for an export, help or a macro.
+    if (recording.current && !exporting.current && !helping.current && !macroJob.current) {
+      recording.current = [...recording.current, recordStep(snap, view?.title, aid, fields, cursor)];
+      setRecorded(recording.current);
+    }
     awaitingNow.current = true;
     setAwaitingSeq(seq);
     transferring.current = null;
     session.send({ type: 'submit', aid, fields, cursor });
-  }, [snap, seq, session]);
+  }, [snap, seq, session, view]);
 
   const submit = useCallback((aid: AidName, extra: Record<string, string> = {}) => {
     if (!snap || !canSubmit || helping.current) return;
@@ -269,6 +279,11 @@ export function App() {
   }, [snap]);
 
   const onAction = useCallback((a: Action) => submit(a.aid, a.fields), [submit]);
+  const onButton = (a: ButtonAction) => {
+    if ('url' in a) openUrl(a.url);
+    else if ('macro' in a) runMacroButton(a);
+    else onAction(a);
+  };
 
   // Link buttons: fill the URL from the screen, including edits not sent yet.
   const openUrl = (template: string) => {
@@ -307,6 +322,83 @@ export function App() {
     exportStep(ex.start(), snap);
   };
   const cancelExport = () => exporting.current?.ex.cancel();
+
+  // Macros (@veneer/screens MacroRun): each screen goes to the run, which says
+  // what to type and press; keys go through the same checks as a user's.
+  const macroJob = useRef<{ run: MacroRun; timer?: number; cancelled?: boolean } | null>(null);
+  const [macroNote, setMacroNote] = useState<{ label: string; step: number; total: number } | null>(null);
+  const finishMacro = (result: { error?: string; step?: number }) => {
+    const job = macroJob.current;
+    if (!job) return;
+    window.clearTimeout(job.timer);
+    macroJob.current = null;
+    setMacroNote(null);
+    const outcome = job.cancelled ? 'cancelled' : result.error ? 'failed' : 'done';
+    session.send({ type: 'macro', macro: job.run.macro.name, outcome, ...(result.step ? { step: result.step } : {}) });
+    if (outcome === 'failed') setNotice({ id: Date.now(), message: `${job.run.macro.label} stopped: ${result.error}` });
+  };
+  const macroStep = (result: MacroResult, from: ScreenSnapshot) => {
+    const job = macroJob.current;
+    if (!job) return;
+    window.clearTimeout(job.timer);
+    if ('done' in result) return finishMacro(result);
+    if ('send' in result) {
+      const { aid, fields, cursor } = result.send;
+      // Mandatory entry and fill, as for a user pressing Enter.
+      const problem = aid === 'Enter' ? checkFields(from.fields, fields) : null;
+      if (problem) return finishMacro({ error: `Step ${result.step}: ${problem.message}`, step: result.step });
+      setMacroNote({ label: job.run.macro.label, step: result.step, total: job.run.total });
+      sendAid(aid, fields, cursor ?? from.cursor);
+    }
+    const ms = job.run.timeoutMs;
+    if (ms !== undefined) job.timer = window.setTimeout(() => { if (macroJob.current === job) macroStep(job.run.timedOut(), from); }, ms);
+  };
+  const startMacro = (macro: Macro, given: Readonly<Record<string, string | undefined>>, start: MacroStart) => {
+    if (macroJob.current || exporting.current || helping.current) return;
+    let values: Record<string, string>;
+    try {
+      values = macroValues(macro, given);
+    } catch (err) {
+      if (!(err instanceof DefinitionError)) throw err;
+      setNotice({ id: Date.now(), message: err.message });
+      return;
+    }
+    const run = new MacroRun(macro, values, { start, user: session.user ?? undefined, check: macroFieldCheck });
+    macroJob.current = { run };
+    setMacroNote({ label: macro.label, step: 0, total: run.total });
+    if (snap && canSubmit) macroStep(run.onScreen(snap), snap);
+  };
+  const cancelMacro = () => {
+    const job = macroJob.current;
+    if (!job) return;
+    job.cancelled = true;
+    finishMacro(job.run.cancel());
+  };
+  const macroNamed = (name: string) => screens.macros.find((m) => m.name === name);
+  // A button: parameter values from the screen ({row:col}), including what was typed.
+  const runMacroButton = (a: MacroAction) => {
+    const macro = macroNamed(a.macro);
+    if (!macro) { setNotice({ id: Date.now(), message: `There is no macro called “${a.macro}”.` }); return; }
+    const given = Object.fromEntries(Object.entries(a.params ?? {}).map(([k, t]) => [k, snap ? fillText(t, snap, edits) : '']));
+    startMacro(macro, given, 'here');
+  };
+  // Go to: macros chosen for the menu, asking for any values they need.
+  const [asking, setAsking] = useState<Macro | null>(null);
+  const goTo = (macro: Macro) => (Object.keys(macro.params ?? {}).length > 0 ? setAsking(macro) : startMacro(macro, {}, 'here'));
+  // A deep link (?macro=name&param=value) runs in the new session it opened, after sign-on.
+  const [link] = useState(() => linkedMacro(location.search));
+  const linkStarted = useRef(false);
+  const macroKeys = useRef({ cancel: cancelMacro });
+  macroKeys.current = { cancel: cancelMacro };
+
+  // Recording a macro in the designer's Macros panel: each key the user sends.
+  const recording = useRef<MacroStep[] | null>(null);
+  const [recorded, setRecorded] = useState<MacroStep[] | null>(null);
+  const [macrosOpen, setMacrosOpen] = useState(false);
+  const recordMacro = (on: boolean) => {
+    recording.current = on ? [] : null;
+    setRecorded(recording.current);
+  };
 
   // Help (help/help.ts): the Help button presses the 5250 Help key, and the
   // help panel shows in a popover over the screen the user was on, which stays
@@ -454,6 +546,13 @@ export function App() {
       exportStep(exporting.current.ex.onScreen(view, screenId(snap), true), snap);
       return;
     }
+    // A host error stops a macro, leaving the user on that screen to see it.
+    if (snap.error && macroJob.current) {
+      awaitingNow.current = false;
+      setAwaitingSeq(null);
+      macroStep(macroJob.current.run.onScreen(snap), snap);
+      return;
+    }
     if (snap.error) {
       // As on a 5250, an error discards anything typed ahead.
       transferring.current = null;
@@ -484,6 +583,12 @@ export function App() {
       exportStep(exporting.current.ex.onScreen(view, screenId(snap)), snap);
       return;
     }
+    if (macroJob.current) {
+      macroStep(macroJob.current.run.onScreen(snap), snap);
+      // While it drives, the screen is the macro's. Waiting to start, or just
+      // finished, the screen is the user's as usual (focus at the host's cursor).
+      if (macroJob.current && macroJob.current.run.step > 0) return;
+    }
     const start = { edits: {}, caret: caretAtCursor(snap) };
     const result: ReplayResult = queue.current.length > 0 ? replay(snap, start, queue.current) : { state: start, rest: [] };
     queue.current = result.rest;
@@ -508,6 +613,17 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seq]);
 
+  // A deep link's macro starts once the macros and the first screen are here.
+  // After the screen effect above, so what it says isn't cleared by that screen.
+  useEffect(() => {
+    if (!link || linkStarted.current || screens.site === null || !snap) return;
+    linkStarted.current = true;
+    const macro = macroNamed(link.name);
+    if (!macro) setNotice({ id: Date.now(), message: `There is no macro called “${link.name}”.` });
+    else startMacro(macro, link.given, 'link');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screens.site, snap]);
+
   // Apply a pending focus after rendering.
   useEffect(() => {
     const target = focusTarget.current;
@@ -530,6 +646,17 @@ export function App() {
   // Keyboard: Enter, F1-F24, PageUp/PageDown, Esc = Reset; queued while the host is busy.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Keys typed in the Macros panel or a dialog are theirs, not the host's.
+      if (ownKeys(e.target)) return;
+      // While a macro runs, the keyboard is the macro's; Esc stops it. Waiting to
+      // start (a deep link at sign-on), the keyboard is the user's, but Esc still stops it.
+      if (macroJob.current) {
+        if (e.key === 'Escape') { e.preventDefault(); macroKeys.current.cancel(); return; }
+        if (macroJob.current.run.step > 0) {
+          if (keyAction(e) || e.key.length === 1) e.preventDefault();
+          return;
+        }
+      }
       // While exporting, the keyboard is the exporter's; Esc cancels.
       if (exporting.current) {
         e.preventDefault();
@@ -564,6 +691,7 @@ export function App() {
     };
     // Text that arrives without a usable keydown (mobile keyboards, IMEs, paste).
     const onBeforeInput = (e: InputEvent) => {
+      if (ownKeys(e.target)) return;
       if (exporting.current) { e.preventDefault(); return; }
       if (!typingAheadNow.current && !awaitingNow.current) return;
       e.preventDefault();
@@ -603,9 +731,10 @@ export function App() {
   const message = screenView?.window ? screenView.window.message : screenView?.message;
   const hasTable = [...(screenView?.items ?? []), ...(screenView?.window?.items ?? [])].some((i) => i.kind === 'table');
   const busy = typingAhead;
+  const goToMacros = screens.macros.filter((m) => m.menu && (!m.host || m.host === hostType));
 
   return (
-    <div className={`app${designing ? ' designing' : ''}`} data-screen={screenView?.definition?.id}>
+    <div className={`app${designing ? ' designing' : macrosOpen ? ' designing macros-open' : ''}`} data-screen={screenView?.definition?.id}>
       {screens.site?.css && <style>{screens.site.css}</style>}
       {mode === 'modern' && screenView?.css && <style>{screenView.css}</style>}
       <div className={`busy-bar${busy ? ' on' : ''}`} aria-hidden />
@@ -643,6 +772,13 @@ export function App() {
             {queued > 0 && <span className="typeahead" title="Keys typed ahead">{queued} typed ahead</span>}
           </span>
           {is3270 && inserting && connected && <span className="typeahead" title="Typing inserts, pushing the rest along. Insert switches back to typing over.">Insert</span>}
+          {goToMacros.length > 0 && !designing && (
+            <DropMenu label="Go to" title="Shortcuts to screens you use often" disabled={!keysEnabled || macroNote !== null}
+              items={goToMacros.map((m) => ({ label: m.label, title: `Run the ${m.label} macro`, onPick: () => goTo(m) }))} />
+          )}
+          {screens.designer && screenSnap && !designing && !help && (
+            <button type="button" className="ghost mode-toggle" onClick={() => setMacrosOpen(true)} title="Record, edit and test macros">Macros</button>
+          )}
           {screens.designer && screenSnap && !designing && !help && (
             <button type="button" className="ghost mode-toggle" onClick={startDesign}>Design</button>
           )}
@@ -692,7 +828,7 @@ export function App() {
               <div className="screen-actions">
                 {screenView.buttons.map(({ label, action }, i) => ('url' in action
                   ? <button key={i} type="button" className="link-button" title="Opens in a new tab" onClick={() => openUrl(action.url)}>{label}</button>
-                  : <button key={i} type="button" disabled={!keysEnabled} onClick={() => onAction(action)}>{label}</button>
+                  : <button key={i} type="button" disabled={!keysEnabled || macroNote !== null} onClick={() => onButton(action)}>{label}</button>
                 ))}
               </div>
             )}
@@ -766,6 +902,7 @@ export function App() {
           site={screens.site ?? { css: '', scripts: { load: '', screen: '' } }}
           theme={screens.theme}
           components={screens.components}
+          macros={screens.macros}
           onSelect={setSelectedAt}
           clickedAt={selectedAt}
           joining={joining}
@@ -774,6 +911,33 @@ export function App() {
           onPick={pickDefinition}
           onSaved={screens.reload}
           onClose={stopDesign}
+        />
+      )}
+
+      {macroNote && (
+        <div className="macro-note" role="status">
+          <span>{macroNote.step === 0 ? `${macroNote.label} starts when its first screen appears.` : `${macroNote.label}: step ${macroNote.step} of ${macroNote.total}…`}</span>
+          <button type="button" className="ghost" onClick={cancelMacro}>Stop (Esc)</button>
+        </div>
+      )}
+
+      {asking && (
+        <MacroValuesDialog macro={asking} onCancel={() => setAsking(null)} onRun={(values) => { setAsking(null); startMacro(asking, values, 'here'); }} />
+      )}
+
+      {macrosOpen && !designing && screenSnap && screenView && (
+        <MacrosPanel
+          snap={screenSnap}
+          view={screenView}
+          macros={screens.macros}
+          host={hostType}
+          tokenRequired={screens.tokenRequired}
+          recorded={recorded}
+          onRecord={recordMacro}
+          running={macroNote !== null}
+          onTest={(macro, values) => startMacro(macro, values, 'here')}
+          onSaved={screens.reload}
+          onClose={() => { recordMacro(false); setMacrosOpen(false); }}
         />
       )}
 
@@ -805,6 +969,11 @@ export function App() {
       )}
     </div>
   );
+}
+
+/** Whether a key belongs to a side panel or dialog (its inputs and buttons) rather than the screen. */
+function ownKeys(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('.macros-panel, .overlay') !== null;
 }
 
 /** Another session: Veneer in a new browser tab, which starts its own. */
@@ -872,4 +1041,27 @@ function Toast({ error }: { error: { id: number; message: string } | null }) {
     return () => window.clearTimeout(t);
   }, [error]);
   return visible ? <div className="toast" role="alert">{visible.message}</div> : null;
+}
+
+/** The values a macro needs before it runs from the Go to menu. */
+function MacroValuesDialog({ macro, onRun, onCancel }: { macro: Macro; onRun: (values: Record<string, string>) => void; onCancel: () => void }) {
+  const [values, setValues] = useState<Record<string, string>>({});
+  const params = Object.entries(macro.params ?? {});
+  return (
+    <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="macro-values-title" onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}>
+      <form className="dialog" onSubmit={(e) => { e.preventDefault(); onRun(values); }}>
+        <h2 id="macro-values-title">{macro.label}</h2>
+        {params.map(([name, p], i) => (
+          <label key={name} className="dialog-field">
+            <span>{p.label ?? name}{p.required ? '' : ' (optional)'}</span>
+            <input autoFocus={i === 0} value={values[name] ?? ''} required={p.required} onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))} />
+          </label>
+        ))}
+        <div className="dialog-actions">
+          <button type="submit" className="primary">Go</button>
+          <button type="button" className="ghost" onClick={onCancel}>Cancel</button>
+        </div>
+      </form>
+    </div>
+  );
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { after, before, test } from 'node:test';
+import { after, before, mock, test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import WebSocket from 'ws';
 import type { ServerConfig } from '../src/config.ts';
@@ -139,4 +139,26 @@ test('configuration checks the admin settings', () => {
   const c = loadConfig({ ...env, VENEER_ADMIN: 'local', VENEER_ADMIN_TOKEN: ADMIN });
   assert.equal(c.adminLocal, true);
   assert.equal(c.adminToken, ADMIN);
+});
+
+test('screens carry the signed-on user, and macro runs are logged with it but without their values', async () => {
+  const base = await start({});
+  const b = await browser(base);
+  const screens = () => b.messages.filter((m) => m.type === 'screen');
+  assert.equal(screens()[0]!.user, undefined, 'nobody yet');
+  b.ws.send(JSON.stringify({ type: 'submit', aid: 'Enter', fields: { '6:53': 'dlong', '7:53': 'secret-pw' } }));
+  await until(() => b.screens() > 1);
+  assert.equal(screens().at(-1)!.user, 'DLONG');
+
+  const info = mock.method(log, 'info');
+  try {
+    b.ws.send(JSON.stringify({ type: 'macro', macro: 'order-inquiry', outcome: 'failed', step: 3 }));
+    await until(() => info.mock.calls.some((c) => c.arguments[0] === 'macro run'));
+    const call = info.mock.calls.find((c) => c.arguments[0] === 'macro run')!;
+    assert.deepEqual({ ...call.arguments[1] as object, session: undefined }, { session: undefined, user: 'DLONG', macro: 'order-inquiry', outcome: 'failed', step: 3 });
+  } finally {
+    info.mock.restore();
+  }
+  b.ws.send(JSON.stringify({ type: 'macro', macro: '../x', outcome: 'done' }));
+  await until(() => b.messages.some((m) => m.type === 'error' && /macro name/.test(m.message as string)));
 });

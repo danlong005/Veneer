@@ -1,7 +1,8 @@
 // The screen inventory: every screen Veneer has shown, by screen ID, with how
-// often people open it and whether it has a customization yet.
+// often people open it, whether it has a customization yet, and which macros
+// go through it (they stop matching if a recompiled screen gets a new ID).
 
-import type { ScreenDefinition } from '@veneer/screens';
+import { macroScreens, type Macro, type ScreenDefinition } from '@veneer/screens';
 import { useEffect, useMemo, useState } from 'react';
 
 interface Entry {
@@ -22,12 +23,13 @@ interface Props {
   /** Authorization header value, when the server needs the designer token. */
   auth: string | undefined;
   definitions: ScreenDefinition[];
+  macros: Macro[];
   /** The screen showing now. */
   currentId: string;
   onClose: () => void;
 }
 
-export function InventoryDialog({ auth, definitions, currentId, onClose }: Props) {
+export function InventoryDialog({ auth, definitions, macros, currentId, onClose }: Props) {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -59,6 +61,13 @@ export function InventoryDialog({ auth, definitions, currentId, onClose }: Props
     for (const d of definitions) for (const id of d.match.screenIds ?? []) m.set(id, d.name);
     return m;
   }, [definitions]);
+
+  // The macros whose steps expect each screen ID.
+  const usedBy = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const macro of macros) for (const id of macroScreens(macro)) m.set(id, [...(m.get(id) ?? []), macro.label]);
+    return m;
+  }, [macros]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -117,7 +126,7 @@ export function InventoryDialog({ auth, definitions, currentId, onClose }: Props
           <div className="inv-scroll">
             <table className="inv-table">
               <thead>
-                <tr><th>Screen</th><th>Screen ID</th><th className="num">Fields</th><th className="num">Visits</th><th>Last seen</th><th>Customization</th></tr>
+                <tr><th>Screen</th><th>Screen ID</th><th className="num">Fields</th><th className="num">Visits</th><th>Last seen</th><th>Customization</th><th>Macros</th></tr>
               </thead>
               <tbody>
                 {shown.map((e) => (
@@ -132,6 +141,7 @@ export function InventoryDialog({ auth, definitions, currentId, onClose }: Props
                     <td className="num">{e.visits.toLocaleString()}</td>
                     <td title={new Date(e.lastSeen).toLocaleString()}>{ago(e.lastSeen)}</td>
                     <td>{customizedBy.get(e.id) ?? <span className="inv-muted">—</span>}</td>
+                    <td>{usedBy.get(e.id)?.join(', ') ?? <span className="inv-muted">—</span>}</td>
                   </tr>
                 ))}
               </tbody>

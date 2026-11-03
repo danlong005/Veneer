@@ -10,6 +10,8 @@ export type ConnectionState = 'connecting' | 'connected' | 'closed';
 export interface SessionApi {
   state: ConnectionState;
   screen: { seq: number; snap: ScreenSnapshot } | null;
+  /** Who signed on, once the server knows (for a macro's {user}). */
+  user: string | null;
   /** Why the session closed, when state is 'closed'. */
   closedReason: string | null;
   /** Latest transient error from the server. */
@@ -35,6 +37,7 @@ function storage(): Storage | null {
 export function useSession(): SessionApi {
   const [state, setState] = useState<ConnectionState>('connecting');
   const [screen, setScreen] = useState<SessionApi['screen']>(null);
+  const [user, setUser] = useState<string | null>(null);
   const [closedReason, setClosedReason] = useState<string | null>(null);
   const [error, setError] = useState<SessionApi['error']>(null);
   const [screensVersion, setScreensVersion] = useState(0);
@@ -75,6 +78,7 @@ export function useSession(): SessionApi {
           break;
         case 'screen':
           setScreen({ seq: msg.seq, snap: msg.screen });
+          setUser(msg.user ?? null);
           setState('connected');
           break;
         case 'error':
@@ -102,7 +106,9 @@ export function useSession(): SessionApi {
 
   useEffect(() => {
     // A tab opened for a new session may have copied this tab's resume token.
-    const fresh = new URLSearchParams(location.search).has(NEW_SESSION);
+    // A macro's deep link (?macro=...) also starts a new session, from a known place.
+    const query = new URLSearchParams(location.search);
+    const fresh = query.has(NEW_SESSION) || query.has('macro');
     if (fresh) history.replaceState(history.state, '', location.pathname + location.hash);
     connect(!fresh);
     return () => {
@@ -130,5 +136,5 @@ export function useSession(): SessionApi {
     connect(false);
   }, [connect]);
 
-  return { state, screen, closedReason, error, screensVersion, send, disconnect, newSession };
+  return { state, screen, user, closedReason, error, screensVersion, send, disconnect, newSession };
 }

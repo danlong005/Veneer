@@ -3,13 +3,13 @@
 import { hostHasAid, isAidName, type AidName, type HostType } from '@veneer/terminal';
 import { isWebTemplate, placeholders } from './links.ts';
 import { STYLE_TESTS } from './styles.ts';
-import { CORNERS, DATE_FORMATS, MAX_TEXTAREA_FIELDS, RADIO_LAYOUTS, DENSITIES, FONTS, LOOKS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type StyleCondition, type KeyAction, type ScreenEvent, type SiteCustomization, type SiteStyle, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
+import { CORNERS, DATE_FORMATS, MAX_TEXTAREA_FIELDS, RADIO_LAYOUTS, DENSITIES, FONTS, LOOKS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type StyleCondition, type KeyAction, type MacroAction, type ScreenEvent, type SiteCustomization, type SiteStyle, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 /** The most rows a screen has: 27 on a 5250, 43 on a 3278 model 4. */
 const MAX_ROWS = 43;
 const FIELD_ID = /^\d{1,3}:\d{1,3}$/;
-const SCREEN_ID = /^[0-9a-f]{8,32}$/;
+export const SCREEN_ID = /^[0-9a-f]{8,32}$/;
 const MAX_CHANGES = 500;
 const MAX_TABS = 10;
 /** Limits for custom code, in characters. */
@@ -24,16 +24,16 @@ export class DefinitionError extends Error {
 
 type Obj = Record<string, unknown>;
 
-function fail(path: string, message: string): never {
+export function fail(path: string, message: string): never {
   throw new DefinitionError(`${path}: ${message}`);
 }
 
-function obj(v: unknown, path: string): Obj {
+export function obj(v: unknown, path: string): Obj {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) fail(path, 'must be an object');
   return v as Obj;
 }
 
-function str(v: unknown, path: string, max = 200): string {
+export function str(v: unknown, path: string, max = 200): string {
   if (typeof v !== 'string' || v.length > max) fail(path, `must be a string of at most ${max} characters`);
   return v;
 }
@@ -68,12 +68,33 @@ function urlTemplate(v: unknown, path: string): string {
   return url;
 }
 
-function int(v: unknown, path: string, min: number, max: number): number {
+export /** A button that runs a macro, with parameter values that may take text from the screen ({row:col}). */
+function macroAction(a: Obj, path: string): MacroAction {
+  const macro = str(a.macro, `${path}.macro`, 64);
+  if (!ID_PATTERN.test(macro)) fail(`${path}.macro`, 'must be a macro name (lowercase letters, digits and dashes)');
+  const action: MacroAction = { macro };
+  if (a.params !== undefined) {
+    const p = obj(a.params, `${path}.params`);
+    if (Object.keys(p).length > 20) fail(`${path}.params`, 'has too many parameters');
+    action.params = {};
+    for (const [name, value] of Object.entries(p)) {
+      if (!/^[a-z][a-z0-9_]{0,31}$/i.test(name)) fail(`${path}.params`, `"${name.slice(0, 32)}" is not a parameter name`);
+      const text = str(value, `${path}.params.${name}`, 200);
+      for (const ph of placeholders(text)) {
+        if (ph.row < 1 || ph.row > MAX_ROWS || ph.col < 1 || ph.col > 132 || ph.length === 0) fail(`${path}.params.${name}`, `{${ph.row}:${ph.col}} is not a screen position`);
+      }
+      action.params[name] = text;
+    }
+  }
+  return action;
+}
+
+export function int(v: unknown, path: string, min: number, max: number): number {
   if (!Number.isInteger(v) || (v as number) < min || (v as number) > max) fail(path, `must be an integer ${min}-${max}`);
   return v as number;
 }
 
-function arr(v: unknown, path: string, max: number): unknown[] {
+export function arr(v: unknown, path: string, max: number): unknown[] {
   if (!Array.isArray(v) || v.length > max) fail(path, `must be an array of at most ${max} items`);
   return v;
 }
@@ -83,12 +104,12 @@ function oneOf<T extends string>(v: unknown, allowed: readonly T[], path: string
   return v as T;
 }
 
-function target(v: unknown, path: string): Target {
+export function target(v: unknown, path: string): Target {
   const o = obj(v, path);
   return { row: int(o.row, `${path}.row`, 1, MAX_ROWS), col: int(o.col, `${path}.col`, 1, 132) };
 }
 
-function textMatch(v: unknown, path: string): TextMatch {
+export function textMatch(v: unknown, path: string): TextMatch {
   const o = obj(v, path);
   const text = str(o.text, `${path}.text`, 132);
   if (text.trim() === '') fail(`${path}.text`, 'must not be blank');
@@ -167,6 +188,7 @@ function change(v: unknown, path: string): Change {
       const a = obj(o.action, `${path}.action`);
       const label = str(o.label, `${path}.label`, 60);
       if (a.url !== undefined) return { op: 'button', label, action: { url: urlTemplate(a.url, `${path}.action.url`) } };
+      if (a.macro !== undefined) return { op: 'button', label, action: macroAction(a, `${path}.action`) };
       const aid = str(a.aid, `${path}.action.aid`, 20);
       if (!isAidName(aid)) fail(`${path}.action.aid`, 'must be an AID key such as Enter or F3');
       const action: KeyAction = { aid: aid as never };

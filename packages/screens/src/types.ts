@@ -75,7 +75,16 @@ export interface UrlAction {
   url: string;
 }
 
-export type ButtonAction = KeyAction | UrlAction;
+/**
+ * Run an installed macro (macros.ts) in the current session. Parameter values
+ * may take text from the screen: {row:col} as in UrlAction.
+ */
+export interface MacroAction {
+  macro: string;
+  params?: Record<string, string>;
+}
+
+export type ButtonAction = KeyAction | UrlAction | MacroAction;
 
 /**
  * What a style rule checks: each row's cell in a table column (by its

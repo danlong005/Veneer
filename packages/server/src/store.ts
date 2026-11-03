@@ -3,11 +3,12 @@
 // JavaScript live beside them: global.css, global.js (page load) and
 // global-screen.js (every screen). Themes are in themes/ (themes.ts);
 // global.style.json, the style saved before themes, is not a screen.
+// Macros are in macros/, one <name>.json each.
 
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { DefinitionError, ID_PATTERN, validateDefinition, validateSite, type ScreenDefinition, type SiteCustomization } from '@veneer/screens';
+import { DefinitionError, ID_PATTERN, validateDefinition, validateMacro, validateSite, type Macro, type ScreenDefinition, type SiteCustomization } from '@veneer/screens';
 import { log } from './log.ts';
 
 const STYLE_FILE = 'global.style.json';
@@ -15,6 +16,7 @@ const STYLE_FILE = 'global.style.json';
 export class ScreenStore extends EventEmitter<{ changed: [number] }> {
   readonly dir: string;
   private readonly screens = new Map<string, ScreenDefinition>();
+  private readonly macros = new Map<string, Macro>();
   site: SiteCustomization = { css: '', scripts: { load: '', screen: '' } };
   /** Increases on every change, so clients can tell they are stale. */
   version = 0;
@@ -26,6 +28,8 @@ export class ScreenStore extends EventEmitter<{ changed: [number] }> {
 
   async load(): Promise<void> {
     this.screens.clear();
+    this.macros.clear();
+    await this.loadMacros();
     this.site = {
       css: await this.readSite('global.css'),
       scripts: { load: await this.readSite('global.js'), screen: await this.readSite('global-screen.js') },
@@ -51,6 +55,55 @@ export class ScreenStore extends EventEmitter<{ changed: [number] }> {
 
   list(): ScreenDefinition[] {
     return [...this.screens.values()];
+  }
+
+  listMacros(): Macro[] {
+    return [...this.macros.values()];
+  }
+
+  private get macroDir(): string {
+    return path.join(this.dir, 'macros');
+  }
+
+  private async loadMacros(): Promise<void> {
+    let names: string[];
+    try {
+      names = await fs.readdir(this.macroDir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw err;
+    }
+    for (const name of names.filter((n) => n.endsWith('.json')).sort()) {
+      try {
+        const macro = validateMacro(JSON.parse(await fs.readFile(path.join(this.macroDir, name), 'utf8')));
+        if (`${macro.name}.json` !== name) throw new DefinitionError(`name "${macro.name}" does not match the file name`);
+        this.macros.set(macro.name, macro);
+      } catch (err) {
+        log.warn('skipping invalid macro', { file: name, error: (err as Error).message });
+      }
+    }
+    if (this.macros.size > 0) log.info('macros loaded', { count: this.macros.size });
+  }
+
+  /** Validate and write a macro. Throws DefinitionError on bad input. */
+  async saveMacro(input: unknown): Promise<Macro> {
+    const macro = validateMacro(input);
+    await fs.mkdir(this.macroDir, { recursive: true });
+    const file = path.join(this.macroDir, `${macro.name}.json`);
+    const tmp = `${file}.${process.pid}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(macro, null, 2) + '\n');
+    await fs.rename(tmp, file);
+    this.macros.set(macro.name, macro);
+    this.bump();
+    return macro;
+  }
+
+  async removeMacro(name: string): Promise<boolean> {
+    if (!ID_PATTERN.test(name) || !this.macros.has(name)) return false;
+    await fs.rm(path.join(this.macroDir, `${name}.json`), { force: true });
+    this.macros.delete(name);
+    this.bump();
+    return true;
   }
 
   /** Validate and write a definition. Throws DefinitionError on bad input. */

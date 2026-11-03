@@ -195,3 +195,52 @@ test('local mode: this machine uses the designer without the token', async () =>
   assert.equal((await raw(port, 'PUT', '/api/screens/order-entry', { ...json, Host: host, 'X-Forwarded-For': '10.1.2.3', Authorization: `Bearer ${TOKEN}` }, body)).status, 200);
   await local.close();
 });
+
+const MACRO = {
+  name: 'order-inquiry', label: 'Order inquiry',
+  params: { order: { required: true, pattern: '[0-9]{1,9}' } },
+  steps: [{ screen: '0a1b2c3d4e5f60', fields: { '20:7': '{order}' }, press: 'Enter' }],
+};
+const putMacro = (name: string, body: unknown, token: string | null = TOKEN) => fetch(`http://${base}/api/macros/${name}`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  body: JSON.stringify(body),
+});
+
+test('macros: saved to macros/ by designers, listed with the screens, deleted', async () => {
+  assert.equal((await putMacro('order-inquiry', MACRO, null)).status, 401);
+  assert.equal((await putMacro('other-name', MACRO)).status, 400, 'the name must match the URL');
+  const bad = await putMacro('order-inquiry', { ...MACRO, steps: [] });
+  assert.equal(bad.status, 400);
+  assert.match((await bad.json()).error, /steps: needs at least one step/);
+  assert.equal((await putMacro('order-inquiry', MACRO)).status, 200);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'macros', 'order-inquiry.json'), 'utf8')), MACRO);
+  const list = await (await fetch(`http://${base}/api/screens`)).json();
+  assert.deepEqual(list.macros, [MACRO]);
+  assert.deepEqual(list.screens.map((d: { id: string }) => d.id), [], 'a macro is not a screen');
+  const del = (name: string, token: string | null = TOKEN) => fetch(`http://${base}/api/macros/${name}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  assert.equal((await del('order-inquiry', null)).status, 401);
+  assert.equal((await del('order-inquiry')).status, 204);
+  assert.equal((await del('order-inquiry')).status, 404);
+  assert.ok(!fs.existsSync(path.join(dir, 'macros', 'order-inquiry.json')));
+  assert.equal((await del('..%2Fetc')).status, 400);
+});
+
+test('macros on disk are loaded at startup; invalid ones and misnamed ones are skipped', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'veneer-macros-'));
+  fs.mkdirSync(path.join(d, 'macros'));
+  fs.writeFileSync(path.join(d, 'macros', 'order-inquiry.json'), JSON.stringify(MACRO));
+  fs.writeFileSync(path.join(d, 'macros', 'wrong-name.json'), JSON.stringify({ ...MACRO, name: 'other-macro' }));
+  fs.writeFileSync(path.join(d, 'macros', 'broken.json'), '{');
+  const s = createServer({
+    listenHost: '127.0.0.1', listenPort: 0, host: { host: '127.0.0.1', port: 1, tls: false },
+    idleTimeoutMs: 0, resumeGraceMs: 0, maxSessions: 1, allowedOrigins: [], screensDir: d,
+  });
+  const port = (await s.listen()).port;
+  try {
+    const list = await (await fetch(`http://127.0.0.1:${port}/api/screens`)).json();
+    assert.deepEqual(list.macros.map((m: { name: string }) => m.name), ['order-inquiry']);
+  } finally {
+    await s.close();
+  }
+});

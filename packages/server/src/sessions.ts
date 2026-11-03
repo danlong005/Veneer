@@ -230,6 +230,10 @@ export class SessionManager {
         case 'attn':
           bs.host.attention();
           break;
+        case 'macro':
+          // Who ran what and how it went; the values it was given stay out of the log.
+          log.info('macro run', { session: bs.id, user: bs.user ?? null, macro: msg.macro, outcome: msg.outcome, ...(msg.step ? { step: msg.step } : {}) });
+          break;
         case 'disconnect':
           log.info('session ended by client', { session: bs.id });
           this.destroy(bs, CloseCode.NORMAL, 'Disconnected');
@@ -265,7 +269,7 @@ export class SessionManager {
       this.opts.inventory?.record(bs.id, screen);
       this.trackSignOn(bs, screen);
     }
-    bs.send({ type: 'screen', seq: ++bs.seq, screen });
+    bs.send({ type: 'screen', seq: ++bs.seq, screen, ...(bs.user ? { user: bs.user } : {}) });
   }
 
   /** Leaving the sign-on screen means the submitted user signed on; returning to it, signed off. */

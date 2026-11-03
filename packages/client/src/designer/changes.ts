@@ -41,7 +41,7 @@ export function describeChange(change: Change, view: ScreenView, snap: ScreenSna
     case 'move':
       return { label: `Move ${name(change.at)} to row ${change.to.row}, column ${change.to.col}`, at: change.at };
     case 'button':
-      return { label: `Button “${clip(change.label)}”: ${'url' in change.action ? 'opens a web page' : `presses ${keyHint(change.action.aid, snap.host)}`}` };
+      return { label: `Button “${clip(change.label)}”: ${'url' in change.action ? 'opens a web page' : 'macro' in change.action ? `runs the macro ${change.action.macro}` : `presses ${keyHint(change.action.aid, snap.host)}`}` };
     case 'style': {
       const { test, value } = testOf(change.when);
       const subject = change.when.column !== undefined ? `column “${change.when.column}”` : name(change.when.at!);

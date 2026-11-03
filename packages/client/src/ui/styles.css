@@ -645,3 +645,39 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .dp-variables summary { cursor: pointer; font-weight: 600; margin: 6px 0; }
 .dp-variables .dp-list li { font-size: 12.5px; }
 .dp-variables .dp-quote { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- macros ---- */
+/* The Macros panel sits beside the live screen: keep the header's buttons clear of it. */
+.app.macros-open .topbar { padding-right: 376px; }
+/* While a macro runs: what it is doing, and how to stop it. */
+.macro-note {
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 25;
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 16px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 14px;
+}
+.macro-note .ghost { border: 1px solid var(--border); border-radius: var(--radius); padding: 5px 10px; cursor: pointer; }
+.dialog-field { display: grid; gap: 4px; margin: 0 0 14px; color: var(--text-muted); font-size: 13px; }
+.dialog-field input { font: inherit; font-size: 14px; color: var(--text); padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.dialog-actions { display: flex; gap: 8px; }
+.macros-panel .dp-foot { padding: 12px 16px; display: grid; gap: 8px; }
+.dp-inline { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); }
+.dp-inline select { font: inherit; padding: 3px 6px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--surface-2); color: var(--text); }
+.dp-recording { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.dp-rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); animation: rec-blink 1.2s ease-in-out infinite; }
+@keyframes rec-blink { 50% { opacity: 0.3; } }
+.macro-steps-brief kbd, .macro-step-foot kbd { font-size: 11px; }
+.macro-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: step; }
+.macro-steps > li { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; display: grid; gap: 6px; counter-increment: step; }
+.macro-steps > li.here { border-color: var(--accent); }
+.macro-step-head { display: flex; align-items: center; gap: 4px; }
+.macro-step-head::before { content: counter(step) "."; color: var(--text-muted); font-weight: 600; margin-right: 2px; }
+.macro-step-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.macro-step-head .ghost { padding: 2px 6px; }
+.macro-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.macro-field code { font-size: 12px; color: var(--text-muted); min-width: 3.5em; }
+.macro-field input, .macro-namer input { flex: 1; min-width: 6em; font-family: var(--mono); font-size: 12.5px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--surface-2); color: var(--text); }
+.macro-namer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: 100%; }
+.macro-step-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.macro-param { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); }
+.macro-param-head { display: flex; align-items: center; gap: 8px; }
+.macro-param-head .ghost { margin-left: auto; padding: 2px 8px; }

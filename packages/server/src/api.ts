@@ -89,7 +89,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   }
   if (pathname === '/api/screens' && req.method === 'GET') {
     const theme = opts.themes ? await opts.themes.activeTheme() : undefined;
-    return json(res, 200, { version: store.version, screens: store.list(), site: store.site, ...(theme ? { theme } : {}) });
+    return json(res, 200, { version: store.version, screens: store.list(), macros: store.listMacros(), site: store.site, ...(theme ? { theme } : {}) });
   }
 
   if ((pathname === '/api/theme' || pathname === '/api/themes' || pathname.startsWith('/api/themes/')) && opts.themes) {
@@ -131,6 +131,9 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
     }
   }
 
+  const mm = /^\/api\/macros\/([^/]+)$/.exec(pathname);
+  if (mm) return macros(req, res, mm[1]!, opts);
+
   const m = /^\/api\/screens\/([^/]+)$/.exec(pathname);
   if (!m) return json(res, 404, { error: 'Not found' });
   const id = decodeURIComponent(m[1]!);
@@ -154,6 +157,31 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   try {
     const saved = await store.save(body);
     log.info('screen definition saved', { id, changes: saved.changes.length });
+    return json(res, 200, saved);
+  } catch (err) {
+    if (err instanceof DefinitionError) return json(res, 400, { error: err.message });
+    throw err;
+  }
+}
+
+/** The designer's macro editing: PUT /api/macros/<name> saves one, DELETE removes it. */
+async function macros(req: http.IncomingMessage, res: http.ServerResponse, raw: string, opts: ApiOptions): Promise<void> {
+  let name: string;
+  try { name = decodeURIComponent(raw); } catch { name = ''; }
+  if (!ID_PATTERN.test(name)) return json(res, 400, { error: 'Invalid macro name' });
+  if (req.method !== 'PUT' && req.method !== 'DELETE') return json(res, 405, { error: 'Method not allowed' });
+  if (!allowed(req, res, designerRole(opts))) return;
+  if (req.method === 'DELETE') {
+    const removed = await opts.store.removeMacro(name);
+    if (removed) log.info('macro deleted', { macro: name });
+    return removed ? void res.writeHead(204).end() : json(res, 404, { error: 'No such macro' });
+  }
+  const body = await jsonBody(req, res);
+  if (body === undefined) return;
+  if ((body as { name?: unknown } | null)?.name !== name) return json(res, 400, { error: 'name in the body must match the URL' });
+  try {
+    const saved = await opts.store.saveMacro(body);
+    log.info('macro saved', { macro: name, steps: saved.steps.length });
     return json(res, 200, saved);
   } catch (err) {
     if (err instanceof DefinitionError) return json(res, 400, { error: err.message });

@@ -4,7 +4,7 @@
 import {
   ID_PATTERN, ROLES, fillUrl, fingerprint, matches, type ButtonAction, type Role, type ScreenDefinition, type ScreenEvent,
   type ActiveTheme, type SiteCustomization, type SiteEvent,
-  type Target,
+  type Macro, type MacroAction, type Target,
 } from '@veneer/screens';
 import type { AidName, ScreenSnapshot } from '@veneer/terminal';
 import { buttonAids, keyHint } from '../ui/keys.ts';
@@ -13,6 +13,7 @@ import { runScript } from '../custom/runtime.ts';
 import { ThemesTab } from './ThemesTab.tsx';
 import { themeApi } from './themes.ts';
 import { InventoryDialog } from './InventoryDialog.tsx';
+import { loadToken, storeToken as saveToken } from './token.ts';
 import { StyleRules } from './StyleRules.tsx';
 import { CardsAndTabs } from './CardsAndTabs.tsx';
 import { CodeBox } from './CodeBox.tsx';
@@ -27,14 +28,45 @@ import {
   ROLE_LABELS, moveOf, setCard, setComponent, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textAreaOf, textOf, widgetOf, type Selection,
 } from './edit.ts';
 
-const TOKEN_KEY = 'veneer.designerToken';
-/** The button-action choice for opening a web page instead of pressing a key. */
+/** The button-action choices for opening a web page or running a macro instead of pressing a key. */
 const URL_ACTION = 'url';
+const MACRO_ACTION = 'macro';
 
-/** Switch a button between pressing a key and opening a URL, keeping what still applies. */
-function actionFor(current: ButtonAction, choice: string): ButtonAction {
+/** Switch a button between pressing a key, opening a URL and running a macro, keeping what still applies. */
+function actionFor(current: ButtonAction, choice: string, macros: readonly Macro[]): ButtonAction {
   if (choice === URL_ACTION) return 'url' in current ? current : { url: 'https://' };
-  return 'url' in current ? { aid: choice as AidName } : { ...current, aid: choice as AidName };
+  if (choice === MACRO_ACTION) return 'macro' in current ? current : { macro: macros[0]?.name ?? '' };
+  return 'aid' in current ? { ...current, aid: choice as AidName } : { aid: choice as AidName };
+}
+
+/** A macro button: which macro, and its values, which may come from the screen ({row:col}). */
+function MacroButtonEditor({ action, macros, at, onChange }: {
+  action: MacroAction; macros: readonly Macro[]; at: Target | undefined; onChange: (a: MacroAction) => void;
+}) {
+  const macro = macros.find((m) => m.name === action.macro);
+  const params = Object.entries(macro?.params ?? {});
+  const setParam = (name: string, value: string) => {
+    const next = { ...action.params, [name]: value };
+    if (!value) delete next[name];
+    onChange(Object.keys(next).length > 0 ? { ...action, params: next } : { macro: action.macro });
+  };
+  return (
+    <div className="dp-url">
+      <select value={action.macro} aria-label="Macro" onChange={(e) => onChange({ macro: e.target.value })}>
+        {!macro && <option value={action.macro}>{action.macro || 'Choose a macro'}</option>}
+        {macros.map((m) => <option key={m.name} value={m.name}>{m.label}</option>)}
+      </select>
+      {params.map(([name, p]) => (
+        <div className="dp-url-row" key={name}>
+          <input value={action.params?.[name] ?? ''} aria-label={p.label ?? name} placeholder={`${p.label ?? name}, e.g. {6:22}`} spellCheck={false}
+            onChange={(e) => setParam(name, e.target.value)} />
+          <button type="button" className="ghost" disabled={!at} title="Take the value from the selected field or text"
+            onClick={() => at && setParam(name, `${action.params?.[name] ?? ''}{${at.row}:${at.col}}`)}>Insert selected</button>
+        </div>
+      ))}
+      <p className="dp-preview">Runs the macro from this screen. {'{row:col}'} takes the field or text there, including what the user typed.</p>
+    </div>
+  );
 }
 
 /** The URL template of a link button, with a preview filled from the current screen. */
@@ -86,6 +118,8 @@ interface Props {
   tokenRequired: boolean;
   /** Custom components installed on the server. */
   components: string[];
+  /** Installed macros, for buttons that run one. */
+  macros: Macro[];
   /** Site-wide CSS and JavaScript as saved. */
   site: SiteCustomization;
   /** Select a screen position (after moving custom HTML). */
@@ -124,9 +158,6 @@ function lineCount(code: string | undefined): string | undefined {
   return n === 0 ? undefined : n === 1 ? '1 line' : `${n} lines`;
 }
 
-function loadToken(): string {
-  try { return sessionStorage.getItem(TOKEN_KEY) ?? ''; } catch { return ''; }
-}
 
 export function DesignPanel(props: Props) {
   const { snap, draft, setDraft, saved, existing, selection, tokenRequired } = props;
@@ -143,7 +174,7 @@ export function DesignPanel(props: Props) {
 
   const storeToken = (t: string) => {
     setToken(t);
-    try { sessionStorage.setItem(TOKEN_KEY, t); } catch { /* ignore */ }
+    saveToken(t);
   };
 
   async function request(method: 'PUT' | 'DELETE', url = `/api/screens/${encodeURIComponent(draft.id)}`, payload: unknown = draft): Promise<boolean> {
@@ -412,14 +443,18 @@ export function DesignPanel(props: Props) {
                   onChange={(e) => setButton(i, { ...b, label: e.target.value })}
                 />
                 <select
-                  value={'url' in b.action ? URL_ACTION : b.action.aid}
+                  value={'url' in b.action ? URL_ACTION : 'macro' in b.action ? MACRO_ACTION : b.action.aid}
                   aria-label="What the button does"
-                  onChange={(e) => setButton(i, { ...b, action: actionFor(b.action, e.target.value) })}
+                  onChange={(e) => setButton(i, { ...b, action: actionFor(b.action, e.target.value, props.macros) })}
                 >
                   {buttonAids(snap.host).map((a) => <option key={a} value={a}>{keyHint(a, snap.host)}</option>)}
                   <option value={URL_ACTION}>Open URL</option>
+                  <option value={MACRO_ACTION} disabled={props.macros.length === 0}>Run macro</option>
                 </select>
                 <button type="button" className="dp-x" aria-label="Remove button" onClick={() => setDraft(setButtons(draft, buttons.filter((_, j) => j !== i)))}>×</button>
+                {'macro' in b.action && (
+                  <MacroButtonEditor action={b.action} macros={props.macros} at={selection?.at} onChange={(action) => setButton(i, { ...b, action })} />
+                )}
                 {'url' in b.action && (
                   <UrlEditor
                     url={b.action.url} snap={snap} at={selection?.at}
@@ -549,6 +584,7 @@ export function DesignPanel(props: Props) {
         <InventoryDialog
           auth={tokenRequired ? `Bearer ${token}` : undefined}
           definitions={props.definitions}
+          macros={props.macros}
           currentId={print.id}
           onClose={() => setInventory(false)}
         />

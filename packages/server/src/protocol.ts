@@ -6,8 +6,8 @@ export type ServerMessage =
   /** First message on every socket. Keep `resumeToken` to reattach after a reload. */
   | { type: 'hello'; sessionId: string; resumeToken: string; resumed: boolean }
   | { type: 'status'; state: 'connecting' | 'connected' | 'closed'; message?: string }
-  /** `seq` increases with every screen sent for this session. */
-  | { type: 'screen'; seq: number; screen: ScreenSnapshot }
+  /** `seq` increases with every screen sent for this session. `user` is who signed on, once known. */
+  | { type: 'screen'; seq: number; screen: ScreenSnapshot; user?: string }
   | { type: 'error'; message: string }
   /** Screen definitions changed; refetch /api/screens. */
   | { type: 'screens'; version: number };
@@ -20,7 +20,12 @@ export type ClientMessage =
   | { type: 'sysreq' }
   | { type: 'attn' }
   /** Ends the host session now instead of waiting for the resume grace period. */
-  | { type: 'disconnect' };
+  | { type: 'disconnect' }
+  /** How a macro run ended, for the log (never its parameter values). `step` counts from 1. */
+  | { type: 'macro'; macro: string; outcome: MacroOutcome; step?: number };
+
+export const MACRO_OUTCOMES = ['done', 'failed', 'cancelled'] as const;
+export type MacroOutcome = (typeof MACRO_OUTCOMES)[number];
 
 /** WebSocket close codes used by the server. */
 export const CloseCode = {
@@ -59,6 +64,16 @@ export function parseClientMessage(raw: string): ClientMessage {
     case 'attn':
     case 'disconnect':
       return { type: m.type };
+    case 'macro': {
+      if (typeof m.macro !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(m.macro)) throw new Error('macro.macro must be a macro name');
+      if (!(MACRO_OUTCOMES as readonly unknown[]).includes(m.outcome)) throw new Error(`macro.outcome must be one of ${MACRO_OUTCOMES.join(', ')}`);
+      const out: ClientMessage = { type: 'macro', macro: m.macro, outcome: m.outcome as MacroOutcome };
+      if (m.step !== undefined) {
+        if (!Number.isInteger(m.step) || (m.step as number) < 1 || (m.step as number) > 100) throw new Error('macro.step must be a step number');
+        out.step = m.step as number;
+      }
+      return out;
+    }
     case 'submit': {
       if (!isAidName(m.aid)) throw new Error('submit.aid is not a valid AID key');
       const out: ClientMessage = { type: 'submit', aid: m.aid };

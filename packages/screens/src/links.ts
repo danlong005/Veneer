@@ -54,3 +54,9 @@ export function fillUrl(template: string, snap: ScreenSnapshot, values: Record<s
     return undefined;
   }
 }
+
+/** Fill a template's placeholders from the screen, as plain text (a macro button's parameter values). */
+export function fillText(template: string, snap: ScreenSnapshot, values: Record<string, string> = {}): string {
+  return template.replace(PLACEHOLDER, (_m, row: string, col: string, length?: string) =>
+    placeholderValue(snap, { row: Number(row), col: Number(col), ...(length ? { length: Number(length) } : {}) }, values));
+}

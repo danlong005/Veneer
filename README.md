@@ -270,6 +270,86 @@ The browser applies the same field rules as a 5250 terminal:
   explains the problem, and the cursor goes back to the field.
 - Upper-case (monocase) fields convert as you type. A full field advances to the next one.
 
+## Macros and deep links
+
+A **macro** replays the steps to reach a screen: on each screen it expects, it types
+into fields and presses a key, through the same checks as a user (field rules,
+mandatory fields). A **deep link** starts one from a web address, so an intranet page,
+an email or a CRM record can link straight to a screen, with values such as an order
+number filled in.
+
+```
+https://veneer.example.com/?macro=order-inquiry&order=12345
+```
+
+A macro starts in three ways:
+
+- **A deep link** opens a new session in that tab. The user signs on as usual, and the
+  macro starts when its first screen appears (normally the initial menu).
+- **A button** on a customized screen (the designer's Buttons section, **Run macro**)
+  runs it from that screen. Its values can come from the screen: `{6:22}` is the field or
+  text at row 6, column 22, including what the user typed.
+- **Go to** in the page header lists the macros marked for it, and asks for any values
+  they need.
+
+A button or Go to starts at the first step whose screen is showing, so a macro that goes
+Main menu → Orders → Order inquiry also works from the Orders menu. If a different
+screen appears, the host shows an error, or a screen doesn't come within 30 seconds,
+the macro stops and leaves the user on that screen with a note saying which step
+stopped. Esc stops a running macro. Steps marked **only sometimes** (such as Display
+Program Messages) are skipped when their screen doesn't appear.
+
+### Recording and editing
+
+With the designer enabled, **Macros** in the page header opens the Macros panel beside
+the screen. Choose **Record**, go to the screen from where the macro should start, and
+choose **Stop**: each key you pressed is a step, with what you typed. Passwords are
+never recorded. Then:
+
+- **Make value** turns a typed value into one the macro is given when it starts
+  (`{order}`), with a name people see, whether it's required, and the values allowed (a
+  regular expression, such as `[0-9]{1,9}`). `{user}` is the signed-on user.
+- Change typed values or keys, mark steps **only sometimes**, reorder or delete them.
+- **Test** runs the macro from the screen you are on, with values you type.
+- The panel shows the deep link; **List under Go to** adds the macro to the menu.
+
+Saving needs the designer token, as for screen definitions. Each macro is saved as
+`macros/<name>.json` in the screens folder, so it is versioned in git with the
+definitions:
+
+```json
+{
+  "name": "order-inquiry",
+  "label": "Order inquiry",
+  "host": "5250",
+  "params": { "order": { "label": "order number", "required": true, "pattern": "[0-9]{1,9}" } },
+  "steps": [
+    { "screen": "0a1b2c3d4e5f60", "title": "Main Menu", "fields": { "20:7": "11" }, "press": "Enter" },
+    { "screen": "8f9e0d1c2b3a49", "title": "Order Inquiry", "fields": { "4:30": "{order}" }, "press": "Enter" }
+  ],
+  "menu": true
+}
+```
+
+A step can also have `"optional": true`, `"cursor": {"row": 5, "col": 2}` (for keys
+such as F4 that depend on where the cursor is), and `"text"` rules as in screen
+definitions, for screens that share an ID. `"timeout"` (seconds) changes how long each
+step waits.
+
+### Security
+
+- A macro runs as the signed-on user, with that user's authority. It never signs on and
+  never holds a password.
+- Only installed macros run: a deep link names a macro, it can't supply steps. Values
+  only go into the fields the macro names; each is checked against its pattern before
+  the first key, and against the field (length, numeric) before it is typed.
+- Each run is logged (`macro run`: macro, user, outcome, the step it stopped at), never
+  with its values.
+
+Steps recognise screens by screen ID. If a display file is recompiled and a screen's ID
+changes, macros through it stop at that step; the designer's screen inventory (**Screens**)
+shows which macros use each screen.
+
 ## Screen customizations and the designer
 
 Auto-transform handles every screen. For the screens people use most, a **screen
@@ -324,7 +404,9 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
     up to the next double space. `{6:22:10}` takes exactly 10 characters. Values are
     URL-encoded, and only `http://` and `https://` addresses with a fixed host name are
     allowed. In the designer, choose **Open URL** as the button's action. **Insert
-    selected** adds the selected item's position, and a preview shows the address.
+    selected** adds the selected item's position, and a preview shows the address. A
+    button can also run a macro: `{ "macro": "order-inquiry", "params": { "order": "{6:22}" } }`
+    (**Run macro**; see [Macros and deep links](#macros-and-deep-links)).
   - `style` restyles what matches a condition. `when` checks either a list column by its
     heading (`"column": "Status"`), with `target` set to `row` or `cell`, or the text or
     field at a position (`"at": { "row": 4, "col": 20 }`), with `target` set to `item`. The test is one
