@@ -219,12 +219,13 @@ export class Terminal {
           const stop = address(i + 1);
           let ch = data[i + 3]!;
           i += 4;
-          if (ch === Order.GE) {
+          const ge = ch === Order.GE;
+          if (ge) {
             if (i >= data.length) { this.warn('A write ends in the middle of an order'); return this.finishWrite(wcc); }
             ch = data[i]!;
             i += 1;
           }
-          do { s.putChar(addr, ch, color, highlight); addr = s.next(addr); } while (addr !== stop);
+          do { s.putChar(addr, ch, color, highlight, ge); addr = s.next(addr); } while (addr !== stop);
           break;
         }
         case Order.EUA: {
@@ -251,7 +252,7 @@ export class Terminal {
         }
         case Order.GE:
           if (!need(i, 1)) return this.finishWrite(wcc);
-          s.putChar(addr, data[i + 1]!, color, highlight);
+          s.putChar(addr, data[i + 1]!, color, highlight, true);
           addr = s.next(addr);
           i += 2;
           wasData = true;
@@ -430,13 +431,13 @@ export class Terminal {
     if (SHORT_READ_AIDS.has(aid) && !all) return out;
     out.push(...encodeAddress(s.cursor, s.size));
     if (!s.formatted) {
-      for (const b of s.buffer) if (b !== 0x00) out.push(b);
+      s.buffer.forEach((b, a) => { if (b !== 0x00) out.push(...s.byteOut(a)); });
       return out;
     }
     for (const f of s.fields()) {
       if (!(f.attr.fa & FA.MDT)) continue;
       out.push(Order.SBA, ...encodeAddress(f.start, s.size));
-      for (const p of s.positions(f)) if (s.buffer[p] !== 0x00) out.push(s.buffer[p]!);
+      for (const p of s.positions(f)) if (s.buffer[p] !== 0x00) out.push(...s.byteOut(p));
     }
     return out;
   }
@@ -448,7 +449,7 @@ export class Terminal {
     for (let a = 0; a < s.size; a++) {
       const attr = s.attrs[a];
       if (attr) out.push(Order.SF, ADDRESS_CODES[attr.fa & 0x3f]!);
-      else out.push(s.buffer[a]!);
+      else out.push(...s.byteOut(a));
     }
     return out;
   }

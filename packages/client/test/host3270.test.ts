@@ -415,3 +415,21 @@ test('the TSO console on screens recorded from TK4-, and its length limit', () =
   assert.equal(full.history.length, MAX_HISTORY);
   assert.deepEqual([full.history[0], full.history.at(-1)], ['old', ' X'], 'the oldest lines go first');
 });
+
+test('ISPF line drawing keeps to the character grid, apart from the words beside it', () => {
+  const GE = (b: number) => [0x08, b];
+  const side = GE(0x85), rule = (n: number) => Array.from({ length: n }, () => GE(0xa2)).flat();
+  const snap = screen((s) => s
+    .at(1, 1).field({ attr: Attr.TEXT })
+    .at(2, 2).bytes(...rule(40))
+    .at(10, 2).bytes(...GE(0xc5), ...rule(20), ...GE(0xd5))
+    // One space between the words and the side: still drawn apart.
+    .at(11, 2).bytes(...side).chars(' Copyright IBM Corp.').at(11, 23).bytes(...side).chars(' ions')
+    .at(12, 2).bytes(...GE(0xc4), ...rule(20), ...GE(0xd4)));
+  const texts = transform(snap).items.filter((i) => i.kind === 'text') as Array<{ text: string; row: number; col: number; lines?: boolean }>;
+  const at = (row: number) => texts.filter((t) => t.row === row).map((t) => [t.col, t.text, t.lines ?? false]);
+  assert.deepEqual(at(2), [[2, '─'.repeat(40), true]]);
+  assert.deepEqual(at(10), [[2, '┌' + '─'.repeat(20) + '┐', true]]);
+  assert.deepEqual(at(11), [[2, '│', true], [4, 'Copyright IBM Corp.', false], [23, '│', true], [25, 'ions', false]]);
+  assert.deepEqual(at(12), [[2, '└' + '─'.repeat(20) + '┘', true]]);
+});

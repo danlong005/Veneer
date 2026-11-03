@@ -38,6 +38,8 @@ export interface TextItem extends Placed {
   role: Role;
   reverse: boolean;
   underline: boolean;
+  /** Line-drawing characters (ISPF's rules and boxes): drawn on the character grid. */
+  lines?: boolean;
 }
 
 export interface FieldItem extends Placed {

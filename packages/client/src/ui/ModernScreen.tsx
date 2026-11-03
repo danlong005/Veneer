@@ -278,7 +278,7 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
             return (
               <span
                 key={key}
-                className={`text role-${item.role}${item.reverse ? ' reverse' : ''}${item.underline ? ' underline' : ''}${designClass(design, home, item.hidden)}`}
+                className={`text role-${item.role}${item.lines ? ` lines${/^[│┃║]+$/.test(item.text) ? ' sides' : ''}` : ''}${item.reverse ? ' reverse' : ''}${item.underline ? ' underline' : ''}${designClass(design, home, item.hidden)}`}
                 style={at(item.row, item.col, top)}
                 data-at={atKey(home)}
                 onClick={() => onCursor(home.row, home.col)}

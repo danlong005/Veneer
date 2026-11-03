@@ -4,7 +4,10 @@
 import type { DisplayAttribute, FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
 import type { Role, ScreenView } from './types.ts';
 
-/** A run of same-styled text, split wherever there are two or more spaces. */
+/**
+ * A run of same-styled text, split wherever there are two or more spaces,
+ * and around line-drawing characters, which keep to the screen's grid.
+ */
 export interface Chunk {
   row: number;
   col: number;
@@ -121,7 +124,7 @@ function splitRow(row: number, segs: ScreenSnapshot['segments'][number], inField
     const flush = (endIdx: number) => {
       if (runStart < 0) return;
       const text = seg.text.slice(runStart, endIdx);
-      const re = /\S+(?: \S+)*/g;
+      const re = /[\u2500-\u257f]+|[^\s\u2500-\u257f]+(?: [^\s\u2500-\u257f]+)*/g;
       for (let m = re.exec(text); m; m = re.exec(text)) {
         const col = seg.col + runStart + m.index;
         chunks.push({ row, col, end: col + m[0].length, text: m[0], attr: seg.attr });

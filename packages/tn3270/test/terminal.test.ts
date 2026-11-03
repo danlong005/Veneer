@@ -172,13 +172,55 @@ test('Modify Field changes an attribute in place', () => {
 
 test('Repeat to Address fills up to the stop address, the whole buffer when they match', () => {
   const t = makeTerminal();
-  t.host(stream().eraseWrite().at(2, 1).repeat('-', 2, 11).bytes(0x3c, ...encodeAddress(200, 1920), 0x08, 0xad).build());
+  t.host(stream().eraseWrite().at(2, 1).repeat('-', 2, 11).bytes(0x3c, ...encodeAddress(200, 1920), 0x08, 0xa2).build());
   let snap = t.snap();
-  assert.equal(snap.lines[1]!.slice(0, 12), '----------' + cp.decodeChar(0xad).repeat(2));
-  assert.equal(t.terminal.screen.buffer[199], 0xad, 'a GE character is stored as is');
+  assert.equal(snap.lines[1]!.slice(0, 12), '----------──', 'a GE character repeats as the APL one');
+  assert.equal(t.terminal.screen.buffer[199], 0xa2);
   t.host(stream().eraseWrite().at(1, 1).repeat('x', 1, 1).build());
   snap = t.snap();
   assert.ok(snap.lines.every((l) => l === 'x'.repeat(80)));
+});
+
+test('Graphic Escape draws from the APL set: ISPF\'s lines and boxes', () => {
+  const t = makeTerminal();
+  const GE = (b: number) => [0x08, b];
+  // As ISPF draws a pop-up: corners, sides and a rule; and a plain "s" and "e" beside them.
+  t.host(stream().eraseWrite()
+    .at(1, 1).bytes(...GE(0xc5), ...GE(0xa2), ...GE(0xa2), ...GE(0xd5)).chars('s')
+    .at(2, 1).bytes(...GE(0x85)).chars('ab').bytes(...GE(0x85)).chars('e')
+    .at(3, 1).bytes(...GE(0xc4), ...GE(0xa2), ...GE(0xa2), ...GE(0xd4))
+    .at(4, 1).bytes(...GE(0xc6), ...GE(0xd7), ...GE(0xd3), ...GE(0xc7), ...GE(0xd6), ...GE(0xad))
+    .build());
+  const snap = t.snap();
+  assert.equal(snap.lines[0]!.slice(0, 5), '┌──┐s');
+  assert.equal(snap.lines[1]!.slice(0, 5), '│ab│e');
+  assert.equal(snap.lines[2]!.slice(0, 4), '└──┘');
+  assert.equal(snap.lines[3]!.slice(0, 6), '├┬┼┴┤' + cp.decodeChar(0xad), 'one not mapped shows as the code page has it');
+  // Written over without GE, a position is a code-page character again.
+  t.host(stream().write().at(1, 2).chars('s').build());
+  assert.equal(t.snap().lines[0]!.slice(0, 5), '┌s─┐s');
+  assert.deepEqual(t.warnings, []);
+});
+
+test('characters from Graphic Escape go back to the host after GE', () => {
+  const t = makeTerminal();
+  t.host(stream().eraseWrite().at(5, 10).field({ attr: 0x00 }).bytes(0x08, 0xa2).chars('s').build());
+  const f = field(t.snap(), '5:11');
+  assert.equal(f.value, '─s', 'the field value has the line, not "s"');
+  // The field is unmodified; Read Buffer returns every position as it is.
+  // In code page 37 "s" is X'A2' too: only GE tells them apart.
+  const buf = t.terminal.readBuffer();
+  const ge = buf.indexOf(0x08, 3);
+  assert.deepEqual(buf.slice(ge, ge + 3), [0x08, 0xa2, e('s')[0]]);
+  assert.equal(buf.filter((b) => b === 0x08).length, 1, 'GE before the line only');
+  // Typed into, the field goes back as typed (typing is never from the APL set).
+  t.terminal.setFieldValue(t.terminal.screen.fields()[0]!, 'xy');
+  assert.deepEqual(parseReadModified(t.terminal.readModified(ENTER)).fields, { '5:11': 'xy' });
+  // Erase/Write forgets it: a blank position isn't sent as an APL one.
+  const u = makeTerminal();
+  u.host(stream().eraseWrite().at(1, 1).bytes(0x08, 0xa2).build());
+  u.host(stream().eraseWrite().build());
+  assert.ok(!u.terminal.readBuffer().slice(3).includes(0x08), 'no GE after an erase');
 });
 
 test('Erase Unprotected to Address nulls input positions only', () => {

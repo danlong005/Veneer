@@ -7,7 +7,8 @@ import {
   fieldId,
   type Codepage, type Color, type DisplayAttribute, type FieldSnapshot, type ScreenSnapshot, type Segment,
 } from '@veneer/terminal';
-import { FA, Highlight, MODELS, Validation } from './constants.ts';
+import { aplChar } from './apl.ts';
+import { FA, Highlight, MODELS, Order, Validation } from './constants.ts';
 
 /** What a field attribute position holds: the basic attribute and the extended ones (0 = default). */
 export interface FieldAttribute {
@@ -41,6 +42,8 @@ export class Screen {
   /** Character colour and highlighting from Set Attribute (0 = the field's). */
   charColor = new Uint8Array(24 * 80);
   charHighlight = new Uint8Array(24 * 80);
+  /** 1 where the character came after Graphic Escape: from the APL set, not the code page. */
+  graphicEscape = new Uint8Array(24 * 80);
   cursor = 0;
   keyboardLocked = true;
   alarm = false;
@@ -62,6 +65,7 @@ export class Screen {
     this.attrs = new Array(this.size);
     this.charColor = new Uint8Array(this.size);
     this.charHighlight = new Uint8Array(this.size);
+    this.graphicEscape = new Uint8Array(this.size);
     this.cursor = 0;
   }
 
@@ -83,12 +87,25 @@ export class Screen {
     return (address + by) % this.size;
   }
 
-  /** Write a character; it replaces any field attribute there. */
-  putChar(address: number, byte: number, color = 0, highlight = 0): void {
+  /** Write a character (from the APL set with `ge`); it replaces any field attribute there. */
+  putChar(address: number, byte: number, color = 0, highlight = 0, ge = false): void {
     this.buffer[address] = byte;
     this.attrs[address] = undefined;
     this.charColor[address] = color;
     this.charHighlight[address] = highlight;
+    this.graphicEscape[address] = ge ? 1 : 0;
+  }
+
+  /** The character at an address as sent to the host: after GE if it is from the APL set. */
+  byteOut(address: number): number[] {
+    const byte = this.buffer[address]!;
+    return this.graphicEscape[address] ? [Order.GE, byte] : [byte];
+  }
+
+  /** The character at an address as text: APL characters as themselves, others from the code page. */
+  charAt(address: number, cp: Codepage): string {
+    const byte = this.buffer[address]!;
+    return (this.graphicEscape[address] && aplChar(byte)) || cp.decodeChar(byte);
   }
 
   setAttribute(address: number, attr: FieldAttribute): void {
@@ -96,6 +113,7 @@ export class Screen {
     this.attrs[address] = attr;
     this.charColor[address] = 0;
     this.charHighlight[address] = 0;
+    this.graphicEscape[address] = 0;
   }
 
   /** The attribute position governing an address (itself if it is one), or -1 when unformatted. */
@@ -191,7 +209,7 @@ export function snapshot(screen: Screen, cp: Codepage): ScreenSnapshot {
         attr = { ...displayAttribute(fa), reverse: false, underline: false, blink: false };
       } else {
         attr = displayAttribute(current, screen.charColor[a], screen.charHighlight[a]);
-        ch = attr.nonDisplay ? ' ' : cp.decodeChar(screen.buffer[a]!);
+        ch = attr.nonDisplay ? ' ' : screen.charAt(a, cp);
       }
       line += ch;
       const last = rowSegs.at(-1);
@@ -212,7 +230,7 @@ export function snapshot(screen: Screen, cp: Codepage): ScreenSnapshot {
       col,
       length: f.length,
       // Never echo non-display (password) contents back out.
-      value: attr.nonDisplay ? '' : cp.decode(screen.positions(f).map((p) => screen.buffer[p]!)).replace(/\s+$/, ''),
+      value: attr.nonDisplay ? '' : screen.positions(f).map((p) => screen.charAt(p, cp)).join('').replace(/\s+$/, ''),
       bypass: protect,
       modified: isModified(f.attr),
       mandatoryEnter: (f.attr.validation & Validation.MANDATORY_ENTRY) !== 0,

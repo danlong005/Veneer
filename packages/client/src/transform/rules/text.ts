@@ -3,6 +3,9 @@
 import { roleOf, type TransformContext } from '../context.ts';
 import { stripLeaders } from '../text.ts';
 
+/** All line drawing, as context.ts splits it off. */
+const LINES = /^[\u2500-\u257f]+$/;
+
 export function text(ctx: TransformContext): void {
   for (const row of ctx.rows()) {
     for (const c of ctx.chunks(row)) {
@@ -12,6 +15,7 @@ export function text(ctx: TransformContext): void {
       ctx.view.items.push({
         kind: 'text', row: c.row, col: c.col, width: c.end - c.col, text: t,
         role: roleOf(c.attr), reverse: c.attr.reverse, underline: c.attr.underline,
+        ...(LINES.test(t) ? { lines: true } : {}),
       });
     }
   }
