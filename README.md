@@ -46,7 +46,7 @@ npm run demo          # fake IBM i + server + client on http://127.0.0.1:8080 (a
 npm run demo -- --3270  # the same with a fake mainframe (3270); see "Mainframe (3270) hosts"
 npm run dev           # session server against your IBM i, restarts on change
 npm run dev:client    # Vite dev server on :5173 with hot reload; proxies /ws to :8080
-npm run package       # release/veneer-<version>.tar.gz for deployment, plus -src.tar.gz (the source)
+npm run package       # release/veneer-<version>.tar.gz and .zip for deployment, plus -src.tar.gz and -src.zip (the source)
 ```
 
 **HTTPS and TLS:** with the defaults, Veneer talks to the IBM i over TLS on port 992 and

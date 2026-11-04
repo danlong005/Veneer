@@ -35,7 +35,7 @@ service. [Configuration examples](#configuration-examples) shows complete files.
 After starting, check the server:
 
 ```sh
-curl http://127.0.0.1:8080/healthz    # {"status":"ok","version":"0.1.0",...}
+curl http://127.0.0.1:8080/healthz    # {"status":"ok","version":"0.2.0",...}
 ```
 
 ## Configuration examples
@@ -321,13 +321,15 @@ from a 5250 command line.
    CRTUSRPRF USRPRF(VENEER) PASSWORD(*NONE) USRCLS(*USER) TEXT('Veneer web server')
    ```
 
-2. Unpack the archive and create the directories (PASE `tar` may not read gzip directly):
+2. Unpack the archive and create the directories (PASE `tar` may not read gzip directly).
+   With `unzip` installed (`yum install unzip`), `unzip -q /tmp/veneer-0.2.0.zip` in place
+   of the `gzip` line unpacks the `.zip` release instead:
 
    ```sh
    mkdir -p /QOpenSys/opt/veneer /QOpenSys/etc/veneer/screens /QOpenSys/var/log/veneer /QOpenSys/var/lib/veneer
    cd /QOpenSys/opt/veneer
-   gzip -dc /tmp/veneer-0.1.0.tar.gz | tar -xf -
-   ln -sfn veneer-0.1.0 current
+   gzip -dc /tmp/veneer-0.2.0.tar.gz | tar -xf -
+   ln -sfn veneer-0.2.0 current
    cp current/veneer.env.example /QOpenSys/etc/veneer/veneer.env
    ```
 
@@ -407,8 +409,8 @@ batch job queued after it.
 ```sh
 sudo useradd --system --home /var/lib/veneer --shell /usr/sbin/nologin veneer
 sudo mkdir -p /opt/veneer /etc/veneer /var/lib/veneer/screens /var/log/veneer
-sudo tar -xzf veneer-0.1.0.tar.gz -C /opt/veneer
-sudo ln -sfn veneer-0.1.0 /opt/veneer/current
+sudo tar -xzf veneer-0.2.0.tar.gz -C /opt/veneer    # or: sudo unzip -q veneer-0.2.0.zip -d /opt/veneer
+sudo ln -sfn veneer-0.2.0 /opt/veneer/current
 sudo cp /opt/veneer/current/veneer.env.example /etc/veneer/veneer.env
 sudo chown -R veneer:veneer /var/lib/veneer /var/log/veneer
 sudo chown root:veneer /etc/veneer/veneer.env && sudo chmod 640 /etc/veneer/veneer.env

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Builds a self-contained release: release/veneer-<version>.tar.gz
-// and the source code at the current commit: release/veneer-<version>-src.tar.gz
+// and the source code at the current commit: release/veneer-<version>-src.tar.gz,
+// each also as a .zip (needs the zip command).
 //
 // The archive holds the compiled server, the built browser client and the
 // production dependencies (pure JavaScript), so the target needs only Node.js:
@@ -71,11 +72,17 @@ function checksum(archive) {
 
 const archive = path.join(releaseDir, `${name}.tar.gz`);
 run('tar', ['-czf', archive, '-C', releaseDir, name]);
+// The same as a zip. -y keeps the workspace links in node_modules as links
+// (as tar does), which unzip restores; -X leaves out extra file attributes.
+const zip = path.join(releaseDir, `${name}.zip`);
+fs.rmSync(zip, { force: true });
+run('zip', ['-qryX', zip, name], releaseDir);
 
 // The source as committed (uncommitted changes are not included), for people
 // who build Veneer themselves or need the source alongside the release.
 const source = path.join(releaseDir, `${name}-src.tar.gz`);
 run('git', ['archive', '--format=tar.gz', `--prefix=${name}-src/`, '-o', source, 'HEAD']);
+const sourceZip = path.join(releaseDir, `${name}-src.zip`);
+run('git', ['archive', '--format=zip', `--prefix=${name}-src/`, '-o', sourceZip, 'HEAD']);
 
-checksum(archive);
-checksum(source);
+for (const file of [archive, zip, source, sourceZip]) checksum(file);
