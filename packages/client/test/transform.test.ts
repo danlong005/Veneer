@@ -94,6 +94,13 @@ test('every input field is rendered exactly once', () => {
   }
 });
 
+test('an IBM i window without an F-key legend offers no keys, not those of the screen behind', () => {
+  const v = transform(promptWindow({ keys: false }));
+  assert.ok(v.window, 'window detected');
+  assert.deepEqual(v.window.functionKeys, []);
+  assert.deepEqual(v.functionKeys.map((k) => k.aid), ['F3', 'F4', 'F12'], 'the screen behind has keys');
+});
+
 test('a bordered pop-up window becomes a modal view over the dimmed screen', () => {
   const v = transform(promptWindow());
   assert.ok(v.window, 'window detected');

@@ -57,6 +57,8 @@ export const workWithJobs = (marker = 'More...') => render((s) => s
 
 export interface WindowOptions {
   borderTitle?: string;
+  /** Whether the window shows its own F-key legend; default true. */
+  keys?: boolean;
   /**
    * Border characters in DDS WDWBORDER CHAR order: top-left, top, top-right,
    * left, right, bottom-left, bottom, bottom-right. Default: the IBM i border.
@@ -86,7 +88,7 @@ export const promptWindow = (opts: WindowOptions = {}) => render((s) => {
     .field(12, 41, 10, { ffw: 0x4020 })
     .text(13, 22, 'Copies  . . . . :')
     .field(13, 41, 3, { ffw: 0x4300 })
-    .text(15, 22, 'F4=Prompt   F12=Cancel', BLUE)
+    .text(15, 22, opts.keys === false ? '' : 'F4=Prompt   F12=Cancel', BLUE)
     .cursor(12, 41);
 });
 

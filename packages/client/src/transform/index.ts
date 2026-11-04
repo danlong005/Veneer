@@ -53,11 +53,14 @@ export function transform(snap: ScreenSnapshot, rules: readonly Rule[] = DEFAULT
   for (let r = outer.top; r <= outer.bottom; r++) bg.claim(r, outer.left, outer.right - outer.left + 1);
   const view = run(bg, BACKGROUND_RULES);
   const winTitle = win.title ?? fg.title;
+  // An ISPF pull-down has no key line of its own: the PF keys the screen behind
+  // it shows still work (F12 closes it). An IBM i window lists its own keys.
+  const ownKeys = fg.functionKeys.length > 0 || snap.host !== '3270';
   view.window = {
     ...inner,
     ...(winTitle ? { title: winTitle } : {}),
     items: fg.items,
-    functionKeys: fg.functionKeys,
+    functionKeys: ownKeys ? fg.functionKeys : view.functionKeys,
     ...(fg.message ? { message: fg.message } : {}),
   };
   return view;

@@ -433,3 +433,45 @@ test('ISPF line drawing keeps to the character grid, apart from the words beside
   assert.deepEqual(at(11), [[2, '│', true], [4, 'Copyright IBM Corp.', false], [23, '│', true], [25, 'ions', false]]);
   assert.deepEqual(at(12), [[2, '└' + '─'.repeat(20) + '┘', true]]);
 });
+
+test('an ISPF pull-down with no keys of its own gets the PF keys the screen behind it shows', () => {
+  // As on z/OS (#38): View's File pull-down, a box over the screen, with View's PF keys on rows 23-24.
+  const GE = (b: number) => [0x08, b];
+  const rule = Array.from({ length: 14 }, () => GE(0xa2)).flat();
+  const view = (pullDown: boolean) => screen((s) => {
+    s.text(1, 3, 'File  Edit  Edit_Settings  Menu  Utilities  Help');
+    s.text(7, 1, '000019 Activities which adversely affect other users will be terminated');
+    s.text(22, 1, 'Command ===>').input(22, 15, 45).text(22, 63, 'Scroll ===> PAGE');
+    s.text(23, 2, 'F1=Help      F2=Split     F3=Exit      F7=Up        F8=Down');
+    s.text(24, 2, 'F9=Swap     F10=Left     F11=Right    F12=Cancel');
+    if (!pullDown) return s.cursor(22, 15);
+    s.at(2, 1).bytes(...GE(0xc5), ...rule, ...GE(0xd5));
+    ['Save', 'Cancel', 'Exit'].forEach((choice, i) => {
+      s.at(3 + i, 1).bytes(...GE(0x85)).text(3 + i, 7, `${i + 1}. ${choice}`).at(3 + i, 16).bytes(...GE(0x85));
+    });
+    s.input(3, 4, 1);
+    s.at(6, 1).bytes(...GE(0xc4), ...rule, ...GE(0xd4));
+    return s.cursor(3, 4);
+  });
+  const keys = (v: ReturnType<typeof transform>) => (v.window ? v.window.functionKeys : v.functionKeys).map((k) => `${k.aid}=${k.label}`);
+  const behind = transform(view(false));
+  const open = transform(view(true));
+  assert.ok(open.window, 'the pull-down is a window');
+  assert.deepEqual(keys(open), keys(behind));
+  assert.deepEqual(keys(open), ['F1=Help', 'F2=Split', 'F3=Exit', 'F7=Up', 'F8=Down', 'F9=Swap', 'F10=Left', 'F11=Right', 'F12=Cancel']);
+
+  // An ISPF pop-up with its own key line (the VIEW Entry Panel) offers only those.
+  const own = screen((s) => {
+    s.text(1, 3, 'File  Edit  Edit_Settings  Menu  Utilities  Help');
+    s.text(23, 2, 'F1=Help      F2=Split     F3=Exit      F7=Up        F8=Down');
+    s.at(2, 1).bytes(...GE(0xc5), ...rule, ...rule, ...GE(0xd5));
+    for (let row = 3; row <= 9; row++) s.at(row, 1).bytes(...GE(0x85)).at(row, 30).bytes(...GE(0x85));
+    s.text(4, 4, 'Object Name:').input(5, 4, 20);
+    s.text(8, 3, 'F1=Help   F12=Cancel');
+    s.at(10, 1).bytes(...GE(0xc4), ...rule, ...rule, ...GE(0xd4));
+    return s.cursor(5, 4);
+  });
+  const withOwn = transform(own);
+  assert.ok(withOwn.window, 'the pop-up is a window');
+  assert.deepEqual(keys(withOwn), ['F1=Help', 'F12=Cancel']);
+});
