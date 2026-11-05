@@ -1,0 +1,26 @@
+{
+  "id": "demo-spool-file",
+  "name": "Demo spool file",
+  "match": {
+    "text": [
+      {
+        "row": 1,
+        "col": 28,
+        "text": "Display Spooled File"
+      }
+    ]
+  },
+  "changes": [
+    {
+      "op": "component",
+      "name": "spool",
+      "at": {
+        "row": 5,
+        "col": 2
+      },
+      "width": 79,
+      "height": 17,
+      "options": {}
+    }
+  ]
+}

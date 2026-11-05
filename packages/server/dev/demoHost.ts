@@ -57,6 +57,7 @@ type State =
   /** `plain`: the same screen under another title, which no definition customizes. */
   | { screen: 'customer'; user: string; index: number; plain: boolean }
   | { screen: 'jobs'; user: string; page: number }
+  | { screen: 'spool'; user: string; page: number }
   | { screen: 'contacts'; user: string; page: number; plain: boolean }
   | { screen: 'shipping'; user: string }
   /** Help, shown from `back` (the screen Help was pressed on) about `topic`. */
@@ -176,6 +177,10 @@ export class DemoHost {
           state = { screen: 'menuWindow', user: s.user };
           return show(menuWindow());
         }
+        if (cmd === 'DSPSPLF' || cmd.startsWith('DSPSPLF ')) {
+          state = { screen: 'spool', user: s.user, page: 0 };
+          return show(spoolFile(0));
+        }
         if (cmd === 'WRKACTJOB' || cmd === '1') {
           state = { screen: 'jobs', user: s.user, page: 0 };
           return show(jobs(0));
@@ -212,6 +217,14 @@ export class DemoHost {
           : (s.index + 1) % CUSTOMERS.length;
         state = { ...s, index };
         return show(customerAddresses(index, typed && found < 0 ? `Customer ${typed} not found.` : undefined, s.plain));
+      }
+      if (s.screen === 'spool') {
+        if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
+        const pages = Math.ceil(SPOOL_LINES.length / SPOOL_PAGE);
+        // Like DSPSPLF, paging past either end leaves the page where it is.
+        const page = aid === 0xf5 ? Math.min(s.page + 1, pages - 1) : aid === 0xf4 ? Math.max(s.page - 1, 0) : s.page;
+        state = { ...s, page };
+        return show(spoolFile(page));
       }
       if (s.screen === 'contacts') {
         if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
@@ -493,11 +506,11 @@ function mainMenu(user: string, message?: string): number[] {
     .field(20, 7, 70)
     .text(22, 2, 'F3=Exit   F4=Prompt   F9=Retrieve   F12=Cancel   F13=Information Assistant', BLUE)
     .text(23, 2, 'F23=Set initial menu', BLUE)
-    .text(24, 2, message ?? `Signed on as ${user}. Try option 1, option 9, or the command WRKACTJOB.`)
+    .text(24, 2, message ?? `Signed on as ${user}. Try 1, 9, WRKACTJOB or DSPSPLF.`)
     .cursor(20, 7).readMdt().build();
 }
 
-function jobs(page: number, message?: string): number[] {
+export function jobs(page: number, message?: string): number[] {
   const s = new HostStream().clear().write()
     .text(1, 30, 'Work with Active Jobs', WHITE)
     .text(1, 72, 'VENEER')
@@ -526,6 +539,47 @@ function jobs(page: number, message?: string): number[] {
     .text(23, 2, 'F3=Exit   F5=Refresh   F7=Find   F10=Restart statistics   F12=Cancel', BLUE);
   if (message) s.text(24, 2, message);
   return s.cursor(11, 3).readMdt().build();
+}
+
+/** A sales report, as DSPSPLF shows a spooled file: 15 lines a page, rows 6 to 20. */
+export const SPOOL_PAGE = 15;
+export const SPOOL_LINES: string[] = (() => {
+  const regions = ['CENTRAL', 'EAST', 'WEST'];
+  const items = ['A100 WIDGET, STEEL', 'B200 GADGET, BRASS', 'C300 SPROCKET 12T', 'D400 FLANGE 2IN', 'E500 GASKET KIT', 'F600 BEARING 6203', 'G700 BOLT M8X40'];
+  const out = ['  SLS210   Sales by region and item                       VENEER    11/05/26', ''];
+  regions.forEach((region, r) => {
+    out.push(`  Region: ${region}`, '  Item  Description              Qty      Amount', '  ----  --------------------  ------  ----------');
+    let total = 0;
+    items.forEach((item, i) => {
+      const qty = ((r + 3) * (i + 5) * 7) % 400 + 12;
+      const amount = qty * (i + 2) * 1.25;
+      total += amount;
+      const [code, ...desc] = item.split(' ');
+      out.push(`  ${code}  ${desc.join(' ').padEnd(20)}  ${String(qty).padStart(6)}  ${amount.toFixed(2).padStart(10)}`);
+    });
+    out.push(`        Region total                          ${total.toFixed(2).padStart(10)}`, '');
+  });
+  out.push('  CPF0000  * * * *  E N D  O F  R E P O R T  * * * *');
+  return out;
+})();
+
+/** DSPSPLF: the spooled file a page at a time, under the column ruler. */
+export function spoolFile(page: number): number[] {
+  const pages = Math.ceil(SPOOL_LINES.length / SPOOL_PAGE);
+  const s = new HostStream().clear().write()
+    .text(1, 28, 'Display Spooled File', WHITE)
+    .text(2, 2, 'File  . . . . . :   QPSLS210')
+    .text(2, 52, `Page/Line   ${page + 1}/1`)
+    .text(3, 2, 'Control . . . . .')
+    .field(3, 20, 6)
+    .text(3, 52, 'Columns     1 - 78')
+    .text(4, 2, 'Find  . . . . . .')
+    .field(4, 20, 30)
+    .text(5, 2, '*...+....1....+....2....+....3....+....4....+....5....+....6....+....7....+...');
+  SPOOL_LINES.slice(page * SPOOL_PAGE, (page + 1) * SPOOL_PAGE).forEach((line, i) => { if (line) s.text(6 + i, 2, line.slice(0, 78)); });
+  s.text(21, 73, page + 1 >= pages ? 'Bottom' : 'More...')
+    .text(23, 2, 'F3=Exit   F12=Cancel   F19=Left   F20=Right   F24=More keys', BLUE);
+  return s.cursor(3, 20).readMdt().build();
 }
 
 /**

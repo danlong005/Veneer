@@ -44,7 +44,7 @@ fs.mkdirSync(stage, { recursive: true });
 
 for (const f of ['package.json', 'package-lock.json', 'LICENSE', 'README.md', 'deploy']) copy(f);
 copy('.env.example', 'veneer.env.example');
-// Ready-made components (map, bar chart, star rating): sites copy the ones they
+// Ready-made components (lists, charts, maps, spool files…): sites copy the ones they
 // want into their components folder (README, "Custom components").
 copy('packages/server/dev/components', 'examples/components');
 // The built-in themes, which the server finds beside its dist/ folder.

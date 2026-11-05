@@ -5,9 +5,11 @@ import {
   type ButtonAction, type Macro, type MacroAction, type MacroResult, type MacroStart, type MacroStep, type ScreenDefinition, type Target,
 } from '@veneer/screens';
 import { download, fileBase } from '../export/download.ts';
-import { ListExporter, listOf, type Progress, type Step } from '../export/exporter.ts';
+import { ListExporter, MAX_PAGES, PageReader, RowSeeker, listOf, listSource, regionPage, regionSource, tablePage, type Progress, type ReadStep, type SeekStep, type Step, type TablePage, type TextPage } from '../export/exporter.ts';
+import { listData } from '../custom/components.ts';
+import type { ListData, ListRecord, PagesData, ReadListOptions, ReadPagesOptions } from '../custom/runtime.ts';
 import { HelpReader, type HelpPage, type HelpStep } from '../help/help.ts';
-import { toCsv, toXlsx } from '../export/sheet.ts';
+import { exportColumns, toCsv, toXlsx } from '../export/sheet.ts';
 import { connectHost, notifyScreen, runScript, runSiteScript, screenInfo, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
 import { MacrosPanel } from '../macros/MacrosPanel.tsx';
@@ -17,7 +19,7 @@ import { cardsOf, componentAt, htmlAt, imageAt, labelAt, moveOf, newDefinition, 
 import { customize } from '../transform/customize.ts';
 import { EMPTY_CONSOLE, nextConsole } from '../transform/console.ts';
 import { transform } from '../transform/index.ts';
-import type { Action, FunctionKey, ScreenView } from '../transform/types.ts';
+import type { Action, FunctionKey, ScreenView, TableItem } from '../transform/types.ts';
 import { ClassicScreen } from './ClassicScreen.tsx';
 import { DropMenu, ExportMenu, type ExportFormat } from './ExportMenu.tsx';
 import { HelpPopover } from './HelpPopover.tsx';
@@ -35,6 +37,23 @@ import { NEW_SESSION, useSession } from './useSession.ts';
 import { SignOnPage } from './SignOnPage.tsx';
 
 type Mode = 'modern' | 'classic';
+
+/** A step from any paging job: a key to send, or done (with what it found). */
+type JobStep = Step | ReadStep<TablePage> | ReadStep<TextPage> | SeekStep;
+
+/** Something paging through the host for the user (see export/exporter.ts). */
+interface ListJob {
+  /** The progress dialog's heading. */
+  title: string;
+  runner: { onScreen(view: ScreenView, screenId: string, refused?: boolean): JobStep; cancel(): void; readonly progress: Progress };
+  /** Show the progress dialog only if it takes longer than QUIET_MS. */
+  quiet?: boolean;
+  /** Called with the last step, on the screen it ended on. */
+  done(step: JobStep, from: ScreenSnapshot): void;
+}
+
+/** How long a component's read runs before its progress shows, in ms. */
+const QUIET_MS = 400;
 const MODE_KEY = 'veneer.mode';
 
 function loadMode(): Mode {
@@ -309,36 +328,150 @@ export function App() {
     else setNotice({ id: Date.now(), message: 'This button does not have a valid web address.' });
   };
 
-  // Export: page through the whole list (export/exporter.ts), then download it.
-  const exporting = useRef<{ ex: ListExporter; format: ExportFormat; name: string } | null>(null);
-  const [exportProgress, setExportProgress] = useState<Progress | null>(null);
-  const exportStep = (step: Step, from: ScreenSnapshot) => {
+  // Paging through the host for the user: Export, and components reading a
+  // whole list (readList, readPages) or going to one of its rows (openRow).
+  // One at a time; while one runs, the keyboard is its (Esc cancels).
+  const exporting = useRef<ListJob | null>(null);
+  const [exportProgress, setExportProgress] = useState<{ title: string; progress: Progress } | null>(null);
+  /** Shows a component's read only if it takes a moment, so a short list doesn't flash a dialog. */
+  const progressTimer = useRef<number | undefined>(undefined);
+  const jobStep = (step: JobStep, from: ScreenSnapshot) => {
     const job = exporting.current;
     if (!job) return;
     if ('send' in step) {
-      setExportProgress(job.ex.progress);
+      if (!job.quiet || exportProgressShown.current) setExportProgress({ title: job.title, progress: job.runner.progress });
       sendAid(step.send, {}, from.cursor);
       return;
     }
     exporting.current = null;
+    window.clearTimeout(progressTimer.current);
+    exportProgressShown.current = false;
     setExportProgress(null);
-    if (step.error) setNotice({ id: Date.now(), message: step.error });
-    if (!step.sheet) return;
-    if (job.format === 'csv') download(`${job.name}.csv`, toCsv(step.sheet), 'text/csv;charset=utf-8');
-    else download(`${job.name}.xlsx`, toXlsx(step.sheet, view?.title ?? 'List'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    job.done(step, from);
+  };
+  const exportProgressShown = useRef(false);
+  /** Starts a job, or says why it can't start. */
+  const startJob = (job: ListJob, first: () => JobStep): string | null => {
+    if (!snap || !view) return 'Not connected to the host.';
+    if (!pageKeys) return 'This host has no page keys to read the list with.';
+    if (exporting.current || helping.current || macroJob.current) return 'Veneer is busy; try again in a moment.';
+    if (!canSubmit) return 'The host is busy; try again in a moment.';
+    if (Object.keys(edits).length > 0) return 'Press Enter or clear your changes first.';
+    exporting.current = job;
+    if (job.quiet) {
+      progressTimer.current = window.setTimeout(() => {
+        const now = exporting.current;
+        if (now !== job) return;
+        exportProgressShown.current = true;
+        setExportProgress({ title: job.title, progress: job.runner.progress });
+      }, QUIET_MS);
+    }
+    jobStep(first(), snap);
+    return null;
   };
   const startExport = (format: ExportFormat) => {
     const table = view && listOf(view);
-    if (!snap || !table || !canSubmit || exporting.current || helping.current) return;
-    if (Object.keys(edits).length > 0) {
-      setNotice({ id: Date.now(), message: 'Press Enter or clear your changes before exporting.' });
-      return;
-    }
+    if (!snap || !table) return;
     const ex = new ListExporter(table, screenId(snap));
-    exporting.current = { ex, format, name: fileBase(view.title) };
-    exportStep(ex.start(), snap);
+    const name = fileBase(view.title);
+    const title = view.title ?? 'List';
+    const problem = startJob({
+      title: 'Exporting list',
+      runner: ex,
+      done: (step) => {
+        if ('error' in step && step.error) setNotice({ id: Date.now(), message: step.error });
+        const sheet = 'sheet' in step ? step.sheet : undefined;
+        if (!sheet) return;
+        if (format === 'csv') download(`${name}.csv`, toCsv(sheet), 'text/csv;charset=utf-8');
+        else download(`${name}.xlsx`, toXlsx(sheet, title), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      },
+    }, () => ex.start());
+    if (problem) setNotice({ id: Date.now(), message: problem.replace('first.', 'before exporting.') });
   };
-  const cancelExport = () => exporting.current?.ex.cancel();
+  const cancelExport = () => exporting.current?.runner.cancel();
+
+  // The last list a component read, to go back to its rows (openRow) and to
+  // answer another component on the same screen without reading it again.
+  const lastList = useRef<{ seq: number; id: string; at: { row: number; col: number }; table: TableItem; pages: TablePage[]; data: ListData } | null>(null);
+  const reading = useRef<{ key: string; promise: Promise<ListData> } | null>(null);
+  const readList = (options: ReadListOptions = {}): Promise<ListData> => {
+    const table = view && listOf(view, options.at);
+    if (!snap || !table) return Promise.reject(new Error('No list on this screen'));
+    const id = screenId(snap);
+    const at = { row: table.row, col: table.col };
+    const key = `${seq}:${id}:${at.row}:${at.col}`;
+    const known = lastList.current;
+    if (known && known.seq === seq && known.id === id && known.at.row === at.row && known.at.col === at.col) return Promise.resolve(known.data);
+    if (reading.current?.key === key) return reading.current.promise;
+    const reader = new PageReader(listSource(table, id), tablePage(table, exportColumns(table)), options.maxPages ?? MAX_PAGES);
+    const promise = new Promise<ListData>((resolve, reject) => {
+      const problem = startJob({
+        title: 'Reading the list',
+        quiet: true,
+        runner: reader,
+        done: (step) => {
+          if (reading.current?.promise === promise) reading.current = null;
+          const s = step as ReadStep<TablePage>;
+          if ('send' in s || !s.pages) { reject(new Error(('error' in s && s.error) || 'Reading the list was cancelled')); return; }
+          const data = listData(table, s.pages, s.current ?? 0, s.complete ?? true);
+          lastList.current = { seq: latest.current.seq, id, at, table, pages: s.pages, data };
+          resolve(data);
+        },
+      }, () => reader.start());
+      if (problem) reject(new Error(problem));
+    });
+    reading.current = { key, promise };
+    promise.catch(() => { if (reading.current?.promise === promise) reading.current = null; });
+    return promise;
+  };
+  const openRow = (record: ListRecord, option: string): Promise<void> => {
+    const known = lastList.current;
+    if (!snap || !view || !known) return Promise.reject(new Error('Read the list first'));
+    const read = known.pages[record.page]?.rows[record.index];
+    if (!read || JSON.stringify(read) !== JSON.stringify(record.cells)) return Promise.reject(new Error('That row is not in the list that was read'));
+    const seeker = new RowSeeker(listSource(known.table, known.id), known.pages, record, option);
+    return new Promise<void>((resolve, reject) => {
+      const problem = startJob({
+        title: 'Going to the row',
+        quiet: true,
+        runner: seeker,
+        done: (step, from) => {
+          const s = step as SeekStep;
+          if (!('done' in s) || !s.fields) {
+            if ('error' in s && s.error) { setNotice({ id: Date.now(), message: s.error }); reject(new Error(s.error)); }
+            else reject(new Error('Cancelled'));
+            return;
+          }
+          const [field] = Object.keys(s.fields);
+          const f = from.fields.find((x) => x.id === field);
+          // The job's own closure is from the screen it started on: send with the newest.
+          latest.current.sendAid('Enter', s.fields, f ? { row: f.row, col: f.col } : from.cursor);
+          resolve();
+        },
+      }, () => seeker.start(view, screenId(snap)));
+      if (problem) reject(new Error(problem));
+    });
+  };
+  const readPages = (options: ReadPagesOptions): Promise<PagesData> => {
+    if (!snap || !view) return Promise.reject(new Error('Not connected to the host'));
+    const from = Math.max(1, Math.floor(options.from));
+    const to = Math.min(snap.rows, Math.floor(options.to));
+    if (!(to >= from)) return Promise.reject(new Error('readPages: "from" and "to" must be rows on the screen, from <= to'));
+    const reader = new PageReader(regionSource(screenId(snap), from, to), regionPage(view, from, to), options.maxPages ?? MAX_PAGES);
+    return new Promise<PagesData>((resolve, reject) => {
+      const problem = startJob({
+        title: 'Reading every page',
+        quiet: true,
+        runner: reader,
+        done: (step) => {
+          const s = step as ReadStep<TextPage>;
+          if ('send' in s || !s.pages) { reject(new Error(('error' in s && s.error) || 'Reading was cancelled')); return; }
+          resolve({ pages: s.pages.map((p) => p.lines), current: s.current ?? 0, complete: s.complete ?? true });
+        },
+      }, () => reader.start());
+      if (problem) reject(new Error(problem));
+    });
+  };
 
   // Macros (@veneer/screens MacroRun): each screen goes to the run, which says
   // what to type and press; keys go through the same checks as a user's.
@@ -477,8 +610,8 @@ export function App() {
 
   // Custom JavaScript (custom/runtime.ts) reads and types into fields and presses keys.
   const sheet = useRef<HTMLFormElement>(null);
-  const latest = useRef({ snap, edits, submit });
-  latest.current = { snap, edits, submit };
+  const latest = useRef({ snap, seq, edits, submit, sendAid, readList, openRow, readPages });
+  latest.current = { snap, seq, edits, submit, sendAid, readList, openRow, readPages };
   useEffect(() => {
     connectHost({
       getField: (id) => {
@@ -487,6 +620,9 @@ export function App() {
       },
       setField: (id, value) => setEdits((e) => ({ ...e, [id]: value })),
       press: (aid, fields) => latest.current.submit(aid, fields),
+      readList: (options) => latest.current.readList(options),
+      openRow: (record, option) => latest.current.openRow(record, option),
+      readPages: (options) => latest.current.readPages(options),
     });
   }, []);
 
@@ -560,7 +696,7 @@ export function App() {
     if (snap.error && exporting.current && view) {
       awaitingNow.current = false;
       setAwaitingSeq(null);
-      exportStep(exporting.current.ex.onScreen(view, screenId(snap), true), snap);
+      jobStep(exporting.current.runner.onScreen(view, screenId(snap), true), snap);
       return;
     }
     // A host error stops a macro, leaving the user on that screen to see it.
@@ -597,7 +733,7 @@ export function App() {
     setNotice(null);
     setAwaitingSeq(null);
     if (exporting.current && view) {
-      exportStep(exporting.current.ex.onScreen(view, screenId(snap)), snap);
+      jobStep(exporting.current.runner.onScreen(view, screenId(snap)), snap);
       return;
     }
     if (macroJob.current) {
@@ -677,7 +813,7 @@ export function App() {
       // While exporting, the keyboard is the exporter's; Esc cancels.
       if (exporting.current) {
         e.preventDefault();
-        if (e.key === 'Escape') exporting.current.ex.cancel();
+        if (e.key === 'Escape') exporting.current.runner.cancel();
         return;
       }
       // While help is open: Esc closes it, Page Down shows more; other keys wait.
@@ -746,7 +882,8 @@ export function App() {
   // An active pop-up window owns the function keys and the message.
   const keys: FunctionKey[] = (screenView?.window ? screenView.window.functionKeys : screenView?.functionKeys) ?? [];
   const message = screenView?.window ? screenView.window.message : screenView?.message;
-  const hasTable = [...(screenView?.items ?? []), ...(screenView?.window?.items ?? [])].some((i) => i.kind === 'table');
+  // Lists a component took the place of still have Export and the page keys.
+  const hasTable = [...(screenView?.items ?? []), ...(screenView?.window?.items ?? []), ...(screenView?.hiddenTables ?? [])].some((i) => i.kind === 'table');
   const busy = typingAhead;
   // Veneer's own sign-on page is up: no host session yet.
   const signingOn = session.signOn !== null && !screenSnap && session.state !== 'closed';
@@ -967,13 +1104,14 @@ export function App() {
       {exportProgress && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="export-title">
           <div className="dialog">
-            <h2 id="export-title">Exporting list</h2>
+            <h2 id="export-title">{exportProgress.title}</h2>
             <p role="status">
-              {exportProgress.phase === 'rewinding' ? 'Going to the top of the list…'
-                : exportProgress.phase === 'paging' ? `Page ${exportProgress.pages}, ${exportProgress.rows} rows so far…`
-                : `${exportProgress.rows} rows. Going back to where you were…`}
+              {exportProgress.progress.phase === 'rewinding' ? 'Going to the top of the list…'
+                : exportProgress.progress.phase === 'paging' ? `Page ${exportProgress.progress.pages}, ${exportProgress.progress.rows} rows so far…`
+                : exportProgress.progress.phase === 'seeking' ? 'Paging to the row…'
+                : `${exportProgress.progress.rows} rows. Going back to where you were…`}
             </p>
-            <button type="button" className="ghost" disabled={exportProgress.phase === 'returning'} onClick={cancelExport}>Cancel (Esc)</button>
+            <button type="button" className="ghost" disabled={exportProgress.progress.phase === 'returning'} onClick={cancelExport}>Cancel (Esc)</button>
           </div>
         </div>
       )}

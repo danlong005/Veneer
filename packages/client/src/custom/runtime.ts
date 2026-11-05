@@ -17,14 +17,77 @@
 //   veneer.getField('6:53')     a field's current value, including what the user typed
 //   veneer.setField('6:53', v)  type into a field
 //   veneer.press('F3', fields?) press a key, optionally filling fields first
+//   veneer.readList(options?)   the whole list, every page (a Promise; see ListData)
+//   veneer.openRow(record, opt) page to a row readList gave and run an option on it
+//   veneer.readPages(options)   every page of a region of the screen (a Promise)
 
+import type { Role } from '@veneer/screens';
 import type { AidName, ScreenSnapshot } from '@veneer/terminal';
+
+/** Which list readList() reads, and how far. */
+export interface ReadListOptions {
+  /** The list starting at this row and column; default the first list on the screen. */
+  at?: { row: number; col: number };
+  /** Stop after this many pages (default 500); `complete` is then false. */
+  maxPages?: number;
+}
+
+/**
+ * A whole list, read page by page. `columns` leave out the option column
+ * (where users type 2=Change), as Export does; `options` are the legend's.
+ */
+export interface ListData {
+  row: number;
+  col: number;
+  columns: string[];
+  /** Every row's cells as text, top to bottom. */
+  rows: string[][];
+  records: ListRecord[];
+  options: Array<{ value: string; label: string }>;
+  /** How many pages were read, and which one the user is on (0 is the top). */
+  pages: number;
+  current: number;
+  /** Each page's key; a list on the screen whose `pageKey` is one of these is showing that page. */
+  pageKeys: string[];
+  /** False when reading stopped at maxPages before the bottom. */
+  complete: boolean;
+}
+
+/** A row of a list that was read. */
+export interface ListRecord {
+  cells: string[];
+  /** The cells untrimmed, so indenting shows. */
+  raw: string[];
+  role: Role | null;
+  /** The row's option field id, or null when it has none. It is only on the screen while its page shows. */
+  option: string | null;
+  /** Its page (0 is the top) and its place on that page. */
+  page: number;
+  index: number;
+}
+
+/** Which rows of the screen readPages() reads. */
+export interface ReadPagesOptions {
+  /** First and last row of the text, 1-based and inclusive. */
+  from: number;
+  to: number;
+  maxPages?: number;
+}
+
+export interface PagesData {
+  /** Each page's lines, untrimmed, top to bottom. */
+  pages: string[][];
+  current: number;
+  complete: boolean;
+}
 
 export interface ScreenInfo {
   /** Structural screen id (see @veneer/screens fingerprint). */
   id: string;
   /** Id of the screen definition applied, if any. */
   definition?: string;
+  /** The kind of host: "5250" (IBM i) or "3270" (mainframe). */
+  host: '5250' | '3270';
   rows: number;
   cols: number;
   /** Screen text, one string per row. */
@@ -37,6 +100,7 @@ export function screenInfo(snap: ScreenSnapshot, id: string, definition?: string
   return {
     id,
     ...(definition ? { definition } : {}),
+    host: snap.host ?? '5250',
     rows: snap.rows,
     cols: snap.cols,
     lines: snap.lines,
@@ -50,6 +114,9 @@ export interface VeneerApi {
   getField(id: string): string | undefined;
   setField(id: string, value: string): void;
   press(aid: AidName, fields?: Record<string, string>): void;
+  readList(options?: ReadListOptions): Promise<ListData>;
+  openRow(record: ListRecord, option: string): Promise<void>;
+  readPages(options: ReadPagesOptions): Promise<PagesData>;
 }
 
 /** What the app provides to scripts. */
@@ -57,7 +124,12 @@ export interface ScriptHost {
   getField(id: string): string | undefined;
   setField(id: string, value: string): void;
   press(aid: AidName, fields?: Record<string, string>): void;
+  readList(options?: ReadListOptions): Promise<ListData>;
+  openRow(record: ListRecord, option: string): Promise<void>;
+  readPages(options: ReadPagesOptions): Promise<PagesData>;
 }
+
+const NOT_CONNECTED = () => Promise.reject(new Error('Not connected to the host'));
 
 type Listener = (screen: ScreenInfo, element: HTMLElement) => void;
 
@@ -76,6 +148,9 @@ export const veneer: VeneerApi = {
   getField: (id) => host?.getField(id),
   setField: (id, value) => host?.setField(id, value),
   press: (aid, fields) => host?.press(aid, fields),
+  readList: (options) => host?.readList(options) ?? NOT_CONNECTED(),
+  openRow: (record, option) => host?.openRow(record, option) ?? NOT_CONNECTED(),
+  readPages: (options) => host?.readPages(options) ?? NOT_CONNECTED(),
 };
 
 declare global {

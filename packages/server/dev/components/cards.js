@@ -76,7 +76,7 @@ export function pickTable(tables, s) {
 function optionColumn(table) {
   for (const r of table.records ?? []) {
     if (r.option) {
-      const k = r.fields.indexOf(r.option);
+      const k = r.fields?.indexOf(r.option) ?? -1;
       if (k >= 0) return k;
     }
   }

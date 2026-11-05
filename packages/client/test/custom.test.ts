@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { connectHost, declaredFunctions, notifyScreen, runScript, runSiteScript, setScreen, veneer, type ScreenInfo } from '../src/custom/runtime.ts';
 
 const element = {} as HTMLElement;
-const screen: ScreenInfo = { id: 'abc123', rows: 24, cols: 80, lines: [], fields: [{ id: '6:53', row: 6, col: 53, length: 10, value: 'X' }] };
+const screen: ScreenInfo = { id: 'abc123', host: '5250', rows: 24, cols: 80, lines: [], fields: [{ id: '6:53', row: 6, col: 53, length: 10, value: 'X' }] };
 
 test('scripts get veneer, the screen and the element, and may return a cleanup', () => {
   const calls: string[] = [];
@@ -11,6 +11,9 @@ test('scripts get veneer, the screen and the element, and may return a cleanup',
     getField: (id) => (id === '6:53' ? 'X' : undefined),
     setField: (id, value) => calls.push(`set ${id}=${value}`),
     press: (aid) => calls.push(`press ${aid}`),
+    readList: () => Promise.reject(new Error('none')),
+    openRow: () => Promise.resolve(),
+    readPages: () => Promise.reject(new Error('none')),
   });
   setScreen(screen, element);
   const result = runScript(

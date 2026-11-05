@@ -17,8 +17,12 @@
 import type { ComponentOptions, Role } from '@veneer/screens';
 import type { AidName } from '@veneer/terminal';
 import { useSyncExternalStore } from 'react';
+import { exportColumns, headerOf } from '../export/sheet.ts';
+import { listOf, tablePage, type TablePage } from '../export/exporter.ts';
 import type { ScreenView, TableItem } from '../transform/types.ts';
-import type { ScreenInfo } from './runtime.ts';
+import type { ListData, ListRecord, PagesData, ReadListOptions, ReadPagesOptions, ScreenInfo } from './runtime.ts';
+
+export type { ListData, ListRecord, PagesData, ReadListOptions, ReadPagesOptions } from './runtime.ts';
 
 /** A list on the screen, as text: a heading and a cell per column. */
 export interface TableInfo {
@@ -35,6 +39,8 @@ export interface TableInfo {
   more: boolean;
   /** A customization hid the list (a component is taking its place). */
   hidden: boolean;
+  /** The page's text, the way readList() keys its pages: which page that was read is showing. */
+  pageKey: string;
 }
 
 /** One row of a list. */
@@ -50,6 +56,8 @@ export interface TableRecord {
   role: Role | null;
   /** Each cell's role: from a style rule, or the host's color. */
   roles: Role[];
+  /** The cells untrimmed, so indenting shows. */
+  raw: string[];
 }
 
 /**
@@ -70,6 +78,7 @@ export function tablesOf(view: ScreenView): TableInfo[] {
         option: r.cells.find((c) => c.options && c.field && !c.field.bypass)?.field!.id ?? null,
         role: r.role ?? null,
         roles: r.cells.map((c) => c.role),
+        raw: r.cells.map((c) => c.field?.value ?? c.text),
       };
     });
     return {
@@ -78,11 +87,51 @@ export function tablesOf(view: ScreenView): TableInfo[] {
       columns: t.columns.map((c) => c.header.trim()),
       rows: records.map((r) => r.cells),
       records,
-      options: (t.rows.flatMap((r) => r.cells).find((c) => c.options)?.options ?? []).map((o) => ({ value: o.value, label: o.label })),
+      options: legendOf(t),
       more: t.more,
       hidden: !!t.hidden,
+      pageKey: pageKey(tablePage(t, exportColumns(t))),
     };
   });
+}
+
+/** A page's key: the same text, the same key. */
+const pageKey = (page: TablePage) => JSON.stringify(page.rows);
+
+/** The list's legend options ("2=Change  5=Display"). */
+function legendOf(table: TableItem): Array<{ value: string; label: string }> {
+  return (table.rows.flatMap((r) => r.cells).find((c) => c.options)?.options ?? []).map((o) => ({ value: o.value, label: o.label }));
+}
+
+/**
+ * A whole list as components get it from readList(): the pages read, top to
+ * bottom, as one list of records. `current` is the user's page.
+ */
+export function listData(table: TableItem, pages: TablePage[], current: number, complete: boolean): ListData {
+  const columns = exportColumns(table);
+  const records = pages.flatMap((p, page) => p.rows.map((cells, index): ListRecord => ({
+    cells, raw: p.raw[index]!, role: p.roles[index] ?? null, option: p.options[index] ?? null, page, index,
+  })));
+  return {
+    row: table.row,
+    col: table.col,
+    columns: headerOf(table, columns).map((h) => h.trim()),
+    rows: records.map((r) => r.cells),
+    records,
+    options: legendOf(table),
+    pages: pages.length,
+    pageKeys: pages.map(pageKey),
+    current,
+    complete,
+  };
+}
+
+/** The list's page showing now, as readList() gives it (in the designer, which sends no keys). */
+export function visibleList(view: ScreenView, at?: { row: number; col: number }): ListData | undefined {
+  const table = listOf(view, at);
+  if (!table) return undefined;
+  const page = tablePage(table, exportColumns(table));
+  return listData(table, [page], 0, !table.more);
 }
 
 export interface ComponentContext {
@@ -97,6 +146,15 @@ export interface ComponentContext {
   getField(id: string): string | undefined;
   setField(id: string, value: string): void;
   press(aid: AidName, fields?: Record<string, string>): void;
+  /**
+   * The whole list: pages to the top, down to the bottom and back, as Export
+   * does. In the designer, only the page showing.
+   */
+  readList(options?: ReadListOptions): Promise<ListData>;
+  /** Pages to a row readList() returned and runs an option on it (types it, presses Enter). */
+  openRow(record: ListRecord, option: string): Promise<void>;
+  /** Every page of a region of the screen (rows from..to), such as a spool file's text. */
+  readPages(options: ReadPagesOptions): Promise<PagesData>;
   /** True in the designer, where keys are not sent. */
   design: boolean;
 }

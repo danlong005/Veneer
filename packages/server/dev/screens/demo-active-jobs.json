@@ -1,0 +1,125 @@
+{
+  "id": "demo-active-jobs",
+  "name": "Demo active jobs",
+  "match": {
+    "text": [
+      {
+        "row": 1,
+        "col": 30,
+        "text": "Work with Active Jobs"
+      }
+    ]
+  },
+  "changes": [
+    {
+      "op": "hide",
+      "at": {
+        "row": 6,
+        "col": 2
+      }
+    },
+    {
+      "op": "hide",
+      "at": {
+        "row": 7,
+        "col": 3
+      }
+    },
+    {
+      "op": "hide",
+      "at": {
+        "row": 8,
+        "col": 3
+      }
+    },
+    {
+      "op": "hide",
+      "at": {
+        "row": 8,
+        "col": 31
+      }
+    },
+    {
+      "op": "hide",
+      "at": {
+        "row": 10,
+        "col": 2
+      }
+    },
+    {
+      "op": "hide",
+      "at": {
+        "row": 20,
+        "col": 73
+      }
+    },
+    {
+      "op": "style",
+      "when": {
+        "column": "Status",
+        "equals": "MSGW"
+      },
+      "role": "danger",
+      "target": "row"
+    },
+    {
+      "op": "component",
+      "name": "list-table",
+      "at": {
+        "row": 6,
+        "col": 2
+      },
+      "width": 79,
+      "height": 12,
+      "options": {
+        "filters": [
+          "Type",
+          "Status"
+        ],
+        "actions": [
+          "5",
+          "4"
+        ],
+        "default": "5"
+      }
+    },
+    {
+      "op": "component",
+      "name": "totals",
+      "at": {
+        "row": 18,
+        "col": 2
+      },
+      "width": 60,
+      "height": 3,
+      "options": {
+        "list": "all",
+        "totals": [
+          {
+            "of": "count",
+            "label": "jobs"
+          },
+          {
+            "of": "count",
+            "where": {
+              "Type": "INT"
+            },
+            "label": "interactive"
+          },
+          {
+            "of": "count",
+            "where": {
+              "Status": "MSGW"
+            },
+            "label": "waiting for a reply"
+          },
+          {
+            "of": "sum",
+            "column": "CPU %",
+            "label": "CPU %"
+          }
+        ]
+      }
+    }
+  ]
+}

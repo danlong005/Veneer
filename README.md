@@ -744,6 +744,9 @@ others' before the next redraw. `veneer` (also `window.veneer`) offers:
 - `veneer.getField('6:53')`, `veneer.setField('6:53', 'X')`: read a field, or type into it.
 - `veneer.press('F3')`, `veneer.press('Enter', { '6:53': 'X' })`: press a key, optionally
   filling fields first.
+- `veneer.readList()`, `veneer.openRow(record, '5')`, `veneer.readPages({ from, to })`: read
+  a whole list or every page of a screen, and go back to a row, as components do
+  ([below](#custom-components)).
 
 The app root carries `data-screen="<definition id>"`, so site CSS can target one screen.
 Scripts pause while designing; **Test script** runs the draft once. A changed page-load
@@ -782,19 +785,37 @@ The module exports `mount(element, ctx)`, and optionally a `label`. `mount` draw
 newest `ctx` it is given. `ctx` has:
 
 - `options`: the change's options.
-- `screen`: `{ id, definition, rows, cols, lines, fields }`, as for scripts.
+- `screen`: `{ id, definition, host, rows, cols, lines, fields }`, as for scripts (`host` is
+  `"5250"` or `"3270"`).
 - `tables`: the lists on the screen, in screen order, including lists the definition hides
   (so a component can take a list's place). Each is
-  `{ row, col, columns, rows, records, options, more, hidden }`: `columns` are the headings,
-  `rows` each row's cells as text, `options` the legend's options (`[{ value: "5", label:
-  "Display" }]`), `more` whether paging down shows more, and `hidden` whether the definition
-  hides it. `records` are the same rows with more detail: `{ row, cells, fields, option, role,
-  roles }`, where `fields` holds each cell's input field id (or `null`), `option` is the
-  row's option field id (or `null`), `role` the role a style rule gave the row, and `roles`
-  each cell's role. To pick an option on a row, `press('Enter', { [record.option]: '5' })`.
+  `{ row, col, columns, rows, records, options, more, hidden, pageKey }`: `columns` are the
+  headings, `rows` each row's cells as text, `options` the legend's options (`[{ value: "5",
+  label: "Display" }]`), `more` whether paging down shows more, `hidden` whether the
+  definition hides it, and `pageKey` names the page showing (one of `readList`'s `pageKeys`
+  when that page was read). `records` are the same rows with more detail: `{ row, cells, raw,
+  fields, option, role, roles }`, where `raw` is the cells untrimmed (to see indenting),
+  `fields` holds each cell's input field id (or `null`), `option` is the row's option field
+  id (or `null`), `role` the role a style rule gave the row, and `roles` each cell's role. To
+  pick an option on a row, `press('Enter', { [record.option]: '5' })`.
 - For a field: `field` (`{ id, length }`), `value` and `setValue(text)`, which types into it.
 - `getField(id)`, `setField(id, text)` and `press(key, fields?)`, which go through the
   same path as the user typing and pressing keys.
+- `readList({ at?, maxPages? })`: the whole list (the first on the screen, or the one at
+  `at`), read as Export reads it: to the top, down to the bottom and back to the user's page,
+  with Export's progress and Cancel for a long one. It resolves to `{ columns, rows, records,
+  options, pages, current, pageKeys, complete }`, where `columns` leave out the option column
+  as Export does, each record is `{ cells, raw, role, option, page, index }`, and `complete`
+  is false if it stopped at `maxPages` (default 500). Components on the same screen share one
+  reading. It rejects (with a message to show) when something typed hasn't been sent yet,
+  another reading is running, or the user cancels. In the designer it gives the page showing.
+- `openRow(record, option)`: pages from wherever the list is to a record `readList` gave,
+  types the option into its row and presses Enter. It rejects, and tells the user, if that
+  page no longer looks as it did when read.
+- `readPages({ from, to, maxPages? })`: every page of rows `from` to `to` (1-based) of the
+  screen, such as a spooled file's text: `{ pages, current, complete }`, each page its lines.
+  The last page is the one showing "Bottom" or "BOTTOM OF DATA", or where Page Down stops
+  moving.
 - `design`: true in the designer, where typing and keys do nothing.
 
 ```js
@@ -811,15 +832,32 @@ with the page's full rights, like designers' scripts, so only install code you h
 
 ### Ready-made components
 
-Veneer comes with four components, in `examples/components/` of the release (in the
-repo: `packages/server/dev/components/`, which `npm run demo` uses):
+Veneer comes with sixteen components, in `examples/components/` of the release (in the
+repo: `packages/server/dev/components/`, which `npm run demo` uses).
+**[The components guide](docs/components.md)** covers each one's options and use.
 
 | Component | Shows |
 | --- | --- |
-| `map.js` | An address from the screen on a map ([below](#map-component)) |
+| `list-table.js` | Every row of a list in one table, to sort, filter and search ([guide](docs/components.md#whole-list-table)) |
+| `totals.js` | Count, sum, average, lowest or highest of a list's columns, as tiles ([guide](docs/components.md#totals)) |
+| `bar-chart.js` | A list's columns as bars, stacked bars, lines, a pie or donut, or a sparkline ([guide](docs/components.md#chart)) |
+| `board.js` | A list's rows as cards in a column per status ([guide](docs/components.md#board)) |
+| `calendar.js` | A list's rows on a month or week calendar, by a date column ([guide](docs/components.md#calendar)) |
+| `tree.js` | An indented list (a bill of materials, folders) as a tree that opens and closes ([guide](docs/components.md#tree)) |
+| `pin-map.js` | Every row of a list as a pin on one map ([guide](docs/components.md#pin-map)) |
 | `cards.js` | A list as cards, one per row, with the list's options as buttons ([below](#card-view-component)) |
-| `bar-chart.js` | A column of a list as a bar chart |
+| `spool.js` | A spooled file (DSPSPLF, SDSF) as one document to scroll, search and download ([guide](docs/components.md#spool-file)) |
+| `scanner.js` | A camera button beside a field that types the barcode it reads ([guide](docs/components.md#barcode-scanner)) |
+| `help-panel.js` | Help for a screen, written in Markdown, opened by F1 or a button ([guide](docs/components.md#help-panel)) |
+| `embed.js` | A page from another system, its address built from the screen ([guide](docs/components.md#embedded-page)) |
+| `timeline.js` | A status as steps: Ordered → Shipped → Delivered ([guide](docs/components.md#status-timeline)) |
+| `map.js` | An address from the screen on a map ([below](#map-component)) |
 | `star-rating.js` | A one-digit field as stars |
+
+The components that show a list can read **the whole list**, not just the page showing: they
+page through it as Export does and come back to the user's page, and an option on a row
+pages to that row and runs it. They share code in the `lib/` folder; copy it along with
+them. The board also needs `cards.js`, and the pin map `map.js`.
 
 To install one, copy it into the server's components folder (`VENEER_COMPONENTS_DIR`) and
 restart Veneer. On a server install, keep components outside the program directory, next

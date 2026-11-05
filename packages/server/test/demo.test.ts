@@ -14,7 +14,10 @@ import { customize } from '../../client/src/transform/customize.ts';
 import { transform } from '../../client/src/transform/index.ts';
 import * as cards from '../dev/components/cards.js';
 import * as map from '../dev/components/map.js';
-import { CONTACTS, CONTACTS_PAGE, CUSTOMERS, DemoHost, NOTE_ROWS, SHIP_VIA, contacts, customerAddresses, orderEntry, shippingNotes } from '../dev/demoHost.ts';
+import * as listTable from '../dev/components/list-table.js';
+import * as spool from '../dev/components/spool.js';
+import * as totals from '../dev/components/totals.js';
+import { CONTACTS, CONTACTS_PAGE, CUSTOMERS, DemoHost, NOTE_ROWS, SHIP_VIA, SPOOL_LINES, SPOOL_PAGE, contacts, customerAddresses, jobs, orderEntry, shippingNotes, spoolFile } from '../dev/demoHost.ts';
 import { stepValue } from '../../client/src/ui/spinner.ts';
 import { fitText, textOf } from '../../client/src/ui/textArea.ts';
 
@@ -292,4 +295,42 @@ test('the demo host signs on automatically with the password "demo", at either p
     assert.match(expired.title, /Sign On/);
   }
   assert.equal((await attempt('disabled', 'demo', 'sha')).outcome.code, '0003');
+});
+
+// ---- WRKACTJOB: the whole-list table and totals
+
+test('the active jobs definition puts a whole-list table and totals on the jobs list', () => {
+  const def = definitions.find((d) => d.id === 'demo-active-jobs')!;
+  const snap = screen(jobs(0));
+  assert.equal(matchScreen(snap, definitions)?.id, 'demo-active-jobs');
+  const [list] = tablesOf(customize(transform(snap), def));
+  assert.ok(list?.hidden, 'the table takes the list\'s place');
+  const options = (name: string) => (def.changes.find((c) => c.op === 'component' && c.name === name) as { options: Record<string, unknown> }).options;
+  const s = listTable.settings(options('list-table'));
+  assert.equal(s.error, '');
+  for (const h of s.filters) assert.ok(list!.columns.some((c) => c.toLowerCase() === h.toLowerCase()), `a "${h}" column`);
+  assert.ok(list!.options.some((o) => o.value === s.default), 'its default option is in the legend');
+  const t = totals.settings(options('totals'));
+  assert.equal(t.error, '');
+  for (const total of t.totals) {
+    for (const h of [total.column, ...Object.keys(total.where)].filter(Boolean)) assert.ok(list!.columns.includes(h), `a "${h}" column`);
+  }
+});
+
+// ---- DSPSPLF: the spool file viewer
+
+test('the demo spool file: a page at a time under the ruler, "Bottom" on the last', () => {
+  const pages = Math.ceil(SPOOL_LINES.length / SPOOL_PAGE);
+  assert.ok(pages >= 3);
+  const first = screen(spoolFile(0));
+  const last = screen(spoolFile(pages - 1));
+  assert.equal(matchScreen(first, definitions)?.id, 'demo-spool-file');
+  const region = spool.regionOf(first.lines, spool.settings({}));
+  assert.deepEqual(region, { from: 6, to: 6 + SPOOL_PAGE - 1 }, 'the rows of report text');
+  assert.equal(spool.fileName(first.lines), 'QPSLS210');
+  assert.match(first.lines[20]!, /More\.\.\./);
+  assert.match(last.lines[20]!, /Bottom/);
+  const text = spool.documentOf(Array.from({ length: pages }, (_, p) => screen(spoolFile(p)).lines.slice(region.from! - 1, region.to)));
+  assert.deepEqual(text, spool.documentOf([SPOOL_LINES.map((l) => ` ${l}`)]), 'every line of the report, in order');
+  assert.ok(SPOOL_LINES.every((l) => l.length <= 78), 'each line fits the screen');
 });
