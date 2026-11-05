@@ -1,11 +1,11 @@
 // An input bound to a host field, shared by the modern and classic views.
 
-import { hostToIso, isoToHost, type Widget } from '@veneer/screens';
-import type { FieldSnapshot } from '@veneer/terminal';
+import { hostToIso, hostToTime, isoToHost, timeHasSeconds, timeToHost, type Widget } from '@veneer/screens';
+import type { AidName, FieldSnapshot } from '@veneer/terminal';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Option } from '../transform/types.ts';
 import { filterValue, isNumeric, overtyped, withSign, isShortField } from './fieldRules.ts';
-import { RadioField, SpinnerField, TextAreaField } from './widgets.tsx';
+import { LookupField, MaskField, RadioField, SpinnerField, TextAreaField } from './widgets.tsx';
 
 export interface FieldBinding {
   value: (f: FieldSnapshot) => string;
@@ -14,6 +14,8 @@ export interface FieldBinding {
   onAutoEnter: (f: FieldSnapshot, value: string) => void;
   /** Typing replaces the character at the caret (a 3270 with Insert off) rather than inserting. */
   overtype?: boolean;
+  /** Press a key with the cursor in a field, such as a lookup's F4 prompt. */
+  onKey?: (f: FieldSnapshot, aid: AidName) => void;
 }
 
 const NUMERIC_KEYBOARD: ReadonlySet<string | undefined> = new Set(['numericOnly', 'digitsOnly', 'signedNumeric']);
@@ -47,6 +49,43 @@ export function FieldInput(props: {
   if (widget?.type === 'radio') return <RadioField {...common} widget={widget} />;
   if (widget?.type === 'spinner') return <SpinnerField {...common} widget={widget} />;
   if (widget?.type === 'textarea' && props.parts && props.parts.length > 0) return <TextAreaField {...common} parts={props.parts} />;
+  if (widget?.type === 'mask') return <MaskField {...common} widget={widget} />;
+  if (widget?.type === 'lookup') return <LookupField {...common} widget={widget} />;
+
+  if (widget?.type === 'toggle') {
+    const on = value.trim() === widget.on.trim();
+    return (
+      <span className="toggle-field" style={style}>
+        <input
+          type="checkbox"
+          role="switch"
+          data-field={field.id}
+          data-at={props.dataAt}
+          aria-label={label}
+          aria-checked={on}
+          checked={on}
+          onChange={(e) => binding.onChange(field, e.target.checked ? widget.on : widget.off)}
+        />
+      </span>
+    );
+  }
+
+  if (widget?.type === 'time') {
+    return (
+      <input
+        className={`${className} time-field`}
+        style={style}
+        type="time"
+        step={timeHasSeconds(widget.format) ? 1 : 60}
+        data-field={field.id}
+        data-at={props.dataAt}
+        readOnly={readOnly}
+        aria-label={label}
+        value={hostToTime(value, widget.format)}
+        onChange={(e) => binding.onChange(field, timeToHost(e.target.value, widget.format))}
+      />
+    );
+  }
 
   if (widget?.type === 'checkbox') {
     return (

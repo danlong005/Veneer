@@ -1,7 +1,7 @@
 // One line per change in a definition, for the designer's Changes list:
 // what it does, and where on the screen (to select it), if anywhere.
 
-import { testOf, type Change, type Target } from '@veneer/screens';
+import { testOf, type Change, type DisplayType, type Target, type WidgetType } from '@veneer/screens';
 import type { ScreenSnapshot } from '@veneer/terminal';
 import type { ScreenView } from '../transform/types.ts';
 import { ROLE_LABELS } from './edit.ts';
@@ -21,8 +21,13 @@ const fieldAt = (id: string): Target => {
 };
 
 const WIDGET_LABELS = {
-  select: 'a drop-down list', checkbox: 'a checkbox', date: 'a date picker', radio: 'radio buttons', spinner: 'a spinner', textarea: 'a text area',
-} as const;
+  select: 'a drop-down list', checkbox: 'a checkbox', toggle: 'a switch', date: 'a date picker', time: 'a time picker', radio: 'radio buttons',
+  spinner: 'a spinner', textarea: 'a text area', mask: 'a masked input', lookup: 'a lookup',
+} as const satisfies Record<WidgetType, string>;
+
+export const DISPLAY_LABELS = {
+  badge: 'a status badge', number: 'a number', date: 'a date', yesno: 'yes or no', link: 'a link', progress: 'a progress bar', barcode: 'a barcode',
+} as const satisfies Record<DisplayType, string>;
 
 export function describeChange(change: Change, view: ScreenView, snap: ScreenSnapshot): ChangeLine {
   const name = (at: Target) => nameAt(view, snap, at);
@@ -63,6 +68,16 @@ export function describeChange(change: Change, view: ScreenView, snap: ScreenSna
       const text = change.html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       return { label: `HTML ${text ? `“${clip(text)}”` : '(no text)'}`, at: change.at };
     }
+    case 'display': {
+      const what = change.display.type === 'barcode' ? `a ${change.display.format === 'qr' ? 'QR code' : 'barcode'}` : DISPLAY_LABELS[change.display.type];
+      return change.at
+        ? { label: `Show ${name(change.at)} as ${what}`, at: change.at }
+        : { label: `Show column “${clip(change.column ?? '')}” as ${what}` };
+    }
+    case 'label':
+      return { label: `Label “${clip(change.text)}”`, at: change.at };
+    case 'image':
+      return { label: `Image ${change.alt ? `“${clip(change.alt)}”` : clip(change.src)}`, at: change.at };
   }
 }
 

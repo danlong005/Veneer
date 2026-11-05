@@ -1,7 +1,7 @@
 import type { AidName, ScreenSnapshot } from '@veneer/terminal';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DefinitionError, MacroRun, fillText, fillUrl, macroValues, matchScreen, screenId,
+  DefinitionError, MacroRun, fillText, fillUrl, macroValues, matchScreen, screenId, themeBase,
   type ButtonAction, type Macro, type MacroAction, type MacroResult, type MacroStart, type MacroStep, type ScreenDefinition, type Target,
 } from '@veneer/screens';
 import { download, fileBase } from '../export/download.ts';
@@ -13,7 +13,7 @@ import { DesignPanel } from '../designer/DesignPanel.tsx';
 import { MacrosPanel } from '../macros/MacrosPanel.tsx';
 import { linkedMacro, macroFieldCheck, recordStep } from '../macros/edit.ts';
 import { record, redo, startHistory, undo, type History } from '../designer/history.ts';
-import { cardsOf, componentAt, htmlAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove, toggleTextAreaField } from '../designer/edit.ts';
+import { cardsOf, componentAt, htmlAt, imageAt, labelAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove, setPlaced, toggleTextAreaField } from '../designer/edit.ts';
 import { customize } from '../transform/customize.ts';
 import { EMPTY_CONSOLE, nextConsole } from '../transform/console.ts';
 import { transform } from '../transform/index.ts';
@@ -101,8 +101,8 @@ export function App() {
     return consoleLog.current.history;
   }, [snap]);
   const view = useMemo(
-    () => (baseView ? customize(baseView, designing ? draft : definition, { design: designView }) : null),
-    [baseView, definition, draft, designing, designView],
+    () => (baseView ? customize(baseView, designing ? draft : definition, { design: designView, themeBase: screens.theme ? themeBase(screens.theme.name) : undefined }) : null),
+    [baseView, definition, draft, designing, designView, screens.theme],
   );
   const selection = useMemo(
     () => (designing && view && snap && selectedAt ? resolveSelection(view, snap, selectedAt) : null),
@@ -162,6 +162,13 @@ export function App() {
       setSelectedAt(to);
       return;
     }
+    const placed = labelAt(draft, at) ?? imageAt(draft, at);
+    if (placed) {
+      const to = clamp(at);
+      setDraft(setPlaced(draft, at, { ...placed, at: to }));
+      setSelectedAt(to);
+      return;
+    }
     setDraft(setMove(draft, at, clamp(moveOf(draft, at) ?? at)));
   };
   const resizeBox = (at: Target, size: { width: number; height: number }, kind: BoxKind) => {
@@ -179,6 +186,14 @@ export function App() {
       const { op: _op, ...rest } = c;
       setDraft(setComponent(draft, at, {
         ...rest, width: Math.min(snap.cols, Math.max(1, size.width)), height: Math.min(snap.rows, Math.max(1, size.height)),
+      }));
+      return;
+    }
+    if (kind === 'image') {
+      const image = draft && snap ? imageAt(draft, at) : undefined;
+      if (!draft || !snap || !image) return;
+      setDraft(setPlaced(draft, at, {
+        ...image, width: Math.min(snap.cols, Math.max(1, size.width)), height: Math.min(snap.rows, Math.max(1, size.height)),
       }));
       return;
     }
@@ -237,7 +252,7 @@ export function App() {
     session.send({ type: 'submit', aid, fields, cursor });
   }, [snap, seq, session, view]);
 
-  const submit = useCallback((aid: AidName, extra: Record<string, string> = {}) => {
+  const submit = useCallback((aid: AidName, extra: Record<string, string> = {}, cursor?: { row: number; col: number }) => {
     if (!snap || !canSubmit || helping.current) return;
     const values = { ...edits, ...extra };
     if (aid === 'Enter') {
@@ -249,13 +264,14 @@ export function App() {
         return;
       }
     }
-    sendAid(aid, values, currentCursor(snap, clickedCursor.current));
+    sendAid(aid, values, cursor ?? currentCursor(snap, clickedCursor.current));
   }, [snap, canSubmit, edits, sendAid]);
 
   const binding: FieldBinding = useMemo(() => ({
     value: (f) => edits[f.id] ?? f.value,
     onChange: (f, value) => setEdits((e) => ({ ...e, [f.id]: value })),
     onAutoEnter: (f, value) => submit('Enter', { [f.id]: value }),
+    onKey: (f, aid) => submit(aid, {}, { row: f.row, col: f.col }),
     overtype,
   }), [edits, submit, overtype]);
 

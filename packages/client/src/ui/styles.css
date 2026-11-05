@@ -233,6 +233,30 @@ button.ghost:hover { background: var(--surface-2); }
 .radio-choice input { width: 1em; height: 1em; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .radio-choice input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Switch: a checkbox drawn as an on/off track and knob. */
+.toggle-field { height: var(--rh); display: inline-flex; align-items: center; }
+.toggle-field input {
+  appearance: none; width: 2.2em; height: 1.25em; margin: 0; border-radius: 1em; cursor: pointer;
+  background: var(--border); position: relative; transition: background 0.15s;
+}
+.toggle-field input::after {
+  content: ""; position: absolute; top: 0.15em; left: 0.15em; width: 0.95em; height: 0.95em; border-radius: 50%;
+  background: var(--surface); box-shadow: 0 1px 2px rgb(0 0 0 / 25%); transition: transform 0.15s;
+}
+.toggle-field input:checked { background: var(--accent); }
+.toggle-field input:checked::after { transform: translateX(0.95em); }
+.toggle-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.time-field { font-family: var(--font); min-width: 8em; }
+.mask-field::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+/* Lookup: the field, with a look-up button after it when it has a prompt key. */
+.lookup-field { display: inline-flex; align-items: flex-start; gap: 2px; height: var(--rh); white-space: nowrap; }
+.lookup-prompt {
+  margin-top: 3px; height: calc(var(--rh) - 6px); width: 22px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-small);
+  background: var(--surface-2); color: var(--text-muted); cursor: pointer; display: grid; place-items: center;
+}
+.lookup-prompt:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+
 /* Spinner: the field, with up/down buttons inside its right edge. */
 .spinner-field { display: inline-flex; height: var(--rh); min-width: calc(6 * var(--cw) + 24px); }
 .spinner-field .field { width: 100%; padding-right: 22px; }
@@ -712,3 +736,56 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .macro-param { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); }
 .macro-param-head { display: flex; align-items: center; gap: 8px; }
 .macro-param-head .ghost { margin-left: auto; padding: 2px 8px; }
+
+/* ---- Output text shown differently (display changes) ---- */
+.text.display { white-space: nowrap; }
+.text.display-number { text-align: right; font-variant-numeric: tabular-nums; }
+.badge {
+  display: inline-block; padding: 0 0.6em; border-radius: 999px; line-height: 1.5em; font-size: 0.9em; font-weight: 600;
+  background: var(--info-soft); color: var(--text-strong); vertical-align: middle;
+}
+.badge-emphasis { background: var(--surface-2); color: var(--text-strong); box-shadow: inset 0 0 0 1px var(--border); }
+.badge-muted { background: var(--surface-2); color: var(--text-muted); }
+.badge-danger { background: var(--danger-soft); color: var(--danger); }
+.badge-warning { background: var(--warning-soft); color: var(--warning); }
+.badge-accent { background: var(--accent-soft); color: var(--accent); }
+.badge-accent2 { background: var(--accent2-soft); color: var(--accent-2); }
+.yesno.yes { color: var(--accent); }
+.yesno.no { color: var(--text-muted); }
+.display-link { color: var(--accent); text-underline-offset: 3px; }
+.progress {
+  display: inline-flex; align-items: center; position: relative; vertical-align: middle;
+  width: max(8em, 100%); height: 1.2em; border-radius: 999px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); overflow: hidden;
+}
+.progress-bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent-soft); box-shadow: inset -2px 0 0 var(--accent); }
+.progress-text { position: relative; padding: 0 0.6em; font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.barcode { display: inline-flex; flex-direction: column; align-items: center; vertical-align: top; }
+.barcode.qr { aspect-ratio: 1; background: #fff; border-radius: 2px; }
+.barcode.code128 svg { flex: 1; min-height: 0; background: #fff; }
+.barcode-text { font-family: var(--mono); font-size: 0.75em; line-height: 1.3; letter-spacing: 0.1em; }
+.td .badge { line-height: 1.4em; }
+/* In a list the bar fills its cell, so it stays within its column. */
+.td .progress { width: calc(100% - 4px); min-width: 0; height: 1.1em; }
+
+/* ---- Labels and images (label and image changes) ---- */
+.label { line-height: var(--rh); white-space: nowrap; }
+.label-heading { font-size: 1.25em; font-weight: 650; color: var(--text-strong); line-height: calc(var(--rh) / 1.25); }
+.label-subheading { font-weight: 600; color: var(--text-strong); }
+.label-note { font-size: 0.85em; color: var(--text-muted); }
+.help-tip { position: relative; display: inline-block; margin-left: 0.35em; }
+.help-tip-icon {
+  border: 0; padding: 0; background: none; color: var(--text-muted); cursor: help; font: inherit; font-size: 0.95em; line-height: 1;
+}
+.help-tip-icon:hover, .help-tip-icon:focus-visible { color: var(--accent); }
+.help-tip-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 50%; }
+.help-tip-text {
+  display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); z-index: 20;
+  width: max-content; max-width: 28em; padding: 6px 10px; border-radius: var(--radius); background: var(--text-strong); color: var(--surface);
+  font-size: 0.85em; font-weight: 400; line-height: 1.4; white-space: normal; box-shadow: var(--shadow);
+}
+.help-tip:hover .help-tip-text, .help-tip:focus-within .help-tip-text { display: block; }
+.screen-image { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.screen-image img { width: 100%; height: 100%; display: block; }
+.screen-image-alt { display: none; color: var(--text-muted); font-size: 0.85em; text-align: center; white-space: normal; padding: 0 4px; }
+.screen-image.broken .screen-image-alt, .screen-image:not(:has(img)) .screen-image-alt { display: block; }
+.canvas.designing .screen-image { outline: 1px dashed var(--accent-2); }

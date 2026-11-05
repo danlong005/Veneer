@@ -1,19 +1,26 @@
 // Applies a screen definition's changes to an auto-transformed view. Items are
 // found by their screen position, so changes survive data changing on screen.
 
-import { conditionTester, type Change, type ScreenDefinition, type Target } from '@veneer/screens';
-import type { ComponentItem, FieldItem, HtmlItem, Item, ScreenView, TableItem } from './types.ts';
+import { THEME_FILE, conditionTester, imageUrl, type Change, type ScreenDefinition, type Target } from '@veneer/screens';
+import type { ComponentItem, FieldItem, HtmlItem, ImageItem, Item, LabelItem, ScreenView, TableItem } from './types.ts';
 
 export interface CustomizeOptions {
   /** Designer mode: keep hidden items (marked hidden) so they can be selected. */
   design?: boolean;
+  /** Where the theme in use keeps its images (themeBase), for images named by file. */
+  themeBase?: string | undefined;
 }
 
 /** Rows an item covers. */
-export const heightOf = (i: Item) => (i.kind === 'table' || i.kind === 'html' || i.kind === 'component' ? i.height : 1);
+export function heightOf(i: Item): number {
+  if (i.kind === 'table' || i.kind === 'html' || i.kind === 'component' || i.kind === 'image') return i.height;
+  if (i.kind === 'text' && i.display?.type === 'barcode') return i.display.height;
+  return 1;
+}
 
-/** Boxes from a definition (custom HTML and components), drawn on top of the screen. */
-export const isBox = (i: Item): i is HtmlItem | ComponentItem => i.kind === 'html' || i.kind === 'component';
+/** Items from a definition (custom HTML, components, labels, images), drawn on top of the screen. */
+export const isBox = (i: Item): i is HtmlItem | ComponentItem | LabelItem | ImageItem =>
+  i.kind === 'html' || i.kind === 'component' || i.kind === 'label' || i.kind === 'image';
 
 /** Where the host put an item (moved items are found by their original place). */
 export const homeOf = (i: Item): Target => i.home ?? { row: i.row, col: i.col };
@@ -46,6 +53,13 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
   // from the definition (HTML, components) are edited through their own changes.
   const withHeader = () => [...all().filter((i) => !isBox(i)), ...out.meta];
   const moves: Array<Extract<ScreenDefinition['changes'][number], { op: 'move' }>> = [];
+  /** Add an item in reading order with the others (in the window, if it's inside one), so Tab reaches it where it is drawn. */
+  const place = (item: Item) => {
+    const w = out.window;
+    const list = w && item.row >= w.top && item.row <= w.bottom && item.col >= w.left && item.col <= w.right ? w.items : out.items;
+    const k = list.findIndex((i) => i.row > item.row || (i.row === item.row && i.col > item.col));
+    list.splice(k < 0 ? list.length : k, 0, item);
+  };
 
   for (const change of def.changes) {
     switch (change.op) {
@@ -106,11 +120,39 @@ export function customize(view: ScreenView, def: ScreenDefinition | undefined, o
         if (field) {
           for (const i of all()) if (i.kind === 'field' && i.field.id === field.id) i.component = change.name;
         }
-        // In reading order with the other items, so Tab reaches it where it is drawn.
-        const w = out.window;
-        const list = w && item.row >= w.top && item.row <= w.bottom && item.col >= w.left && item.col <= w.right ? w.items : out.items;
-        const k = list.findIndex((i) => i.row > item.row || (i.row === item.row && i.col > item.col));
-        list.splice(k < 0 ? list.length : k, 0, item);
+        place(item);
+        break;
+      }
+      case 'display': {
+        const d = change.display;
+        if (change.at) {
+          const item = itemAt(all().filter((i) => !isBox(i)), change.at);
+          if (item?.kind === 'text') item.display = d;
+          break;
+        }
+        const heading = change.column!.trim().toLowerCase();
+        for (const table of all()) {
+          if (table.kind !== 'table') continue;
+          const k = table.columns.findIndex((c) => c.header.trim().toLowerCase() === heading);
+          if (k < 0) continue;
+          table.rows = table.rows.map((r) => ({ ...r, cells: r.cells.map((c, j) => (j === k && !c.field ? { ...c, display: d } : c)) }));
+        }
+        break;
+      }
+      case 'label': {
+        const item: LabelItem = {
+          kind: 'label', row: change.at.row, col: change.at.col, width: [...change.text].length + (change.help ? 2 : 0),
+          text: change.text, style: change.style ?? 'text', role: change.role ?? 'normal', ...(change.help ? { help: change.help } : {}),
+        };
+        place(item);
+        break;
+      }
+      case 'image': {
+        const item: ImageItem = {
+          kind: 'image', row: change.at.row, col: change.at.col, width: change.width, height: change.height,
+          src: imageUrl(change.src, out.snapshot, THEME_FILE, opts.themeBase), alt: change.alt, fit: change.fit ?? 'contain',
+        };
+        place(item);
         break;
       }
       case 'html': {

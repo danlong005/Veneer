@@ -18,13 +18,15 @@ import { StyleRules } from './StyleRules.tsx';
 import { CardsAndTabs } from './CardsAndTabs.tsx';
 import { CodeBox } from './CodeBox.tsx';
 import { ChangesList } from './ChangesList.tsx';
-import { labelAt } from './names.ts';
+import { labelAt as nameOf } from './names.ts';
 import { Section, SectionContext, SectionGroup, useSectionState } from './Section.tsx';
 import { ComponentEditor, ComponentsSection, componentForFieldChange } from './Components.tsx';
 import { TextAreaPart, WidgetEditor, defaultWidget, showAsChoices } from './Widgets.tsx';
+import { ColumnDisplays, TextDisplay } from './Displays.tsx';
+import { ImageEditor, LabelEditor, LabelsSection } from './Placed.tsx';
 import type { ScreenView } from '../transform/types.ts';
 import {
-  addScreenId, buttonsOf, cardAround, cardsOf, componentAt, componentForField, formatOptions, freeSpot, htmlAt, htmlOf, isHidden, originalText, parseOptions, removeScreenId, roleOf, setButtons,
+  addScreenId, buttonsOf, cardAround, cardsOf, componentAt, componentForField, formatOptions, freeSpot, htmlAt, htmlOf, imageAt, isHidden, labelAt, originalText, parseOptions, removeScreenId, roleOf, setButtons, setPlaced,
   ROLE_LABELS, moveOf, setCard, setComponent, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textAreaOf, textOf, widgetOf, type Selection,
 } from './edit.ts';
 
@@ -472,6 +474,7 @@ export function DesignPanel(props: Props) {
           <StyleRules draft={draft} setDraft={setDraft} view={props.view} selected={selection?.at} />
           <CardsAndTabs draft={draft} setDraft={setDraft} view={props.view} selection={selection} />
           <ComponentsSection draft={draft} setDraft={setDraft} snap={snap} installed={props.components} onSelect={props.onSelect} />
+          <LabelsSection draft={draft} setDraft={setDraft} snap={snap} onSelect={props.onSelect} />
 
           <Section title="HTML" count={htmlOf(draft).length}>
             {htmlOf(draft).length > 0 && (
@@ -529,7 +532,8 @@ export function DesignPanel(props: Props) {
           <section>
             <h3>Selected</h3>
             {selection && selection.kind !== 'empty' && <p className="dp-hint">Changes here are part of this page's customization.</p>}
-            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} name={labelAt(props.view, snap, selection.at, { shown: true })} cols={snap.cols} rows={snap.rows} onSelect={props.onSelect} components={props.components}
+            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} name={nameOf(props.view, snap, selection.at, { shown: true })} cols={snap.cols} rows={snap.rows} onSelect={props.onSelect} components={props.components}
+              theme={props.theme} themes={themes}
               snap={snap} joining={selection.kind === 'field' && props.joining === selection.field.id} onJoining={(on) => props.onJoining(on && selection.kind === 'field' ? selection.field.id : null)} /> : (
               <p className="dp-hint">Click any text, field or table on the screen, or an empty spot to add HTML.</p>
             )}
@@ -541,7 +545,7 @@ export function DesignPanel(props: Props) {
                 </button>
               );
             })()}
-            {selection?.kind === 'item' && selection.item.kind !== 'table' && selection.item.kind !== 'html' && (() => {
+            {selection?.kind === 'item' && !['table', 'html', 'label', 'image'].includes(selection.item.kind) && (() => {
               const m = originalText(snap, selection.item);
               return m && !draft.match.text.some((x) => x.row === m.row && x.col === m.col) ? (
                 <button type="button" className="ghost" onClick={() => setDraft({ ...draft, match: { ...draft.match, text: [...draft.match.text, m] } })}>
@@ -593,9 +597,12 @@ export function DesignPanel(props: Props) {
   );
 }
 
-function SelectionEditor({ draft, setDraft, selection, name, cols, rows, onSelect, components, snap, joining, onJoining }: {
+function SelectionEditor({ draft, setDraft, selection, name, cols, rows, onSelect, components, snap, joining, onJoining, theme, themes }: {
   draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; selection: Selection; cols: number; rows: number; onSelect: (at: Target) => void;
   snap: ScreenSnapshot;
+  /** The theme in use, whose images an image can show, and the API to list them. */
+  theme: ActiveTheme | null;
+  themes: ReturnType<typeof themeApi>;
   /** Clicks on fields add them to (or take them out of) the selected text area. */
   joining: boolean;
   onJoining: (on: boolean) => void;
@@ -608,15 +615,32 @@ function SelectionEditor({ draft, setDraft, selection, name, cols, rows, onSelec
     return (
       <>
         <p className="dp-desc">Empty space at <code>{at.row},{at.col}</code></p>
-        <button
-          type="button"
-          className="ghost"
-          onClick={() => setDraft(setHtml(draft, at, { at, html: '<div>New content</div>', width: Math.min(20, cols - at.col + 1), height: 2 }))}
-        >
-          Add HTML here
-        </button>
+        <div className="dp-actions">
+          <button type="button" className="ghost" onClick={() => setDraft(setPlaced(draft, at, { at, text: 'New label' }))}>Add label here</button>
+          <button type="button" className="ghost"
+            onClick={() => setDraft(setPlaced(draft, at, { at, src: 'logo.png', alt: '', width: Math.min(12, cols - at.col + 1), height: Math.min(4, rows - at.row + 1) }))}>
+            Add image here
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setDraft(setHtml(draft, at, { at, html: '<div>New content</div>', width: Math.min(20, cols - at.col + 1), height: 2 }))}
+          >
+            Add HTML here
+          </button>
+        </div>
       </>
     );
+  }
+  if (selection.kind === 'item' && selection.item.kind === 'label') {
+    const label = labelAt(draft, at);
+    return label ? <LabelEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} label={label} cols={cols} rows={rows} onSelect={onSelect} /> : null;
+  }
+  if (selection.kind === 'item' && selection.item.kind === 'image') {
+    const image = imageAt(draft, at);
+    return image
+      ? <ImageEditor key={`${at.row}:${at.col}`} draft={draft} setDraft={setDraft} image={image} cols={cols} rows={rows} onSelect={onSelect} snap={snap} theme={theme} themes={themes} />
+      : null;
   }
   if (selection.kind === 'item' && selection.item.kind === 'component') {
     const component = componentAt(draft, at);
@@ -709,9 +733,17 @@ function SelectionEditor({ draft, setDraft, selection, name, cols, rows, onSelec
           </select>
         </label>
       )}
+      {item.kind === 'text' && !selection.header && <TextDisplay draft={draft} setDraft={setDraft} at={at} text={snapText(snap, item)} snap={snap} />}
+      {item.kind === 'table' && <ColumnDisplays draft={draft} setDraft={setDraft} table={item} snap={snap} />}
     </>
   );
 }
+
+/** The host's own text under an item (not a `text` change's), for previews. */
+const snapText = (snap: ScreenSnapshot, item: { row: number; col: number; width: number; home?: Target | undefined }) => {
+  const h = item.home ?? item;
+  return (snap.lines[h.row - 1] ?? '').slice(h.col - 1, h.col - 1 + item.width);
+};
 
 /** Where an item is drawn; drag it on the screen or use the arrow keys too. */
 function PositionEditor({ draft, setDraft, at, cols, rows }: {

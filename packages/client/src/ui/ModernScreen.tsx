@@ -9,6 +9,7 @@ import { homeOf } from '../transform/customize.ts';
 import type { Action, Card, Item, ScreenView, TableItem, WindowView } from '../transform/types.ts';
 import { useComponents } from '../custom/components.ts';
 import { ComponentBox } from './ComponentBox.tsx';
+import { DisplayValue } from './DisplayValue.tsx';
 import { copyingInField, selectedScreenText } from './copyText.ts';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
 import { cellInputWidth } from './fieldRules.ts';
@@ -37,7 +38,7 @@ interface Props {
 }
 
 /** What a resize handle resizes. */
-export type BoxKind = 'html' | 'component' | 'card';
+export type BoxKind = 'html' | 'component' | 'card' | 'image';
 
 const atKey = (t: Target) => `${t.row}:${t.col}`;
 const parseAt = (s: string): Target => {
@@ -211,6 +212,19 @@ function GroupView(props: Props & { group: Group; origin: Origin }) {
   );
 }
 
+/**
+ * A label's ⓘ: its help shows while it is hovered or focused (Tab reaches
+ * it), and screen readers read the help as its description.
+ */
+function HelpTip({ text, id }: { text: string; id: string }) {
+  return (
+    <span className="help-tip">
+      <button type="button" className="help-tip-icon" aria-label="Help" aria-describedby={id} tabIndex={0}>ⓘ</button>
+      <span className="help-tip-text" role="tooltip" id={id}>{text}</span>
+    </span>
+  );
+}
+
 /** A card: a framed panel drawn behind the items in its cells, its title on the top border. */
 function CardView({ card, origin, design }: { card: Card; origin: Origin; design: boolean }) {
   const width = card.right - card.left + 1;
@@ -277,6 +291,22 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
         const key = `${item.kind}-${home.row}-${home.col}`;
         switch (item.kind) {
           case 'text':
+            if (item.display) {
+              return (
+                <span
+                  key={key}
+                  className={`text display display-${item.display.type} role-${item.role}${designClass(design, home, item.hidden)}`}
+                  style={{
+                    ...at(item.row, item.col, top, item.display.type === 'number' ? item.width : undefined),
+                    ...(item.display.type === 'barcode' ? { height: `calc(${item.display.height} * var(--rh))` } : {}),
+                  }}
+                  data-at={atKey(home)}
+                  onClick={() => onCursor(home.row, home.col)}
+                >
+                  <DisplayValue text={item.text} display={item.display} snap={view.snapshot} />
+                </span>
+              );
+            }
             return (
               <span
                 key={key}
@@ -333,7 +363,7 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
               </button>
             );
           case 'table':
-            return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} design={design} />;
+            return <Table key={key} table={item} origin={origin} binding={binding} locked={locked} onAction={onAction} design={design} snapshot={view.snapshot} />;
           case 'component': {
             const selected = design?.selected?.row === item.row && design.selected.col === item.col;
             return [
@@ -353,6 +383,48 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
                   className="resize-handle"
                   data-resize={atKey(home)}
                   data-kind="component"
+                  title="Drag to resize"
+                  style={at(item.row + item.height, item.col + item.width, top)}
+                />
+              ),
+            ];
+          }
+          case 'label':
+            return (
+              <span
+                key={key}
+                className={`label label-${item.style} role-${item.role}${designClass(design, home, item.hidden)}`}
+                style={at(item.row, item.col, top)}
+                data-at={atKey(home)}
+                data-label={atKey(home)}
+              >
+                {item.text}
+                {item.help && <HelpTip text={item.help} id={`label-help-${home.row}-${home.col}`} />}
+              </span>
+            );
+          case 'image': {
+            const selected = design?.selected?.row === item.row && design.selected.col === item.col;
+            return [
+              <span
+                key={key}
+                className={`screen-image${designClass(design, home, item.hidden)}`}
+                style={{ ...at(item.row, item.col, top, item.width), height: `calc(${item.height} * var(--rh))` }}
+                data-at={atKey(home)}
+                data-image={atKey(home)}
+                data-size={`${item.width}:${item.height}`}
+              >
+                {item.src
+                  ? <img src={item.src} alt={item.alt} style={{ objectFit: item.fit }} draggable={false}
+                      onError={(e) => { e.currentTarget.hidden = true; e.currentTarget.parentElement?.classList.add('broken'); }} />
+                  : null}
+                <span className="screen-image-alt" aria-hidden={item.src ? true : undefined}>{item.alt}</span>
+              </span>,
+              selected && (
+                <div
+                  key={`${key}-resize`}
+                  className="resize-handle"
+                  data-resize={atKey(home)}
+                  data-kind="image"
                   title="Drag to resize"
                   style={at(item.row + item.height, item.col + item.width, top)}
                 />
@@ -391,8 +463,9 @@ function Items({ items, origin, binding, locked, onAction, onCursor, view, desig
   );
 }
 
-function Table({ table, origin, binding, locked, onAction, design }: {
+function Table({ table, origin, binding, locked, onAction, design, snapshot }: {
   table: TableItem; origin: Origin; binding: FieldBinding; locked: boolean; onAction: (a: Action) => void; design: Props['design'];
+  snapshot: ScreenSnapshot;
 }) {
   const lastWheel = useRef(0);
   const onWheel = (e: WheelEvent) => {
@@ -446,6 +519,8 @@ function Table({ table, origin, binding, locked, onAction, design }: {
                   label={table.columns.find((col) => col.col === c.col)?.header}
                   style={c.options ? undefined : { width: cellInputWidth(c.field) }}
                 />
+              ) : c.display ? (
+                <DisplayValue text={c.text} display={c.display} snap={snapshot} />
               ) : (
                 c.text
               )}
@@ -489,7 +564,7 @@ function useDrag(design: Props['design'], rows: number, cols: number) {
       if (!design || !canvas || e.button !== 0) return;
       const target = e.target as HTMLElement;
       const handle = target.closest<HTMLElement>('[data-resize]');
-      const kind: BoxKind = handle?.dataset.kind === 'card' || handle?.dataset.kind === 'component' ? handle.dataset.kind : 'html';
+      const kind: BoxKind = handle?.dataset.kind === 'card' || handle?.dataset.kind === 'component' || handle?.dataset.kind === 'image' ? handle.dataset.kind : 'html';
       let el = handle
         ? canvas.querySelector<HTMLElement>(`[data-${kind}="${handle.dataset.resize}"]`)
         : target.closest<HTMLElement>('[data-at]');

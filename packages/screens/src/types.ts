@@ -46,10 +46,32 @@ export type RadioLayout = (typeof RADIO_LAYOUTS)[number];
 /** The most input fields one text area can join. */
 export const MAX_TEXTAREA_FIELDS = 27;
 
+/** Host time formats for the time picker: H hours (00-23), M minutes, S seconds. */
+export const TIME_FORMATS = ['HHMMSS', 'HHMM', 'HH:MM:SS', 'HH:MM', 'HH.MM.SS', 'HH.MM'] as const;
+export type TimeFormat = (typeof TIME_FORMATS)[number];
+
+/** The characters of an input mask that take a typed character; any other character is a separator. */
+export const MASK_SLOTS = { '9': 'a digit', A: 'a letter', X: 'any character' } as const;
+
 export type Widget =
   | { type: 'select'; options: SelectOption[] }
   | { type: 'checkbox'; on: string; off: string }
+  /** A checkbox drawn as an on/off switch. */
+  | { type: 'toggle'; on: string; off: string }
   | { type: 'date'; format: DateFormat }
+  | { type: 'time'; format: TimeFormat }
+  /**
+   * Typing into a fixed pattern such as 999-99-9999 (see MASK_SLOTS). With
+   * `literals` the host field holds the separators too; without, only the
+   * typed characters are sent.
+   */
+  | { type: 'mask'; mask: string; literals?: boolean }
+  /**
+   * A text box that suggests choices as the user types (any value can still be
+   * typed), and with `prompt` a button that presses that key with the cursor
+   * in the field, such as F4 to open the host's own prompt. At least one of the two.
+   */
+  | { type: 'lookup'; options?: SelectOption[]; prompt?: { aid: AidName } }
   /** One choice of several; `allowClear` adds a "None" choice that sends blanks. */
   | { type: 'radio'; options: SelectOption[]; layout?: RadioLayout; allowClear?: boolean }
   /** A number with up/down buttons, in the units typed into the field (1250 for 12.50 in a signed field). */
@@ -116,6 +138,57 @@ export interface TabBand {
   to: number;
 }
 
+/** A value a status badge recognises (ignoring case and blanks), and how it shows. */
+export interface BadgeValue {
+  value: string;
+  /** Shown instead of the value; unset shows the value. */
+  label?: string;
+  role: Role;
+}
+
+export const DATE_STYLES = ['short', 'medium', 'long'] as const;
+export type DateStyle = (typeof DATE_STYLES)[number];
+export const LINK_KINDS = ['email', 'phone', 'url'] as const;
+export type LinkKind = (typeof LINK_KINDS)[number];
+export const BARCODE_FORMATS = ['qr', 'code128'] as const;
+export type BarcodeFormat = (typeof BARCODE_FORMATS)[number];
+
+/**
+ * How output text (screen text, not an input field) is shown, by a `display`
+ * change. The host's text is only read: what is sent to the host is unchanged.
+ */
+export type Display =
+  /** A colored pill per recognised value; others show as they are, in `otherwise`'s style. */
+  | { type: 'badge'; values: BadgeValue[]; otherwise?: Role }
+  /**
+   * A number with the user's thousands separators. `implied` decimals are
+   * placed when the text has no decimal point (1250 with 2 shows 12.50);
+   * `decimals` fixes how many are shown; `currency` (an ISO code such as USD)
+   * adds its symbol.
+   */
+  | { type: 'number'; implied?: number; decimals?: number; currency?: string }
+  /** A date in the host's format, shown in the user's own way. */
+  | { type: 'date'; format: DateFormat; style?: DateStyle }
+  /** ✓ Yes for `yes`, ✗ No for `no`; any other text shows as it is. */
+  | { type: 'yesno'; yes: string; no: string }
+  /**
+   * A link: an email address, a phone number, or a web address. For `url`,
+   * `url` is a template: {value} is the text itself, {row:col} other text on
+   * the screen. Without one, the text must be a web address.
+   */
+  | { type: 'link'; to: LinkKind; url?: string }
+  /** A bar filled to the number's share of `max`. */
+  | { type: 'progress'; max: number }
+  /** The text as a QR code or a Code 128 barcode, `height` rows tall. */
+  | { type: 'barcode'; format: BarcodeFormat; height: number };
+
+export type DisplayType = Display['type'];
+
+export const LABEL_STYLES = ['text', 'heading', 'subheading', 'note'] as const;
+export type LabelStyle = (typeof LABEL_STYLES)[number];
+export const IMAGE_FITS = ['contain', 'cover'] as const;
+export type ImageFit = (typeof IMAGE_FITS)[number];
+
 export type Change =
   | { op: 'hide'; at: Target }
   | { op: 'text'; at: Target; text: string }
@@ -152,7 +225,20 @@ export type Change =
    * `css` is scoped to the box (nested rules reach inside it); `script` runs
    * each time the screen is drawn, with `element` set to the box.
    */
-  | { op: 'html'; at: Target; html: string; width: number; height: number; css?: string; script?: string };
+  | { op: 'html'; at: Target; html: string; width: number; height: number; css?: string; script?: string }
+  /**
+   * Show output text differently: the text at `at`, or each row's cell in a
+   * list column (by its heading, ignoring case). Exactly one of the two.
+   */
+  | { op: 'display'; at?: Target; column?: string; display: Display }
+  /** New text at a position, with a style, and with `help` an ⓘ that shows it. */
+  | { op: 'label'; at: Target; text: string; style?: LabelStyle; role?: Role; help?: string }
+  /**
+   * A picture in a box `width` x `height` cells. `src` is an image of the theme
+   * in use (a file name such as banner.png), a web address, or a path on this
+   * site (/...); addresses may take text from the screen ({row:col}).
+   */
+  | { op: 'image'; at: Target; src: string; alt: string; width: number; height: number; fit?: ImageFit };
 
 export interface ScreenDefinition {
   /** File name and URL id: lowercase letters, digits and dashes. */

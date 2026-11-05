@@ -50,6 +50,11 @@ export function conditionTester(when: StyleCondition): (text: string) => boolean
  * thousands separator only when exactly three digits follow each use of it.
  */
 export function parseNumber(text: string): number | undefined {
+  return readNumber(text)?.value;
+}
+
+/** A number as parseNumber reads it, with how many decimals the text has (2 for "12.50"). */
+export function readNumber(text: string): { value: number; decimals: number } | undefined {
   let s = text.trim().toUpperCase().replace(/\s+/g, '');
   if (s === '') return undefined;
   let negative = false;
@@ -74,5 +79,5 @@ export function parseNumber(text: string): number | undefined {
   if ((s.match(/\./g)?.length ?? 0) > 1) return undefined;
   const n = Number(s);
   if (!Number.isFinite(n)) return undefined;
-  return negative ? -n : n;
+  return { value: negative ? -n : n, decimals: s.includes('.') ? s.length - s.indexOf('.') - 1 : 0 };
 }

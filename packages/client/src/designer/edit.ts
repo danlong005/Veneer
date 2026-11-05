@@ -1,6 +1,6 @@
 // Pure helpers the designer uses to build and edit screen definitions.
 
-import { MAX_TEXTAREA_FIELDS, screenId, type ButtonAction, type Change, type Role, type ScreenDefinition, type ScreenEvent, type TabBand, type Target, type TextMatch, type Widget } from '@veneer/screens';
+import { MAX_TEXTAREA_FIELDS, screenId, type ButtonAction, type Change, type Display, type Role, type ScreenDefinition, type ScreenEvent, type TabBand, type Target, type TextMatch, type Widget } from '@veneer/screens';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
 import { heightOf, homeOf, isBox, itemAt } from '../transform/customize.ts';
 import type { Item, ScreenView } from '../transform/types.ts';
@@ -124,6 +124,55 @@ export function setComponent(def: ScreenDefinition, at: Target, next: Omit<Compo
 /** The component drawing a field instead of its input, if any. */
 export function componentForField(def: ScreenDefinition, field: string): Component | undefined {
   return def.changes.find((c): c is Component => c.op === 'component' && c.field === field);
+}
+
+// ---- labels and images, and how output text shows ---------------------------
+
+export type LabelSpec = Omit<ChangeOf<'label'>, 'op'>;
+export type ImageSpec = Omit<ChangeOf<'image'>, 'op'>;
+
+export function labelAt(def: ScreenDefinition, at: Target): LabelSpec | undefined {
+  const c = def.changes.find((x): x is ChangeOf<'label'> => x.op === 'label' && same(x.at, at));
+  if (!c) return undefined;
+  const { op: _op, ...spec } = c;
+  return spec;
+}
+
+export function imageAt(def: ScreenDefinition, at: Target): ImageSpec | undefined {
+  const c = def.changes.find((x): x is ChangeOf<'image'> => x.op === 'image' && same(x.at, at));
+  if (!c) return undefined;
+  const { op: _op, ...spec } = c;
+  return spec;
+}
+
+export function labelsOf(def: ScreenDefinition): Array<ChangeOf<'label'> | ChangeOf<'image'>> {
+  return def.changes.filter((c): c is ChangeOf<'label'> | ChangeOf<'image'> => c.op === 'label' || c.op === 'image');
+}
+
+/**
+ * Add, replace (the label or image at `at`) or with `next` null remove a
+ * label or image. A spec with `text` is a label, one with `src` an image.
+ */
+export function setPlaced(def: ScreenDefinition, at: Target, next: LabelSpec | ImageSpec | null): ScreenDefinition {
+  const here = (c: Change) => (c.op === 'label' || c.op === 'image') && same(c.at, at);
+  const made: Change | null = next === null ? null : 'src' in next ? { op: 'image', ...next } : { op: 'label', ...next };
+  const exists = def.changes.some(here);
+  const changes = def.changes.flatMap<Change>((c) => (here(c) ? (made ? [made] : []) : [c]));
+  return { ...def, changes: exists || !made ? changes : [...changes, made] };
+}
+
+/** How the text at `at`, or a list column (by heading), is shown, if a display change says. */
+export function displayOf(def: ScreenDefinition, where: { at: Target } | { column: string }): Display | undefined {
+  return def.changes.find((c): c is ChangeOf<'display'> => c.op === 'display' && sameWhere(c, where))?.display;
+}
+
+const sameWhere = (c: ChangeOf<'display'>, where: { at: Target } | { column: string }) =>
+  'at' in where ? c.at !== undefined && same(c.at, where.at) : c.column !== undefined && c.column.trim().toLowerCase() === where.column.trim().toLowerCase();
+
+/** Set, or with null remove, how the text at `at` or a list column is shown. */
+export function setDisplay(def: ScreenDefinition, where: { at: Target } | { column: string }, display: Display | null): ScreenDefinition {
+  const changes = def.changes.filter((c) => !(c.op === 'display' && sameWhere(c, where)));
+  return { ...def, changes: display ? [...changes, { op: 'display', ...where, display }] : changes };
 }
 
 /** Where a customization moved the item at `at`, if it did. */

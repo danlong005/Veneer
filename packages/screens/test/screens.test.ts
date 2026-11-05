@@ -190,7 +190,7 @@ test('validates radio buttons, spinners and text areas', () => {
     [[w('14:10', { type: 'textarea', fields: Array.from({ length: 28 }, (_x, i) => `${i + 1}:10`) })], /widget\.fields: must be an array of at most 27/],
     [[w('14:10', area), w('16:10', { type: 'textarea', fields: ['16:10', '17:10'] })], /changes\[1\]\.widget\.fields: "16:10" is already in the text area of changes\[0\]/],
     [[w('14:10', area), w('15:10', { type: 'select', options: [] })], /changes\[1\]\.field: "15:10" is part of the text area of changes\[0\]/],
-    [[w('8:22', { type: 'slider' })], /widget\.type: must be select, checkbox, date, radio, spinner or textarea/],
+    [[w('8:22', { type: 'slider' })], /widget\.type: must be select, checkbox, toggle, date, time, radio, spinner, textarea, mask or lookup/],
   ];
   for (const [changes, message] of cases) assert.throws(() => validateDefinition({ ...base, changes }), message);
 });

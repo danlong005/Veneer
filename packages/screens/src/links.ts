@@ -60,3 +60,42 @@ export function fillText(template: string, snap: ScreenSnapshot, values: Record<
   return template.replace(PLACEHOLDER, (_m, row: string, col: string, length?: string) =>
     placeholderValue(snap, { row: Number(row), col: Number(col), ...(length ? { length: Number(length) } : {}) }, values));
 }
+
+const VALUE = /\{value\}/g;
+
+/**
+ * A link display's web address: {value} is the text being shown, {row:col}
+ * other text on the screen. Undefined unless the result is an http(s) URL.
+ */
+export function fillLink(template: string, value: string, snap: ScreenSnapshot): string | undefined {
+  return fillUrl(template.replace(VALUE, encodeURIComponent(value.trim())), snap);
+}
+
+/** A path on this site, such as /images/{6:12}.png (not //host, which is another site). */
+const SITE_PATH = /^\/(?![/\\])[^\s\\"'<>]*$/;
+
+export type ImageSource = 'theme' | 'web' | 'site';
+
+/** What kind of image source a definition names, or undefined if it is none (`themeFile`: THEME_FILE). */
+export function imageSourceKind(src: string, themeFile: RegExp): ImageSource | undefined {
+  if (themeFile.test(src)) return 'theme';
+  if (isWebTemplate(src)) return 'web';
+  if (SITE_PATH.test(src) && !src.split(/[/?#]/).includes('..')) return 'site';
+  return undefined;
+}
+
+/**
+ * The address of an image: a theme image under `themeBase` (the theme in
+ * use), or a web address or site path with {row:col} filled from the screen
+ * (each value URL-encoded, so it can't add path segments). Undefined when
+ * the address can't be made.
+ */
+export function imageUrl(src: string, snap: ScreenSnapshot, themeFile: RegExp, themeBase: string | undefined): string | undefined {
+  switch (imageSourceKind(src, themeFile)) {
+    case 'theme': return themeBase ? `${themeBase}${encodeURIComponent(src)}` : undefined;
+    case 'web': return fillUrl(src, snap);
+    case 'site': return src.replace(PLACEHOLDER, (_m, row: string, col: string, length?: string) =>
+      encodeURIComponent(placeholderValue(snap, { row: Number(row), col: Number(col), ...(length ? { length: Number(length) } : {}) })));
+    default: return undefined;
+  }
+}

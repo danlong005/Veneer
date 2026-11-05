@@ -7,6 +7,9 @@ import type { FieldSnapshot } from '@veneer/terminal';
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import type { FieldBinding } from './fieldInput.tsx';
 import { filterValue, isNumeric, withSign } from './fieldRules.ts';
+import { focusNext } from './fieldInput.tsx';
+import { keyHint } from './keys.ts';
+import { applyMask, caretAfter, maskComplete, maskedText, slotsBefore } from './mask.ts';
 import { stepValue } from './spinner.ts';
 import { fitText, roomLeft, textOf } from './textArea.ts';
 
@@ -139,6 +142,103 @@ export function TextAreaField({ binding, style, className, label, readOnly, data
         }}
       />
       {!readOnly && <span className={`textarea-room${room === 0 ? ' none' : ''}`} aria-hidden>{room} left</span>}
+    </span>
+  );
+}
+
+/**
+ * Masked input: the box shows the separators, and typing only fills the
+ * mask's slots. The host gets the typed characters, or with `literals` the
+ * text as shown. A full box moves to the next field, as a full field does.
+ */
+export function MaskField({ field, binding, style, className, label, readOnly, dataAt, widget }: Common & { widget: Extract<Widget, { type: 'mask' }> }) {
+  const shown = maskedText(binding.value(field), widget);
+  const ref = useRef<HTMLInputElement>(null);
+  const caret = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && caret.current !== null && document.activeElement === el) el.setSelectionRange(caret.current, caret.current);
+    caret.current = null;
+  });
+  return (
+    <input
+      ref={ref}
+      className={`${className} mask-field`}
+      // Wide enough for the separators too, which the host field may not hold.
+      style={{ ...style, minWidth: `calc(${[...widget.mask].length + 1} * var(--cw) + 14px)` }}
+      data-field={field.id}
+      data-at={dataAt}
+      aria-label={label}
+      aria-description={`Format ${widget.mask}`}
+      placeholder={widget.mask.replace(/[9AX]/g, '_')}
+      autoComplete="off"
+      spellCheck={false}
+      inputMode={/^[^AX]*$/.test(widget.mask) ? 'numeric' : undefined}
+      maxLength={[...widget.mask].length}
+      readOnly={readOnly}
+      value={shown}
+      onChange={(e) => {
+        const el = e.target;
+        const typed = field.monocase ? el.value.toUpperCase() : el.value;
+        const at = el.selectionStart ?? typed.length;
+        const next = applyMask(typed, widget);
+        // The caret stays after the same typed character, separators or not.
+        caret.current = caretAfter(next.shown, slotsBefore(typed.slice(0, at), widget), widget);
+        binding.onChange(field, next.host);
+        if (maskComplete(next.shown, widget) && caret.current >= next.shown.length) {
+          if (field.autoEnter) binding.onAutoEnter(field, next.host);
+          else focusNext(el);
+        }
+      }}
+    />
+  );
+}
+
+/**
+ * A text box with suggestions (the browser's own list, filtered as the user
+ * types: value and label both match), and with `prompt` a button that
+ * presses its key with the cursor here, such as F4 for the host's prompt.
+ * Any value can still be typed; the field's rules apply as usual.
+ */
+export function LookupField({ field, binding, style, className, label, readOnly, dataAt, widget }: Common & { widget: Extract<Widget, { type: 'lookup' }> }) {
+  const value = binding.value(field);
+  const list = widget.options?.length ? `lookup-${field.id.replace(':', '-')}` : undefined;
+  const prompt = widget.prompt;
+  // The box keeps the field's width; the look-up button goes after it, so even a short field has room to type in.
+  const { width, ...place } = style ?? {};
+  return (
+    <span className={`lookup-field${prompt ? ' with-prompt' : ''}`} style={place} data-at={dataAt}>
+      <input
+        className={`${className} lookup`}
+        style={width !== undefined ? { width } : undefined}
+        data-field={field.id}
+        aria-label={label}
+        list={list}
+        autoComplete="off"
+        spellCheck={false}
+        maxLength={field.length}
+        readOnly={readOnly}
+        value={value}
+        onChange={(e) => binding.onChange(field, filterValue(field, field.monocase ? e.target.value.toUpperCase() : e.target.value))}
+      />
+      {list && (
+        <datalist id={list}>
+          {widget.options!.map((o) => <option key={o.value} value={o.value}>{o.label === o.value ? undefined : o.label}</option>)}
+        </datalist>
+      )}
+      {prompt && (
+        <button
+          type="button"
+          className="lookup-prompt"
+          tabIndex={-1}
+          aria-label={`Look up (${keyHint(prompt.aid)})`}
+          title={`Look up (${keyHint(prompt.aid)})`}
+          disabled={readOnly || !binding.onKey}
+          onClick={() => binding.onKey?.(field, prompt.aid)}
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="m10 10 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+        </button>
+      )}
     </span>
   );
 }

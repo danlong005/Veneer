@@ -1,38 +1,13 @@
 // The designer's field widgets: the "Show as" choices for an input field, and
 // the settings of each widget (choices, date format, limits, text area lines).
 
-import { DATE_FORMATS, type DateFormat, type ScreenDefinition, type Widget } from '@veneer/screens';
-import type { FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
+import { DATE_FORMATS, MASK_SLOTS, TIME_FORMATS, type DateFormat, type ScreenDefinition, type TimeFormat, type Widget } from '@veneer/screens';
+import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
 import { useState } from 'react';
-import { takesNumbers } from '../ui/fieldRules.ts';
+import { buttonAids, keyHint } from '../ui/keys.ts';
+import { maskLength, slotCount } from '../ui/mask.ts';
 import { fieldsBelow, formatOptions, parseOptions, toggleTextAreaField, widgetOf } from './edit.ts';
-
-/** The "Show as" choices for a field, besides Component. */
-export function showAsChoices(f: FieldSnapshot, current: Widget | undefined): Array<{ value: string; label: string }> {
-  return [
-    { value: 'text', label: 'Text box' },
-    { value: 'select', label: 'Dropdown' },
-    { value: 'radio', label: 'Radio buttons' },
-    { value: 'checkbox', label: 'Checkbox' },
-    { value: 'date', label: 'Date picker' },
-    ...(takesNumbers(f) || current?.type === 'spinner' ? [{ value: 'spinner', label: 'Spinner' }] : []),
-    { value: 'textarea', label: 'Text area' },
-  ];
-}
-
-/** A new widget of a type, started from the field's value where that helps. */
-export function defaultWidget(type: string, f: Pick<FieldSnapshot, 'id' | 'value'>): Widget | null {
-  const choices = f.value ? [{ value: f.value, label: f.value }] : [];
-  switch (type) {
-    case 'select': return { type: 'select', options: choices };
-    case 'radio': return { type: 'radio', options: choices, layout: 'row' };
-    case 'checkbox': return { type: 'checkbox', on: 'Y', off: 'N' };
-    case 'date': return { type: 'date', format: 'YYYYMMDD' };
-    case 'spinner': return { type: 'spinner' };
-    case 'textarea': return { type: 'textarea', fields: [f.id] };
-    default: return null;
-  }
-}
+export { defaultWidget, showAsChoices } from './defaults.ts';
 
 /** A number box's value: blank for none. */
 const numberOf = (text: string): number | undefined => {
@@ -48,7 +23,9 @@ export function WidgetEditor({ widget, field, onChange, text }: {
   text: { draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; snap: ScreenSnapshot; joining: boolean; onJoining: (on: boolean) => void };
 }) {
   // Keep the options text as typed; parse it on every change.
-  const [optionsText, setOptionsText] = useState(widget.type === 'select' || widget.type === 'radio' ? formatOptions(widget.options) : '');
+  const [optionsText, setOptionsText] = useState(
+    widget.type === 'select' || widget.type === 'radio' ? formatOptions(widget.options) : widget.type === 'lookup' ? formatOptions(widget.options ?? []) : '',
+  );
   const choices = (make: (options: ReturnType<typeof parseOptions>) => Widget) => (
     <label className="dp-row">Choices, one per line as value=Label
       <textarea
@@ -83,11 +60,12 @@ export function WidgetEditor({ widget, field, onChange, text }: {
           {widget.layout === 'column' && <p className="dp-hint">The choices take a row each: leave room below, or move what is there.</p>}
         </>
       );
+    case 'toggle':
     case 'checkbox':
       return (
         <div className="dp-pair">
-          <label className="dp-row">Checked value<input value={widget.on} onChange={(e) => onChange({ ...widget, on: e.target.value })} /></label>
-          <label className="dp-row">Unchecked value<input value={widget.off} onChange={(e) => onChange({ ...widget, off: e.target.value })} /></label>
+          <label className="dp-row">{widget.type === 'toggle' ? 'On value' : 'Checked value'}<input value={widget.on} onChange={(e) => onChange({ ...widget, on: e.target.value })} /></label>
+          <label className="dp-row">{widget.type === 'toggle' ? 'Off value' : 'Unchecked value'}<input value={widget.off} onChange={(e) => onChange({ ...widget, off: e.target.value })} /></label>
         </div>
       );
     case 'date':
@@ -98,11 +76,79 @@ export function WidgetEditor({ widget, field, onChange, text }: {
           </select>
         </label>
       );
+    case 'time':
+      return (
+        <label className="dp-row">Host time format
+          <select value={widget.format} onChange={(e) => onChange({ type: 'time', format: e.target.value as TimeFormat })}>
+            {TIME_FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+          {[...widget.format].length !== field.length && <span className="dp-warn">The field holds {field.length} characters; this format has {widget.format.length}.</span>}
+        </label>
+      );
+    case 'mask':
+      return <MaskEditor widget={widget} field={field} onChange={onChange} />;
+    case 'lookup':
+      return (
+        <>
+          <label className="dp-row">Suggestions, one per line as value=Label
+            <textarea rows={5} value={optionsText} placeholder="none" onChange={(e) => {
+              setOptionsText(e.target.value);
+              const options = parseOptions(e.target.value);
+              const { options: _omit, ...rest } = widget;
+              onChange(options.length > 0 ? { ...rest, options } : rest);
+            }} />
+          </label>
+          <label className="dp-row">Look-up button presses
+            <select value={widget.prompt?.aid ?? ''} onChange={(e) => {
+              const { prompt: _omit, ...rest } = widget;
+              onChange(e.target.value ? { ...rest, prompt: { aid: e.target.value as AidName } } : rest);
+            }}>
+              <option value="">No button</option>
+              {buttonAids(text.snap.host).map((a) => <option key={a} value={a}>{keyHint(a, text.snap.host)}</option>)}
+            </select>
+          </label>
+          <p className="dp-hint">The button presses the key with the cursor in this field: F4 opens the host's own prompt for it on most IBM i screens.</p>
+          {!widget.options?.length && !widget.prompt && <p className="dp-warn">Add suggestions, a look-up key, or both.</p>}
+        </>
+      );
     case 'spinner':
       return <SpinnerEditor widget={widget} field={field} onChange={onChange} />;
     case 'textarea':
       return <TextAreaEditor first={field} {...text} />;
   }
+}
+
+function MaskEditor({ widget, field, onChange }: {
+  widget: Extract<Widget, { type: 'mask' }>; field: FieldSnapshot; onChange: (w: Widget) => void;
+}) {
+  const need = maskLength(widget);
+  const slots = slotCount(widget.mask);
+  return (
+    <>
+      <label className="dp-row">Mask
+        <input value={widget.mask} spellCheck={false} maxLength={132} aria-invalid={slots === 0} placeholder="999-99-9999"
+          onChange={(e) => onChange({ ...widget, mask: e.target.value })} />
+      </label>
+      <p className="dp-hint">
+        {Object.entries(MASK_SLOTS).map(([c, what], i) => <span key={c}>{i > 0 ? ', ' : ''}<code>{c}</code> {what}</span>)}; anything else is a
+        separator the box adds by itself.
+      </p>
+      <label className="dp-check">
+        <input type="checkbox" checked={widget.literals === true} onChange={(e) => {
+          const { literals: _omit, ...rest } = widget;
+          onChange(e.target.checked ? { ...rest, literals: true } : rest);
+        }} /> The host field holds the separators too
+      </label>
+      {slots === 0
+        ? <p className="dp-warn">A mask needs at least one 9, A or X.</p>
+        : need !== field.length && (
+          <p className="dp-warn">
+            The field holds {field.length} characters; the mask {widget.literals ? 'is' : 'takes'} {need}.
+            {!widget.literals && [...widget.mask].length === field.length ? ' Tick the box above if the host keeps the separators.' : ''}
+          </p>
+        )}
+    </>
+  );
 }
 
 function SpinnerEditor({ widget, field, onChange }: {

@@ -1,9 +1,10 @@
 // Strict validation of screen definitions from files or the designer API.
 
 import { hostHasAid, isAidName, type AidName, type HostType } from '@veneer/terminal';
-import { isWebTemplate, placeholders } from './links.ts';
+import { imageSourceKind, isWebTemplate, placeholders } from './links.ts';
+import { THEME_FILE } from './themes.ts';
 import { STYLE_TESTS } from './styles.ts';
-import { CORNERS, DATE_FORMATS, MAX_TEXTAREA_FIELDS, RADIO_LAYOUTS, DENSITIES, FONTS, LOOKS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type StyleCondition, type KeyAction, type MacroAction, type ScreenEvent, type SiteCustomization, type SiteStyle, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
+import { BARCODE_FORMATS, CORNERS, DATE_FORMATS, DATE_STYLES, IMAGE_FITS, LABEL_STYLES, LINK_KINDS, MASK_SLOTS, MAX_TEXTAREA_FIELDS, RADIO_LAYOUTS, TIME_FORMATS, DENSITIES, FONTS, LOOKS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type Display, type StyleCondition, type KeyAction, type MacroAction, type ScreenEvent, type SiteCustomization, type SiteStyle, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 /** The most rows a screen has: 27 on a 5250, 43 on a 3278 model 4. */
@@ -134,9 +135,33 @@ function widget(v: unknown, path: string, field: string): Widget {
     case 'select':
       return { type: 'select', options: options(o.options, `${path}.options`) };
     case 'checkbox':
-      return { type: 'checkbox', on: str(o.on, `${path}.on`, 132), off: str(o.off, `${path}.off`, 132) };
+    case 'toggle':
+      return { type: o.type, on: str(o.on, `${path}.on`, 132), off: str(o.off, `${path}.off`, 132) };
     case 'date':
       return { type: 'date', format: oneOf(o.format, DATE_FORMATS, `${path}.format`) };
+    case 'time':
+      return { type: 'time', format: oneOf(o.format, TIME_FORMATS, `${path}.format`) };
+    case 'mask': {
+      const mask = str(o.mask, `${path}.mask`, 132);
+      if (![...mask].some((c) => c in MASK_SLOTS)) fail(`${path}.mask`, 'needs at least one 9 (a digit), A (a letter) or X (any character)');
+      const out: Widget = { type: 'mask', mask };
+      if (o.literals !== undefined) {
+        if (typeof o.literals !== 'boolean') fail(`${path}.literals`, 'must be true or false');
+        if (o.literals) out.literals = true;
+      }
+      return out;
+    }
+    case 'lookup': {
+      const out: Widget = { type: 'lookup' };
+      if (o.options !== undefined) out.options = options(o.options, `${path}.options`);
+      if (o.prompt !== undefined) {
+        const aid = str(obj(o.prompt, `${path}.prompt`).aid, `${path}.prompt.aid`, 20);
+        if (!isAidName(aid)) fail(`${path}.prompt.aid`, 'must be an AID key such as F4');
+        out.prompt = { aid: aid as AidName };
+      }
+      if (!out.options?.length && !out.prompt) fail(path, 'needs options, a prompt key, or both');
+      return out;
+    }
     case 'radio': {
       const out: Widget = { type: 'radio', options: options(o.options, `${path}.options`) };
       if (o.layout !== undefined) out.layout = oneOf(o.layout, RADIO_LAYOUTS, `${path}.layout`);
@@ -169,7 +194,59 @@ function widget(v: unknown, path: string, field: string): Widget {
       return { type: 'textarea', fields };
     }
     default:
-      fail(`${path}.type`, 'must be select, checkbox, date, radio, spinner or textarea');
+      fail(`${path}.type`, 'must be select, checkbox, toggle, date, time, radio, spinner, textarea, mask or lookup');
+  }
+}
+
+function display(v: unknown, path: string): Display {
+  const o = obj(v, path);
+  switch (o.type) {
+    case 'badge': {
+      const values = arr(o.values, `${path}.values`, 100).map((x, i) => {
+        const b = obj(x, `${path}.values[${i}]`);
+        const value = str(b.value, `${path}.values[${i}].value`, 132);
+        const role = oneOf(b.role, ROLES, `${path}.values[${i}].role`);
+        const label = b.label === undefined || b.label === '' ? undefined : str(b.label, `${path}.values[${i}].label`, 60);
+        return { value, ...(label !== undefined ? { label } : {}), role };
+      });
+      return { type: 'badge', values, ...(o.otherwise !== undefined ? { otherwise: oneOf(o.otherwise, ROLES, `${path}.otherwise`) } : {}) };
+    }
+    case 'number': {
+      const out: Display = { type: 'number' };
+      if (o.implied !== undefined) out.implied = int(o.implied, `${path}.implied`, 0, 9);
+      if (o.decimals !== undefined) out.decimals = int(o.decimals, `${path}.decimals`, 0, 9);
+      if (o.currency !== undefined && o.currency !== '') {
+        const currency = str(o.currency, `${path}.currency`, 3);
+        if (!/^[A-Z]{3}$/.test(currency)) fail(`${path}.currency`, 'must be a currency code such as USD or EUR');
+        out.currency = currency;
+      }
+      return out;
+    }
+    case 'date':
+      return {
+        type: 'date', format: oneOf(o.format, DATE_FORMATS, `${path}.format`),
+        ...(o.style !== undefined ? { style: oneOf(o.style, DATE_STYLES, `${path}.style`) } : {}),
+      };
+    case 'yesno': {
+      const yes = str(o.yes, `${path}.yes`, 132);
+      if (yes.trim() === '') fail(`${path}.yes`, 'must not be blank');
+      return { type: 'yesno', yes, no: str(o.no, `${path}.no`, 132) };
+    }
+    case 'link': {
+      const to = oneOf(o.to, LINK_KINDS, `${path}.to`);
+      if (o.url === undefined || o.url === '') return { type: 'link', to };
+      if (to !== 'url') fail(`${path}.url`, 'is only for links to a web address (to: url)');
+      return { type: 'link', to, url: urlTemplate(o.url, `${path}.url`) };
+    }
+    case 'progress': {
+      const max = num(o.max, `${path}.max`);
+      if (max <= 0) fail(`${path}.max`, 'must be more than 0');
+      return { type: 'progress', max };
+    }
+    case 'barcode':
+      return { type: 'barcode', format: oneOf(o.format, BARCODE_FORMATS, `${path}.format`), height: int(o.height, `${path}.height`, 1, 20) };
+    default:
+      fail(`${path}.type`, 'must be badge, number, date, yesno, link, progress or barcode');
   }
 }
 
@@ -266,8 +343,40 @@ function change(v: unknown, path: string): Change {
         ...(o.css !== undefined && o.css !== '' ? { css: str(o.css, `${path}.css`, MAX_CSS) } : {}),
         ...(o.script !== undefined && o.script !== '' ? { script: str(o.script, `${path}.script`, MAX_SCRIPT) } : {}),
       };
+    case 'display': {
+      if ((o.column === undefined) === (o.at === undefined)) fail(path, 'needs either column or at');
+      const where = o.column !== undefined ? { column: str(o.column, `${path}.column`, 132) } : { at: target(o.at, `${path}.at`) };
+      if (where.column !== undefined && where.column.trim() === '') fail(`${path}.column`, 'must not be blank');
+      return { op: 'display', ...where, display: display(o.display, `${path}.display`) };
+    }
+    case 'label': {
+      const text = str(o.text, `${path}.text`, 132);
+      if (text.trim() === '') fail(`${path}.text`, 'must not be blank');
+      return {
+        op: 'label', at: target(o.at, `${path}.at`), text,
+        ...(o.style !== undefined ? { style: oneOf(o.style, LABEL_STYLES, `${path}.style`) } : {}),
+        ...(o.role !== undefined ? { role: oneOf(o.role, ROLES, `${path}.role`) } : {}),
+        ...(o.help !== undefined && o.help !== '' ? { help: str(o.help, `${path}.help`, 500) } : {}),
+      };
+    }
+    case 'image': {
+      const src = str(o.src, `${path}.src`, 2000);
+      const kind = imageSourceKind(src, THEME_FILE);
+      if (!kind) fail(`${path}.src`, 'must be an image of the theme (such as banner.png), an http(s) address or a path on this site (/...)');
+      if (kind === 'web') urlTemplate(src, `${path}.src`);
+      for (const p of placeholders(src)) {
+        if (p.row < 1 || p.row > MAX_ROWS || p.col < 1 || p.col > 132 || p.length === 0) fail(`${path}.src`, `{${p.row}:${p.col}} is not a screen position`);
+      }
+      return {
+        op: 'image', at: target(o.at, `${path}.at`), src,
+        alt: str(o.alt ?? '', `${path}.alt`, 200),
+        width: int(o.width, `${path}.width`, 1, 132),
+        height: int(o.height, `${path}.height`, 1, MAX_ROWS),
+        ...(o.fit !== undefined ? { fit: oneOf(o.fit, IMAGE_FITS, `${path}.fit`) } : {}),
+      };
+    }
     default:
-      fail(`${path}.op`, 'must be hide, text, role, widget, button, move, style, card, tabs, component or html');
+      fail(`${path}.op`, 'must be hide, text, role, widget, button, move, style, card, tabs, component, html, display, label or image');
   }
 }
 

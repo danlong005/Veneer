@@ -452,9 +452,13 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   - `hide` hides the item at a position.
   - `text` replaces an item's text.
   - `role` restyles text (`emphasis`, `muted`, `danger`, …).
-  - `widget` shows a field as a dropdown, checkbox, date picker, radio buttons, spinner
-    or text area. Values are converted to and from the host's format, so the host sees the
-    same fields and values as on a terminal. See [Field widgets](#field-widgets).
+  - `widget` shows a field as a dropdown, checkbox, switch, date or time picker, radio
+    buttons, spinner, text area, masked input or lookup. Values are converted to and from
+    the host's format, so the host sees the same fields and values as on a terminal. See
+    [Field widgets](#field-widgets).
+  - `display` shows output text, or a list column, as a status badge, a formatted number
+    or date, yes or no, a link, a progress bar or a barcode. See [Output text](#output-text).
+  - `label` and `image` add text and pictures to the page. See [Labels and images](#labels-and-images).
   - `button` adds an action button that presses a key, optionally filling fields first,
     or opens a web page in a new tab. In a `url`, `{6:22}` is replaced by the field starting
     at row 6, column 22 (including what the user has typed), or else the screen text there
@@ -519,16 +523,21 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
 ### Field widgets
 
 In the designer, select an input field and pick **Show as**. In a definition, a `widget`
-change names the field by its id (`"row:col"`):
+change names the field by its id (`"row:col"`). [docs/widgets.md](docs/widgets.md) is the
+full guide to every widget: how to add it, each setting, and what users see and do.
 
 | Show as | `widget` | Settings |
 | --- | --- | --- |
 | Dropdown | `{ "type": "select", "options": [{ "value": "TX", "label": "Texas" }] }` | `value` is sent to the host, `label` is shown |
 | Checkbox | `{ "type": "checkbox", "on": "Y", "off": "N" }` | The values for checked and unchecked |
+| Switch | `{ "type": "toggle", "on": "Y", "off": "N" }` | As a checkbox, drawn as an on/off switch |
 | Date picker | `{ "type": "date", "format": "YYYYMMDD" }` | The host's date format |
+| Time picker | `{ "type": "time", "format": "HHMMSS" }` | The host's time format: `HHMMSS`, `HHMM`, `HH:MM:SS`, `HH:MM`, `HH.MM.SS` or `HH.MM` |
 | Radio buttons | `{ "type": "radio", "options": [{ "value": "A", "label": "Air" }], "layout": "row" }` | As a dropdown; `layout` `row` (side by side, the default) or `column`; `allowClear` |
 | Spinner | `{ "type": "spinner", "min": 0, "max": 999, "step": 1 }` | All optional; `step` defaults to 1 |
 | Text area | `{ "type": "textarea", "fields": ["14:10", "15:10", "16:10", "17:10"] }` | The fields, one per line, starting with the widget's own |
+| Masked input | `{ "type": "mask", "mask": "(999) 999-9999" }` | `9` a digit, `A` a letter, `X` any character, the rest separators; `literals: true` when the host field holds the separators |
+| Lookup | `{ "type": "lookup", "options": [{ "value": "TX", "label": "Texas" }], "prompt": { "aid": "F4" } }` | Suggestions while typing, and a button that presses `prompt` (such as F4, the host's prompt) in the field; at least one of the two |
 
 - **Dropdowns and radio buttons:** a value that matches no choice shows nothing chosen and
   is kept as it is until the user picks one. In the designer, type the choices one per
@@ -554,6 +563,43 @@ change names the field by its id (`"row:col"`):
   area**, then click **Add the fields below** (the input fields in the same column and of
   the same length on the following rows), or **Pick fields on the screen** and click the
   fields to add or take out. Fields in a list (a subfile) can't be joined into a text area.
+- **Masked input:** the user types only the characters; separators appear by themselves,
+  and a full mask moves on to the next field. Characters a slot won't take are ignored.
+- **Lookup:** any value can still be typed. The look-up button sends its key with the
+  cursor in the field, as pressing it there would.
+
+### Output text
+
+A `display` change shows text the host put on the screen differently, at a position or for
+every row of a list column. The text is only read; nothing sent to the host changes, and
+text a display can't read shows as it is. In the designer, select the text and pick **Show
+as**, or select a list and pick a **Column**. See [docs/widgets.md](docs/widgets.md#output-text).
+
+```json
+{ "op": "display", "column": "Status", "display": { "type": "badge", "values": [{ "value": "MSGW", "label": "Waiting for reply", "role": "danger" }] } }
+```
+
+| Show as | `display` | Settings |
+| --- | --- | --- |
+| Status badge | `{ "type": "badge", "values": [{ "value": "RUN", "label": "Running", "role": "accent" }], "otherwise": "muted" }` | Codes with a label and a color; `otherwise` colors the rest |
+| Number | `{ "type": "number", "implied": 2, "decimals": 2, "currency": "USD" }` | All optional: decimals the host leaves out, decimals shown, a currency code |
+| Date | `{ "type": "date", "format": "YYYYMMDD", "style": "medium" }` | The host's format; `short`, `medium` or `long` |
+| Yes or no | `{ "type": "yesno", "yes": "Y", "no": "N" }` | The two values, shown as ✓ Yes and ✗ No |
+| Link | `{ "type": "link", "to": "url", "url": "https://crm.example.com/c/{value}" }` | `email`, `phone` or `url`; `{value}` is the text |
+| Progress bar | `{ "type": "progress", "max": 100 }` | The number that fills the bar |
+| Barcode | `{ "type": "barcode", "format": "qr", "height": 4 }` | `qr` or `code128`, and the rows it covers |
+
+### Labels and images
+
+`label` adds text, with a style and optional help behind an ⓘ; `image` adds a picture from
+the theme in use (by file name), a web address or a path on the site, which can take values
+from the screen (`/products/{6:12}.jpg`). In the designer, use the Page tab's **Labels and
+images** section, or click an empty spot. See [docs/widgets.md](docs/widgets.md#labels-and-images).
+
+```json
+{ "op": "label", "at": { "row": 4, "col": 4 }, "text": "Shipping", "style": "heading", "help": "Where and how the order is sent." }
+{ "op": "image", "at": { "row": 2, "col": 60 }, "src": "banner.png", "alt": "Acme Supply", "width": 18, "height": 4 }
+```
 
 ### Themes
 

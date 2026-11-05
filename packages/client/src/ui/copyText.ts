@@ -45,7 +45,7 @@ export function gridText(pieces: readonly Piece[]): string {
 }
 
 /** Fields whose value is copied: text boxes, text areas and drop-downs, not passwords or check boxes. */
-const TEXT_INPUT = new Set(['text', 'date', 'number', 'search', '']);
+const TEXT_INPUT = new Set(['text', 'date', 'time', 'number', 'search', '']);
 
 function fieldText(el: Element): string | undefined {
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return el.value;

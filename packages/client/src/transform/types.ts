@@ -1,10 +1,10 @@
 // The view model produced by the auto-transform pipeline. Every item keeps
 // its 5250 row/column so the layout stays faithful to the original screen.
 
-import type { ButtonAction, ComponentOptions, Role, ScreenEvent, TabBand, Widget } from '@veneer/screens';
+import type { ButtonAction, ComponentOptions, Display, ImageFit, LabelStyle, Role, ScreenEvent, TabBand, Widget } from '@veneer/screens';
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
 
-export type { Role, TabBand, Widget };
+export type { Display, Role, TabBand, Widget };
 
 export interface Placed {
   /** 1-based row and column. */
@@ -40,6 +40,8 @@ export interface TextItem extends Placed {
   underline: boolean;
   /** Line-drawing characters (ISPF's rules and boxes): drawn on the character grid. */
   lines?: boolean;
+  /** Set by a customization: shown as a badge, a formatted value, a link, a bar or a barcode. */
+  display?: Display;
 }
 
 export interface FieldItem extends Placed {
@@ -81,6 +83,8 @@ export interface TableCell {
   field?: FieldSnapshot;
   options?: Option[];
   widget?: Widget;
+  /** Set by a customization for the cell's column (cells without a field only). */
+  display?: Display;
   /** Set when a style rule chose `role`, so it wins over a row highlight. */
   styled?: boolean;
 }
@@ -132,7 +136,28 @@ export interface ComponentItem extends Placed {
   height: number;
 }
 
-export type Item = TextItem | FieldItem | LinkItem | TableItem | HtmlItem | ComponentItem;
+/** Text added by a screen definition (a `label` change). */
+export interface LabelItem extends Placed {
+  kind: 'label';
+  text: string;
+  style: LabelStyle;
+  role: Role;
+  /** Shown from an ⓘ after the text. */
+  help?: string;
+}
+
+/** A picture from a screen definition (an `image` change). */
+export interface ImageItem extends Placed {
+  kind: 'image';
+  /** The address to load, or undefined when it couldn't be made (the alt text shows). */
+  src: string | undefined;
+  alt: string;
+  fit: ImageFit;
+  /** Rows covered. */
+  height: number;
+}
+
+export type Item = TextItem | FieldItem | LinkItem | TableItem | HtmlItem | ComponentItem | LabelItem | ImageItem;
 
 export interface FunctionKey {
   aid: AidName;
