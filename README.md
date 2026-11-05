@@ -54,6 +54,9 @@ serves plain HTTP on 127.0.0.1. To serve HTTPS locally too, make a `localhost` c
 with mkcert and set `VENEER_HTTPS_CERT`/`VENEER_HTTPS_KEY` in `.env`. [TLS and HTTPS](deploy/README.md#tls-and-https)
 has the steps, and covers trusting an IBM i's own certificate.
 
+**No IBM i of your own?** [PUB400](https://pub400.com) is a free public one, and
+[docs/pub400.md](docs/pub400.md) shows how to point Veneer at it.
+
 **Deploying:** `npm run package` builds a self-contained archive that runs on any machine with
 Node.js 20.12 or later, with no `npm install` and no internet access. [deploy/README.md](deploy/README.md)
 covers installing it as a service on IBM i (Service Commander, or `SBMJOB` started at IPL)
@@ -145,6 +148,7 @@ TLS): logon and reconnect, TSO line mode, ISPF panels, action bars, pull-downs a
 pop-up windows, the data set list, View, the Command Shell, Attention, Clear, PA2 and
 System Request. TLS to a mainframe, requesting LU names, CICS, IMS and code pages other
 than 37 have only been tested against Veneer's own demo mainframe.
+[docs/zxplore.md](docs/zxplore.md) shows how to set that up.
 
 Each server talks to one kind of host. For a mainframe, set `VENEER_HOST_TYPE=3270`:
 
