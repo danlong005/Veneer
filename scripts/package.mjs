@@ -42,7 +42,8 @@ if (!process.argv.includes('--skip-build')) run('npm', ['run', 'build']);
 fs.rmSync(stage, { recursive: true, force: true });
 fs.mkdirSync(stage, { recursive: true });
 
-for (const f of ['package.json', 'package-lock.json', 'LICENSE', 'README.md', 'deploy']) copy(f);
+// docs/ holds the widget and component guides (and the logo) that README.md links to.
+for (const f of ['package.json', 'package-lock.json', 'LICENSE', 'README.md', 'deploy', 'docs']) copy(f);
 copy('.env.example', 'veneer.env.example');
 // Ready-made components (lists, charts, maps, spool files…): sites copy the ones they
 // want into their components folder (README, "Custom components").

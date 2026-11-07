@@ -1,0 +1,13 @@
+{
+  "id": "demo-bill-of-materials",
+  "name": "Demo bill of materials",
+  "match": { "text": [{ "row": 1, "col": 28, "text": "Display Bill of Materials" }] },
+  "changes": [
+    { "op": "hide", "at": { "row": 4, "col": 2 } },
+    { "op": "hide", "at": { "row": 5, "col": 3 } },
+    { "op": "hide", "at": { "row": 7, "col": 2 } },
+    { "op": "hide", "at": { "row": 18, "col": 73 } },
+    { "op": "component", "name": "tree", "at": { "row": 4, "col": 2 }, "width": 79, "height": 17,
+      "options": { "column": "Component", "level": "Lvl", "fields": ["Description", "Qty", "UOM"], "default": "5" } }
+  ]
+}

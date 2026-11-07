@@ -15,13 +15,31 @@ What the host sees never changes. A field widget converts values to and from the
 host's format, so the host gets the same fields and values a terminal would send.
 Output text is only read. Labels and images belong to the page, not the host.
 
-**Contents:** [Adding a widget](#adding-a-widget) ·
+**Contents:** [Try them in the demo](#try-them-in-the-demo) · [Adding a widget](#adding-a-widget) ·
 Field widgets: [Dropdown](#dropdown) · [Radio buttons](#radio-buttons) · [Checkbox](#checkbox) ·
 [Switch](#switch) · [Date picker](#date-picker) · [Time picker](#time-picker) · [Spinner](#spinner) ·
 [Text area](#text-area) · [Masked input](#masked-input) · [Lookup](#lookup) ·
 Output text: [Status badge](#status-badge) · [Number](#number) · [Date](#date) · [Yes or no](#yes-or-no) ·
 [Link](#link) · [Progress bar](#progress-bar) · [Barcode or QR code](#barcode-or-qr-code) ·
 [Label](#label) · [Image](#image) · [Troubleshooting](#troubleshooting)
+
+## Try them in the demo
+
+`npm run demo` (after `npm run build`) shows every widget on a screen, each from a
+definition file you can copy: sign on with any name, then type the menu option. In the
+designer (**Design**), select a widget to see its settings. The files are in
+[`packages/server/dev/screens/`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens).
+
+| Widgets | Menu option | Definition |
+| --- | --- | --- |
+| Dropdown, date picker, checkbox | 2 | [`demo-order-entry.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-order-entry.json) |
+| Radio buttons, spinners, text area | 7 | [`demo-shipping-notes.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-shipping-notes.json) |
+| Time picker, masked input, lookup (with F4), switch, a note with help | 16 | [`demo-delivery-options.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-delivery-options.json) |
+| Status badge, number, progress bar on a list's columns | 11 | [`demo-orders.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-orders.json) |
+| Status badge, date, number, yes or no, email, phone and web links, progress bar, Code 128 barcode and QR code, a heading, a note with help, an image | 15 | [`demo-order-status.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-order-status.json) |
+
+On option 15, type another order number (104571 to 104584) to see each display change;
+orders that have shipped have a tracking barcode.
 
 ## Adding a widget
 

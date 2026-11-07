@@ -23,9 +23,37 @@ use. For writing your own, see [Custom components](../README.md#custom-component
 | [Map](#map) | `map.js` | An address from the screen on a map | |
 | [Star rating](#star-rating) | `star-rating.js` | A one-digit field as stars | |
 
-**Contents:** [Installing](#installing) · [Placing a component](#placing-a-component) ·
-[The page or the whole list](#the-page-or-the-whole-list) · each component above ·
-[Troubleshooting](#troubleshooting)
+**Contents:** [Try them in the demo](#try-them-in-the-demo) · [Installing](#installing) ·
+[Placing a component](#placing-a-component) · [The page or the whole list](#the-page-or-the-whole-list) ·
+each component above · [Troubleshooting](#troubleshooting)
+
+## Try them in the demo
+
+`npm run demo` (after `npm run build`) has every component on a screen, each from a
+definition file you can copy: sign on with any name, then type the menu option. In the
+designer (**Design**), select a component's box to see and change its options. The files
+are in [`packages/server/dev/screens/`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens).
+
+| Component | Menu option | Definition |
+| --- | --- | --- |
+| Whole-list table, totals | 1 or `WRKACTJOB` | [`demo-active-jobs.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-active-jobs.json) |
+| Totals (with output displays on the list) | 11 | [`demo-orders.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-orders.json) |
+| Calendar | 12 | [`demo-orders-calendar.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-orders-calendar.json) |
+| Board | 13 | [`demo-orders-board.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-orders-board.json) |
+| Chart (bars and a donut) | 14 | [`demo-orders-chart.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-orders-chart.json) |
+| Status timeline, embedded page, barcode scanner, help panel (F1) | 15 | [`demo-order-status.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-order-status.json) |
+| Star rating | 16 | [`demo-delivery-options.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-delivery-options.json) |
+| Tree | 17 | [`demo-bill-of-materials.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-bill-of-materials.json) |
+| Pin map | 18 | [`demo-contacts-map.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-contacts-map.json) |
+| Cards | 4 | [`demo-contacts.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-contacts.json) |
+| Map | 3 | [`demo-customer-addresses.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-customer-addresses.json) |
+| Spool file | `DSPSPLF` | [`demo-spool-file.json`](https://github.com/danlong005/Veneer/blob/main/packages/server/dev/screens/demo-spool-file.json) |
+
+The embedded page on option 15 is a packing list from a small web server the demo starts
+on `http://127.0.0.1:8079`, standing in for another system; it shows in browsers on the
+same machine. The maps and pin map look addresses up with OpenStreetMap, so they need
+internet. The scanner's camera button needs a browser with a barcode detector and HTTPS
+([Barcode scanner](#barcode-scanner)).
 
 ## Installing
 

@@ -1,0 +1,14 @@
+{
+  "id": "demo-orders-calendar",
+  "name": "Demo orders: calendar",
+  "match": { "text": [{ "row": 1, "col": 31, "text": "Orders by Ship Date" }] },
+  "changes": [
+    { "op": "hide", "at": { "row": 3, "col": 2 } },
+    { "op": "hide", "at": { "row": 4, "col": 3 } },
+    { "op": "hide", "at": { "row": 4, "col": 15 } },
+    { "op": "hide", "at": { "row": 6, "col": 2 } },
+    { "op": "hide", "at": { "row": 16, "col": 73 } },
+    { "op": "component", "name": "calendar", "at": { "row": 3, "col": 2 }, "width": 79, "height": 19,
+      "options": { "date": "Ship date", "format": "MM/DD/YY", "title": "Customer", "default": "8" } }
+  ]
+}

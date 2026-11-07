@@ -1,0 +1,24 @@
+{
+  "id": "demo-orders",
+  "name": "Demo orders: displays and totals",
+  "match": { "text": [{ "row": 1, "col": 33, "text": "Work with Orders" }] },
+  "changes": [
+    { "op": "style", "when": { "column": "Status", "equals": "HLD" }, "role": "warning", "target": "row" },
+    { "op": "display", "column": "Status", "display": { "type": "badge", "values": [
+      { "value": "ORD", "label": "Ordered", "role": "normal" },
+      { "value": "PCK", "label": "Picking", "role": "accent2" },
+      { "value": "SHP", "label": "Shipped", "role": "accent" },
+      { "value": "DLV", "label": "Delivered", "role": "muted" },
+      { "value": "HLD", "label": "On hold", "role": "danger" }
+    ] } },
+    { "op": "display", "column": "Picked", "display": { "type": "progress", "max": 100 } },
+    { "op": "display", "column": "Amount", "display": { "type": "number", "decimals": 2, "currency": "USD" } },
+    { "op": "component", "name": "totals", "at": { "row": 18, "col": 2 }, "width": 79, "height": 3,
+      "options": { "list": "all", "totals": [
+        { "of": "count", "label": "orders" },
+        { "of": "count", "where": { "Status": "HLD" }, "label": "on hold" },
+        { "of": "sum", "column": "Amount", "currency": "USD", "label": "total" },
+        { "of": "average", "column": "Picked", "decimals": 0, "label": "% picked on average" }
+      ] } }
+  ]
+}

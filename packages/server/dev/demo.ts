@@ -5,6 +5,7 @@
 import { loadConfig } from '../src/config.ts';
 import { log } from '../src/log.ts';
 import { createServer } from '../src/server.ts';
+import { startDocsServer } from './demoDocs.ts';
 import { DemoHost } from './demoHost.ts';
 import { DemoHost3270 } from './demoHost3270.ts';
 import { demoEnv, demoHostType } from './demoEnv.ts';
@@ -13,6 +14,8 @@ const type = demoHostType(process.argv.slice(2), process.env);
 // VENEER_SIGNON=auto: the demo IBM i signs users on from Veneer's page, with the password "demo".
 const hostPort = await (type === '3270' ? new DemoHost3270() : new DemoHost({ autoSignOn: process.env.VENEER_SIGNON === 'auto' })).listen();
 const config = loadConfig(demoEnv(type, hostPort, process.env));
+// The "other system" Order Status embeds and links to (5250 demo only).
+const docs = type === '3270' ? undefined : await startDocsServer();
 const server = createServer(config);
 const addr = await server.listen();
 log.info('demo ready', {
@@ -22,5 +25,6 @@ log.info('demo ready', {
   screens: config.screensDir,
   designer: config.designerLocal ? 'no token needed from this machine' : 'off',
   admin: config.adminLocal ? `http://${addr.address}:${addr.port}/admin` : 'off',
+  ...(docs ? { documents: 'server' in docs ? `http://127.0.0.1:${docs.port}` : `off: ${docs.error}` } : {}),
 });
 process.on('SIGINT', () => void server.close().then(() => process.exit(0)));

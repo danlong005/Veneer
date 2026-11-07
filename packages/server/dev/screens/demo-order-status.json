@@ -1,0 +1,49 @@
+{
+  "id": "demo-order-status",
+  "name": "Demo order status",
+  "match": { "text": [{ "row": 1, "col": 35, "text": "Order Status" }] },
+  "title": "Order Status",
+  "changes": [
+    { "op": "image", "at": { "row": 1, "col": 74 }, "src": "/veneer-mark.png", "alt": "", "width": 6, "height": 3 },
+    { "op": "component", "name": "help-panel", "at": { "row": 2, "col": 46 }, "width": 12, "height": 1,
+      "options": { "title": "Order status", "markdown": [
+        "## Looking up an order",
+        "Type an **order number** and press Enter, or scan an order's QR code with the camera button beside the field.",
+        "",
+        "- The steps at the top show how far the order has got.",
+        "- **Invoice** opens the invoice in the billing system; the packing list shows on the right.",
+        "- **F10** sets delivery options: the time, phone, carrier and a rating.",
+        "",
+        "Orders run from `104571` to `104584` in the demo."
+      ] } },
+    { "op": "component", "name": "scanner", "field": "4:22", "at": { "row": 4, "col": 22 }, "width": 12, "height": 1,
+      "options": { "enter": true, "formats": ["qr_code", "code_128"] } },
+    { "op": "component", "name": "timeline", "at": { "row": 4, "col": 46 }, "width": 34, "height": 3,
+      "options": { "at": "7:22:3",
+        "steps": [{ "value": "ORD", "label": "Ordered" }, { "value": "PCK", "label": "Picked" }, { "value": "SHP", "label": "Shipped" }, { "value": "DLV", "label": "Delivered" }],
+        "stopped": [{ "value": "HLD", "label": "On hold", "after": "ORD" }] } },
+    { "op": "label", "at": { "row": 5, "col": 4 }, "text": "Details", "style": "subheading" },
+    { "op": "display", "at": { "row": 7, "col": 22 }, "display": { "type": "badge", "values": [
+      { "value": "ORD", "label": "Ordered", "role": "normal" },
+      { "value": "PCK", "label": "Picking", "role": "accent2" },
+      { "value": "SHP", "label": "Shipped", "role": "accent" },
+      { "value": "DLV", "label": "Delivered", "role": "muted" },
+      { "value": "HLD", "label": "On hold", "role": "danger" }
+    ] } },
+    { "op": "display", "at": { "row": 8, "col": 22 }, "display": { "type": "date", "format": "YYYYMMDD", "style": "medium" } },
+    { "op": "display", "at": { "row": 9, "col": 22 }, "display": { "type": "number", "implied": 2, "decimals": 2, "currency": "USD" } },
+    { "op": "display", "at": { "row": 10, "col": 22 }, "display": { "type": "yesno", "yes": "Y", "no": "N" } },
+    { "op": "display", "at": { "row": 11, "col": 22 }, "display": { "type": "progress", "max": 100 } },
+    { "op": "display", "at": { "row": 12, "col": 22 }, "display": { "type": "link", "to": "email" } },
+    { "op": "display", "at": { "row": 13, "col": 22 }, "display": { "type": "link", "to": "phone" } },
+    { "op": "display", "at": { "row": 14, "col": 22 }, "display": { "type": "link", "to": "url", "url": "http://127.0.0.1:8079/invoices/{value}" } },
+    { "op": "display", "at": { "row": 16, "col": 22 }, "display": { "type": "barcode", "format": "code128", "height": 2 } },
+    { "op": "component", "name": "embed", "at": { "row": 8, "col": 46 }, "width": 34, "height": 8,
+      "options": { "url": "http://127.0.0.1:8079/orders/{4:22}", "title": "Packing list", "caption": true } },
+    { "op": "label", "at": { "row": 18, "col": 46 }, "text": "Scan to open this order", "style": "note",
+      "help": "The QR code holds the order number. On a phone, the Order field's camera button reads it." },
+    { "op": "display", "at": { "row": 18, "col": 70 }, "display": { "type": "barcode", "format": "qr", "height": 4 } },
+    { "op": "button", "label": "Delivery options", "action": { "aid": "F10" } },
+    { "op": "button", "label": "Back", "action": { "aid": "F12" } }
+  ]
+}

@@ -164,15 +164,15 @@ test('against the demo host, a card\'s option and the pager do what the user wou
 test('the plain customer addresses and contacts screens match no definition', () => {
   CUSTOMERS.forEach((_, i) => assert.equal(matchScreen(screen(customerAddresses(i, undefined, true)), definitions), undefined));
   for (let p = 0; p < Math.ceil(CONTACTS.length / CONTACTS_PAGE); p++) {
-    assert.equal(matchScreen(screen(contacts(p, undefined, true)), definitions), undefined);
+    assert.equal(matchScreen(screen(contacts(p, undefined, 'plain')), definitions), undefined);
   }
 });
 
 test('the plain screens show the same data as the customized ones', () => {
   const body = (snap: ScreenSnapshot) => snap.lines.slice(1);
   assert.deepEqual(body(screen(customerAddresses(1, undefined, true))), body(screen(customerAddresses(1))));
-  assert.deepEqual(body(screen(contacts(1, undefined, true))), body(screen(contacts(1))));
-  assert.match(screen(contacts(0, undefined, true)).lines[0]!, /Work with Contacts \(no cards\)/);
+  assert.deepEqual(body(screen(contacts(1, undefined, 'plain'))), body(screen(contacts(1))));
+  assert.match(screen(contacts(0, undefined, 'plain')).lines[0]!, /Work with Contacts \(no cards\)/);
   assert.match(screen(customerAddresses(0, undefined, true)).lines[0]!, /Customer Addresses \(no map\)/);
 });
 

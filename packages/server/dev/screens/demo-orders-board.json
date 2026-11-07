@@ -1,0 +1,21 @@
+{
+  "id": "demo-orders-board",
+  "name": "Demo orders: board",
+  "match": { "text": [{ "row": 1, "col": 33, "text": "Orders by Status" }] },
+  "changes": [
+    { "op": "hide", "at": { "row": 3, "col": 2 } },
+    { "op": "hide", "at": { "row": 4, "col": 3 } },
+    { "op": "hide", "at": { "row": 4, "col": 15 } },
+    { "op": "hide", "at": { "row": 6, "col": 2 } },
+    { "op": "hide", "at": { "row": 16, "col": 73 } },
+    { "op": "style", "when": { "column": "Status", "equals": "HLD" }, "role": "warning", "target": "row" },
+    { "op": "component", "name": "board", "at": { "row": 3, "col": 2 }, "width": 79, "height": 19,
+      "options": { "column": "Status", "lanes": [
+        { "value": "ORD", "label": "Ordered" },
+        { "value": "PCK", "label": "Picking" },
+        { "value": "SHP", "label": "Shipped" },
+        { "value": "DLV", "label": "Delivered" },
+        { "value": "HLD", "label": "On hold" }
+      ], "title": "Customer", "subtitle": "Order", "fields": ["Ship date", "Amount"], "width": 150, "default": "8" } }
+  ]
+}

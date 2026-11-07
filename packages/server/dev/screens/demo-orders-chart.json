@@ -1,0 +1,16 @@
+{
+  "id": "demo-orders-chart",
+  "name": "Demo orders: charts",
+  "match": { "text": [{ "row": 1, "col": 34, "text": "Order Amounts" }] },
+  "changes": [
+    { "op": "hide", "at": { "row": 3, "col": 2 } },
+    { "op": "hide", "at": { "row": 4, "col": 3 } },
+    { "op": "hide", "at": { "row": 4, "col": 15 } },
+    { "op": "hide", "at": { "row": 6, "col": 2 } },
+    { "op": "hide", "at": { "row": 16, "col": 73 } },
+    { "op": "component", "name": "bar-chart", "at": { "row": 3, "col": 2 }, "width": 40, "height": 19,
+      "options": { "column": "Amount", "label": "Order", "title": "Amount by order", "list": "all" } },
+    { "op": "component", "name": "bar-chart", "at": { "row": 3, "col": 43 }, "width": 38, "height": 19,
+      "options": { "type": "donut", "column": "Amount", "label": "Customer", "title": "By customer", "list": "all" } }
+  ]
+}

@@ -6,6 +6,10 @@
 import { randomBytes } from 'node:crypto';
 import net from 'node:net';
 import { Attr, HostStream, buildRecord, getCodepage, passwordSubstitute } from '@veneer/tn5250';
+import {
+  BOM, BOM_PAGE, CARRIER_LIST, DEFAULT_ORDER, DELIVERY_FIELDS, ORDERS, ORDERS_PAGE, ORDER_OPTIONS, billOfMaterials, checkDelivery,
+  deliveryOptions, findOrder, orderStatus, orders, type OrderView,
+} from './demoOrders.ts';
 
 const cp = getCodepage(37);
 const IAC = 0xff;
@@ -48,6 +52,14 @@ export const CONTACTS = [
 /** Contacts per page, rows 7 to 14. */
 export const CONTACTS_PAGE = 8;
 const CONTACT_OPTIONS: Record<string, string> = { '2': 'Change', '4': 'Delete', '5': 'Display' };
+/**
+ * The contacts list's titles: `cards` and `map` each have a definition (cards,
+ * a pin map); `plain` matches none, to show the screen as it is.
+ */
+export const CONTACT_VIEWS = { cards: 'Work with Contacts', plain: 'Work with Contacts (no cards)', map: 'Contacts by City' } as const;
+export type ContactsView = keyof typeof CONTACT_VIEWS;
+/** Where Order Status goes back to: the orders list it was opened from, or the menu. */
+type FromOrders = { view: OrderView; page: number } | undefined;
 
 type State =
   | { screen: 'signon' }
@@ -58,7 +70,11 @@ type State =
   | { screen: 'customer'; user: string; index: number; plain: boolean }
   | { screen: 'jobs'; user: string; page: number }
   | { screen: 'spool'; user: string; page: number }
-  | { screen: 'contacts'; user: string; page: number; plain: boolean }
+  | { screen: 'contacts'; user: string; page: number; view: ContactsView }
+  | { screen: 'orders'; user: string; page: number; view: OrderView }
+  | { screen: 'orderStatus'; user: string; number: string; from: FromOrders }
+  | { screen: 'delivery'; user: string; number: string; from: FromOrders }
+  | { screen: 'bom'; user: string; page: number }
   | { screen: 'shipping'; user: string }
   /** Help, shown from `back` (the screen Help was pressed on) about `topic`. */
   | { screen: 'help'; user: string; back: 'order' | 'menu'; topic: string; page: number };
@@ -164,10 +180,23 @@ export class DemoHost {
           state = { screen: 'customer', user: s.user, index: 0, plain };
           return show(customerAddresses(0, undefined, plain));
         }
-        if (cmd === '4' || cmd === '6') {
-          const plain = cmd === '6';
-          state = { screen: 'contacts', user: s.user, page: 0, plain };
-          return show(contacts(0, undefined, plain));
+        if (cmd === '4' || cmd === '6' || cmd === '18') {
+          const view: ContactsView = cmd === '4' ? 'cards' : cmd === '6' ? 'plain' : 'map';
+          state = { screen: 'contacts', user: s.user, page: 0, view };
+          return show(contacts(0, undefined, view));
+        }
+        const orderView = ({ '11': 'list', WRKORD: 'list', '12': 'calendar', '13': 'board', '14': 'chart' } as Record<string, OrderView>)[cmd];
+        if (orderView) {
+          state = { screen: 'orders', user: s.user, page: 0, view: orderView };
+          return show(orders(0, orderView));
+        }
+        if (cmd === '15' || cmd === '16') {
+          state = { screen: cmd === '15' ? 'orderStatus' : 'delivery', user: s.user, number: DEFAULT_ORDER, from: undefined };
+          return show(cmd === '15' ? orderStatus(DEFAULT_ORDER) : deliveryOptions(DEFAULT_ORDER));
+        }
+        if (cmd === '17' || cmd === 'DSPBOM') {
+          state = { screen: 'bom', user: s.user, page: 0 };
+          return show(billOfMaterials(0));
         }
         if (cmd === '7') {
           state = { screen: 'shipping', user: s.user };
@@ -230,14 +259,14 @@ export class DemoHost {
         if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
         const pages = Math.ceil(CONTACTS.length / CONTACTS_PAGE);
         if (aid === 0xf5) {
-          if (s.page + 1 >= pages) return show(contacts(s.page, 'Already at bottom of area.', s.plain));
+          if (s.page + 1 >= pages) return show(contacts(s.page, 'Already at bottom of area.', s.view));
           state = { ...s, page: s.page + 1 };
-          return show(contacts(s.page + 1, undefined, s.plain));
+          return show(contacts(s.page + 1, undefined, s.view));
         }
         if (aid === 0xf4) {
-          if (s.page === 0) return show(contacts(0, 'Already at top of area.', s.plain));
+          if (s.page === 0) return show(contacts(0, 'Already at top of area.', s.view));
           state = { ...s, page: s.page - 1 };
-          return show(contacts(s.page - 1, undefined, s.plain));
+          return show(contacts(s.page - 1, undefined, s.view));
         }
         const picked = [...fields].find(([, v]) => v.trim());
         if (picked) {
@@ -247,9 +276,82 @@ export class DemoHost {
           const message = CONTACT_OPTIONS[opt] && contact
             ? `${CONTACT_OPTIONS[opt]} ${contact[0]} (option ${opt}).`
             : `Option ${opt} not valid.`;
-          return show(contacts(s.page, message, s.plain));
+          return show(contacts(s.page, message, s.view));
         }
-        return show(contacts(s.page, undefined, s.plain));
+        return show(contacts(s.page, undefined, s.view));
+      }
+      if (s.screen === 'orders') {
+        if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
+        const pages = Math.ceil(ORDERS.length / ORDERS_PAGE);
+        if (aid === 0xf5) {
+          if (s.page + 1 >= pages) return show(orders(s.page, s.view, 'Already at bottom of area.'));
+          state = { ...s, page: s.page + 1 };
+          return show(orders(s.page + 1, s.view));
+        }
+        if (aid === 0xf4) {
+          if (s.page === 0) return show(orders(0, s.view, 'Already at top of area.'));
+          state = { ...s, page: s.page - 1 };
+          return show(orders(s.page - 1, s.view));
+        }
+        const picked = [...fields].find(([, v]) => v.trim());
+        if (picked) {
+          const [id, typed] = picked;
+          const opt = typed.trim();
+          const order = ORDERS[s.page * ORDERS_PAGE + (Number(id.split(':')[0]) - 7)];
+          if (order && opt === '8') {
+            state = { screen: 'orderStatus', user: s.user, number: order.number, from: { view: s.view, page: s.page } };
+            return show(orderStatus(order.number));
+          }
+          const message = ORDER_OPTIONS[opt] && order ? `Display order ${order.number}, ${order.customer} (option 5).` : `Option ${opt} not valid.`;
+          return show(orders(s.page, s.view, message));
+        }
+        return show(orders(s.page, s.view));
+      }
+      if (s.screen === 'orderStatus') {
+        if (aid === 0x3c || aid === 0x33) { // F12, F3: back to the list it came from, or the menu
+          if (s.from) { state = { screen: 'orders', user: s.user, ...s.from }; return show(orders(s.from.page, s.from.view)); }
+          state = { screen: 'menu', user: s.user };
+          return show(mainMenu(s.user));
+        }
+        if (aid === 0x3a) { // F10
+          state = { ...s, screen: 'delivery' };
+          return show(deliveryOptions(s.number));
+        }
+        const typed = (fields.get('4:22') ?? '').trim();
+        if (typed && !findOrder(typed)) return show(orderStatus(s.number, `Order ${typed} not found.`));
+        if (typed) state = { ...s, number: findOrder(typed)!.number };
+        return show(orderStatus(typed ? findOrder(typed)!.number : s.number));
+      }
+      if (s.screen === 'delivery') {
+        if (aid === 0x3c || aid === 0x33) { state = { ...s, screen: 'orderStatus' }; return show(orderStatus(s.number)); }
+        const at = (id: string) => ({ row: Number(id.split(':')[0]), col: Number(id.split(':')[1]) });
+        if (aid === 0x34) { // F4: the carrier list, with what was typed kept
+          return show(deliveryOptions(s.number, CARRIER_LIST, fields, at(DELIVERY_FIELDS.carrier)));
+        }
+        const result = checkDelivery(fields, s.number);
+        return show(deliveryOptions(s.number, result.message, result.error ? fields : undefined, at(result.error ?? DELIVERY_FIELDS.after)));
+      }
+      if (s.screen === 'bom') {
+        if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
+        const pages = Math.ceil(BOM.length / BOM_PAGE);
+        if (aid === 0xf5) {
+          if (s.page + 1 >= pages) return show(billOfMaterials(s.page, 'Already at bottom of area.'));
+          state = { ...s, page: s.page + 1 };
+          return show(billOfMaterials(s.page + 1));
+        }
+        if (aid === 0xf4) {
+          if (s.page === 0) return show(billOfMaterials(0, 'Already at top of area.'));
+          state = { ...s, page: s.page - 1 };
+          return show(billOfMaterials(s.page - 1));
+        }
+        const picked = [...fields].find(([, v]) => v.trim());
+        if (picked) {
+          const [id, typed] = picked;
+          const part = BOM[s.page * BOM_PAGE + (Number(id.split(':')[0]) - 8)];
+          const message = typed.trim() === '5' && part ? `Display part ${part[1]}: ${part[2]}.` : `Option ${typed.trim()} not valid.`;
+          return show(billOfMaterials(s.page, message));
+        }
+        return show(billOfMaterials(s.page));
       }
       if (s.screen === 'menuWindow') {
         const menu = (fields.get('11:38') ?? '').trim().toUpperCase();
@@ -408,6 +510,12 @@ const MENU_HELP: string[][] = [
     '',
     'Option 9 opens a pop-up window over the menu.',
   ],
+  [
+    'Options 11 to 18 show the ready-made components and widgets: an',
+    'orders list as displays and totals, a calendar, a board and charts;',
+    'an order\'s status; its delivery options; a bill of materials as a',
+    'tree; and contacts on a map.',
+  ],
 ];
 
 /** Full-screen help for the main menu. */
@@ -500,6 +608,14 @@ function mainMenu(user: string, message?: string): number[] {
     .text(12, 6, '8. Problem handling')
     .text(13, 6, '9. Display a menu')
     .text(14, 5, '10. Information Assistant options')
+    .text(5, 46, '11. Work with orders (displays)')
+    .text(6, 46, '12. Orders by ship date (calendar)')
+    .text(7, 46, '13. Orders by status (board)')
+    .text(8, 46, '14. Order amounts (charts)')
+    .text(9, 46, '15. Order status (timeline, QR)')
+    .text(10, 46, '16. Delivery options (widgets)')
+    .text(11, 46, '17. Bill of materials (tree)')
+    .text(12, 46, '18. Contacts by city (pin map)')
     .text(17, 5, '90. Sign off')
     .text(19, 2, 'Selection or command')
     .text(20, 2, '===>')
@@ -584,10 +700,11 @@ export function spoolFile(page: number): number[] {
 
 /**
  * Work with Contacts (CON100): a subfile with an option column, paged 8 at a
- * time. `plain` gives it another title, so the cards definition doesn't match it.
+ * time, under the title of one of its views (CONTACT_VIEWS).
  */
-export function contacts(page: number, message?: string, plain = false): number[] {
-  const title = plain ? 'Work with Contacts (no cards)' : 'Work with Contacts';
+export function contacts(page: number, message?: string, view: ContactsView = 'cards'): number[] {
+  const title = CONTACT_VIEWS[view];
+  const plain = view !== 'cards';
   const s = new HostStream().clear().write()
     .text(1, 2, 'CON100')
     .text(1, plain ? centered(title) : 31, title, WHITE)

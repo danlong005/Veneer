@@ -741,6 +741,8 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 /* ---- Output text shown differently (display changes) ---- */
 .text.display { white-space: nowrap; }
 .text.display-number { text-align: right; font-variant-numeric: tabular-nums; }
+/* In a list cell too: amounts line up on the right, as on the host. */
+.td .display-number { display: block; text-align: right; font-variant-numeric: tabular-nums; }
 .badge {
   display: inline-block; padding: 0 0.6em; border-radius: 999px; line-height: 1.5em; font-size: 0.9em; font-weight: 600;
   background: var(--info-soft); color: var(--text-strong); vertical-align: middle;

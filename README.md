@@ -515,9 +515,10 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   customization recognises it. Sort by most visited and tick **Not customized yet** to see
   which screens to customize next. Only the screen's shape is recorded, never what was on
   it. It is kept in `inventory.json` in `VENEER_DATA_DIR` (default `data/`, not in git).
-- **Demo:** `npm run demo` includes a customized order-entry screen (main menu option 2),
-  a shipping notes screen with radio buttons, spinners and a text area (option 7), and
-  serves the example components, ready to place from the designer. `npm run demo -- --3270`
+- **Demo:** `npm run demo` has a customized screen for every widget, output display and
+  ready-made component (main menu options 1 to 4, 7 and 11 to 18), and serves the example
+  components, ready to place from the designer. The [widgets guide](docs/widgets.md#try-them-in-the-demo)
+  and [components guide](docs/components.md#try-them-in-the-demo) say which option shows which. `npm run demo -- --3270`
   runs a demo mainframe instead ([Mainframe (3270) hosts](#mainframe-3270-hosts)).
 
 ### Field widgets
