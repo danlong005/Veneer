@@ -1,6 +1,6 @@
 {
   "name": "@veneer/tn3270",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pure TypeScript TN3270/TN3270E client and 3270 screen model",
   "license": "MIT",
   "type": "module",
@@ -18,6 +18,6 @@
     "test": "node --conditions=veneer-source --test test/*.test.ts"
   },
   "dependencies": {
-    "@veneer/terminal": "^0.2.0"
+    "@veneer/terminal": "^0.3.0"
   }
 }

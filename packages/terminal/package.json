@@ -1,6 +1,6 @@
 {
   "name": "@veneer/terminal",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The host-neutral terminal model Veneer works with: screens, fields, keys and the session interface",
   "license": "MIT",
   "type": "module",
