@@ -352,6 +352,12 @@ test('an unformatted screen sends everything on it', () => {
 
 // ---- Structured fields ---------------------------------------------------
 
+test('the character sets query reply names code page 273 when the host uses it', () => {
+  const t = makeTerminal(2, 273);
+  t.host([0xf3, 0x00, 0x05, 0x01, 0xff, 0x02]);
+  assert.deepEqual(parseQueryReply(t.sent[0]!).get(0x85)!.slice(12, 16), [0x02, 0xb9, 0x01, 0x11], 'GCSGID 697 with code page 273');
+});
+
 test('Read Partition Query gets the query replies, sized for the model', () => {
   const t = makeTerminal(4, 1047);
   t.host([0xf3, 0x00, 0x05, 0x01, 0xff, 0x02]);

@@ -22,7 +22,7 @@ export interface SessionOptions extends ConnectionSettings {
   onDeviceNameInUse?: (name: string) => string | undefined;
   /** Use TN3270E when the host offers it (default true). */
   tn3270e?: boolean;
-  /** Host code page: 37 (default) or 1047, or one registered with registerCodepage. */
+  /** Host code page: 37 (default), 273 or 1047, or one registered with registerCodepage. */
   ccsid?: number;
   connectTimeoutMs?: number;
   /** Receives every record in both directions (with the TN3270E header, if any), for debugging and fixtures. */

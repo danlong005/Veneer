@@ -2,6 +2,7 @@
 
 import { hostToIso, hostToTime, isoToHost, timeHasSeconds, timeToHost, type Widget } from '@veneer/screens';
 import type { AidName, FieldSnapshot } from '@veneer/terminal';
+import { monocase } from '@veneer/terminal';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Option } from '../transform/types.ts';
 import { filterValue, isNumeric, overtyped, withSign, isShortField } from './fieldRules.ts';
@@ -156,7 +157,7 @@ export function FieldInput(props: {
       readOnly={readOnly}
       value={value}
       onChange={(e) => {
-        const raw = field.monocase ? e.target.value.toUpperCase() : e.target.value;
+        const raw = field.monocase ? monocase(e.target.value) : e.target.value;
         const v = filterValue(field, raw);
         binding.onChange(field, v);
         if (v.length === field.length && e.target.selectionStart === v.length) {

@@ -3,6 +3,7 @@
 // it can be tested without a browser.
 
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
+import { monocase } from '@veneer/terminal';
 import { acceptsChar } from './fieldRules.ts';
 
 export type TypedKey =
@@ -74,7 +75,7 @@ export function replay(snap: ScreenSnapshot, initial: ReplayState, keys: readonl
       }
       continue;
     }
-    const ch = field.monocase ? key.ch.toUpperCase() : key.ch;
+    const ch = field.monocase ? monocase(key.ch) : key.ch;
     if (!acceptsChar(field, ch)) continue;
     const offset = Math.min(caret.offset, value.length);
     // Insert while there is room; once the field is full, overwrite as a 5250 does.

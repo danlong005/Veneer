@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { getCodepage } from '@veneer/terminal';
 import { aidByte } from '../src/constants.ts';
 import { snapshot } from '../src/screen.ts';
 import { CLEAR, UNLOCK, cp, e, ic, makeTerminal, readMdt, sba, sf, wtd } from './helpers.ts';
+import { Terminal, buildRecord } from '../src/terminal.ts';
 
 // A small sign-on-like screen: a title, a user field and a hidden password field.
 function signOn() {
@@ -64,6 +66,33 @@ test('applies monocase and right-adjust rules', () => {
   const snap = snapshot(t.terminal.screen, cp);
   assert.equal(snap.fields[0]!.value, 'ABC');
   assert.equal(snap.fields[1]!.value, '00042');
+});
+
+test('a CCSID 273 host: German text shows, and typed text goes back in 273', () => {
+  const de = getCodepage(273);
+  const sent: Buffer[] = [];
+  const terminal = new Terminal({ codepage: de, terminalType: 'IBM-3179-2', sendRecord: (r) => sent.push(r), onWarning: (w) => assert.fail(w) });
+  const host = (data: number[]) => terminal.processRecord(buildRecord(0x03, data));
+  host([...CLEAR,
+    ...wtd(0x00, UNLOCK,
+      ...sba(1, 2), ...de.encode('Größe ändern: [§1] {ÄÖÜ} @PUB400 \\ | ! ~ ^'),
+      ...sba(3, 2), ...de.encode('Name'), ...sba(3, 10), ...sf(0x4000, 0x24, 12), ...sba(3, 23), 0x20,
+      ...sba(4, 2), ...de.encode('Ort'), ...sba(4, 10), ...sf(0x4020, 0x24, 8), ...sba(4, 19), 0x20,
+      ...ic(3, 11)),
+    ...readMdt()]);
+  const snap = snapshot(terminal.screen, de);
+  assert.equal(snap.lines[0]!.trim(), 'Größe ändern: [§1] {ÄÖÜ} @PUB400 \\ | ! ~ ^');
+  // The same bytes read as CCSID 37 are something else: what happened before 273 was built in.
+  assert.notEqual(snapshot(terminal.screen, cp).lines[0]!.trim(), snap.lines[0]!.trim());
+
+  const [name, city] = terminal.screen.fields;
+  terminal.setFieldValue(name!, 'Jürgen@Groß');
+  terminal.setFieldValue(city!, 'straße');
+  assert.equal(snapshot(terminal.screen, de).fields[1]!.value, 'STRAßE', 'monocase keeps ß, and the field its length');
+  terminal.sendAid(0xf1);
+  assert.deepEqual([...sent[0]!.subarray(10)], [3, 11, 0xf1,
+    0x11, 3, 11, ...de.encode('Jürgen@Groß'),
+    0x11, 4, 11, ...de.encode('STRAßE')]);
 });
 
 test('only changed values set MDT', () => {

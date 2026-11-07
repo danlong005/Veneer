@@ -158,7 +158,7 @@ Each server talks to one kind of host. For a mainframe, set `VENEER_HOST_TYPE=32
 | `VENEER_TERMINAL_TYPE` | `IBM-3278-2-E` (24x80, the default), `-3-E` (32x80), `-4-E` (43x80) or `-5-E` (27x132). |
 | `VENEER_DEVNAME_PREFIX` | LU names `PREFIX01`, `PREFIX02`, … (prefix 1-6 characters). The host's TN3270 server must define them. Blank lets the host pick an LU. |
 | `VENEER_TN3270E` | `false` uses plain TN3270 even if the host offers TN3270E (default: TN3270E when offered). |
-| `VENEER_CCSID` | The host code page: `37` (default) or `1047`. Also works for 5250. |
+| `VENEER_CCSID` | The host code page: `37` (default, US/Canada), `273` (Germany/Austria) or `1047` (z/OS Latin-1). Also works for 5250. |
 | `VENEER_PAGE_KEYS` | What Page Up and Page Down send: `PF7,PF8` (the default, the usual convention), two other keys such as `PF19,PF20`, or `off`. |
 
 On a 3270 the browser works like this:
@@ -193,7 +193,7 @@ Known limits on 3270:
 
 - **Display terminals only:** no 3270 printers (SCS or LU 1), no DBCS (double-byte
   character sets), and no graphics (GDDM, programmed symbols).
-- **Code pages 37 and 1047** only.
+- **Code pages 37, 273 and 1047** only.
 - **TSO scrollback is kept only in the browser tab:** reloading the page, or starting a
   full-screen program, starts it again.
 - **Lists need a selection column to be found.** A list in an ISPF-like tool (such as

@@ -156,6 +156,7 @@ describe('text area', () => {
     const parts = [part(5, { monocase: true }), part(5, { shift: 'digitsOnly' })];
     assert.deepEqual(fitText('abc\n12x3', 8, parts)?.values, ['ABC', '123']);
     assert.equal(shown(fitText('abc\n1x2', 6, parts)), 'ABC\n1|2', 'the caret allows for a dropped character');
+    assert.deepEqual(fitText('fuß\n', 3, parts)?.values, ['FUß', ''], 'ß stays ß, so the line keeps its length');
   });
 
   test('fields of different lengths', () => {

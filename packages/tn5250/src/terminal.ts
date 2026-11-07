@@ -1,7 +1,7 @@
 // 5250 data stream interpreter: applies host records to a Screen and builds
 // the inbound records (AID responses, query reply, save screen) sent back.
 
-import { fieldId } from '@veneer/terminal';
+import { fieldId, monocase } from '@veneer/terminal';
 import {
   AIDS_WITHOUT_DATA, Aid, Command, ESC, HeaderFlag, Opcode, Order, RECORD_TYPE_DISPLAY,
 } from './constants.ts';
@@ -368,7 +368,7 @@ export class Terminal {
     const adjust = fieldAdjust(field);
     const out = new Uint8Array(field.length); // nulls
     let text = value.replace(/\s+$/, '');
-    if (field.ffw & FFW.MONOCASE) text = text.toUpperCase();
+    if (field.ffw & FFW.MONOCASE) text = monocase(text);
 
     const numeric = shift === 'signedNumeric' || shift === 'numericOnly';
     let negative = false;

@@ -3,6 +3,7 @@
 // 3270 numeric fields take what a 3270's numeric lock lets through.
 
 import type { FieldSnapshot } from '@veneer/terminal';
+import { monocase } from '@veneer/terminal';
 
 const NUMERIC_CHARS = /^[0-9 ,.+-]$/;
 /**
@@ -43,7 +44,7 @@ export function filterValue(f: FieldSnapshot, value: string): string {
  * value, typing is ordinary.
  */
 export function overtyped(f: FieldSnapshot, value: string, at: number, ch: string): string | null {
-  const c = f.monocase ? ch.toUpperCase() : ch;
+  const c = f.monocase ? monocase(ch) : ch;
   if (!acceptsChar(f, c)) return null;
   return (value.slice(0, at) + c + value.slice(at + 1)).slice(0, f.length);
 }

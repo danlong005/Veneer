@@ -6,6 +6,7 @@
 // nothing typed is ever lost.
 
 import type { FieldSnapshot } from '@veneer/terminal';
+import { monocase } from '@veneer/terminal';
 import { acceptsChar } from './fieldRules.ts';
 
 /** What the box needs of each field. */
@@ -62,7 +63,7 @@ export function fitText(text: string, caretIndex: number, parts: readonly Part[]
 
   for (let i = 0; i < lines.length; i++) {
     const part = parts[i]!;
-    let line = part.monocase ? lines[i]!.toUpperCase() : lines[i]!;
+    let line = part.monocase ? monocase(lines[i]!) : lines[i]!;
     // Characters the field doesn't take are dropped, as when typing into it.
     let kept = '';
     for (let k = 0; k < line.length; k++) {

@@ -8,4 +8,5 @@ export {
   DeviceNameInUseError,
   type ConnectionSettings, type SignOnResult, type SubmitInput, type TerminalSession, type TerminalSessionEvents,
 } from './session.ts';
+export { monocase } from './case.ts';
 export { Codepage, getCodepage, registerCodepage } from './ebcdic.ts';

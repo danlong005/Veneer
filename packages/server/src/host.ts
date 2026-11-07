@@ -95,7 +95,7 @@ export function hostSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): HostS
     try {
       getCodepage(ccsid);
     } catch {
-      throw new Error(`VENEER_CCSID ${env.VENEER_CCSID} is not supported: use 37 or 1047`);
+      throw new Error(`VENEER_CCSID ${env.VENEER_CCSID} is not supported: use 37, 273 or 1047`);
     }
   }
 

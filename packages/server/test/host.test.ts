@@ -46,7 +46,8 @@ test('host settings are checked when the server starts', () => {
   assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_HOST_TYPE: '3270', VENEER_TERMINAL_TYPE: 'IBM-3179-2' }), /IBM-3179-2 is not supported/);
   assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_TN3270E: 'false' }), /for 3270 hosts/);
   assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_HOST_TYPE: '3270', VENEER_TN3270E: 'no' }), /true or false/);
-  assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_CCSID: '9999' }), /VENEER_CCSID 9999 is not supported/);
+  assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_CCSID: '9999' }), /VENEER_CCSID 9999 is not supported: use 37, 273 or 1047/);
+  assert.equal(hostSettingsFromEnv({ ...HOST, VENEER_CCSID: '273' }).ccsid, 273, 'PUB400 and other German/Austrian systems');
   assert.throws(() => hostSettingsFromEnv({ ...HOST, VENEER_PORT: '99999' }), /not a valid port/);
   // 5250 terminal types are not checked here; the IBM i decides.
   assert.equal(hostSettingsFromEnv({ ...HOST, VENEER_TERMINAL_TYPE: 'IBM-3477-FC' }).terminalType, 'IBM-3477-FC');
