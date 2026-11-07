@@ -168,6 +168,30 @@ describe('display changes on a screen', () => {
     assert.equal(layoutOf(just).bottom, 14);
   });
 
+  test('a tall display doesn\'t take the changes meant for text on the rows it covers', () => {
+    const qr: Display = { type: 'barcode', format: 'qr', height: 5 };
+    const view = customize(transform(snap), definition([
+      { op: 'display', at: { row: 4, col: 20 }, display: qr },
+      // Rows 5 and 6 are under the QR code; each change still goes to the text that starts there.
+      { op: 'display', at: { row: 6, col: 20 }, display: { type: 'barcode', format: 'code128', height: 3 } },
+      { op: 'text', at: { row: 5, col: 20 }, text: '7654321' },
+      { op: 'role', at: { row: 5, col: 20 }, role: 'danger' },
+      { op: 'move', at: { row: 6, col: 20 }, to: { row: 12, col: 20 } },
+    ]));
+    assert.deepEqual(textAt(view.items, 4, 20)!.display, qr, 'the QR code keeps its display');
+    assert.equal(textAt(view.items, 4, 20)!.text, 'MSGW');
+    assert.equal(textAt(view.items, 5, 20)!.text, '7654321');
+    assert.equal(textAt(view.items, 5, 20)!.role, 'danger');
+    assert.equal(textAt(view.items, 12, 20)?.display?.type, 'barcode', 'the shipped date moved, with its own barcode');
+    // A position no text starts at still finds the tall item covering it.
+    const hidden = customize(transform(snap), definition([
+      { op: 'display', at: { row: 4, col: 20 }, display: qr },
+      { op: 'hide', at: { row: 5, col: 22 } },
+    ]));
+    assert.equal(textAt(hidden.items, 5, 20), undefined, 'row 5, col 22 is inside the "1234567" text: it is hidden');
+    assert.ok(textAt(hidden.items, 4, 20), 'not the QR code above it');
+  });
+
   test('a moved item keeps its display', () => {
     const view = customize(transform(snap), definition([
       { op: 'display', at: { row: 8, col: 20 }, display: { type: 'progress', max: 100 } },

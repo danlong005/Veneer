@@ -31,7 +31,11 @@ export function itemAt(items: readonly Item[], at: Target): Item | undefined {
     const h = homeOf(i);
     return at.row >= h.row && at.row < h.row + heightOf(i) && at.col >= h.col && at.col < h.col + i.width;
   };
-  return items.find((i) => isBox(i) && covers(i)) ?? items.find(covers);
+  // A tall item (a QR code, say) covers the rows below its own; text that is on
+  // the target's row comes before it, so changes reach the text they name.
+  return items.find((i) => isBox(i) && covers(i))
+    ?? items.find((i) => covers(i) && homeOf(i).row === at.row)
+    ?? items.find(covers);
 }
 
 export function customize(view: ScreenView, def: ScreenDefinition | undefined, opts: CustomizeOptions = {}): ScreenView {
