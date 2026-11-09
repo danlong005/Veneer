@@ -1,0 +1,550 @@
+{
+ "name": "demo-customer-addresses",
+ "definition": "demo-customer-addresses",
+ "screen": {
+  "host": "5250",
+  "rows": 24,
+  "cols": 80,
+  "cursor": {
+   "row": 1,
+   "col": 1
+  },
+  "keyboardLocked": false,
+  "messageWaiting": false,
+  "error": null,
+  "messageRow": 24,
+  "lines": [
+   " CUS200                       Customer Addresses                                ",
+   " Type a customer number, press Enter. Page Down for the next customer.          ",
+   "                                                                                ",
+   " Customer . . . .            Lakeside Hardware                                  ",
+   "                                                                                ",
+   "   Bill to                                 Ship to                              ",
+   "                                                                                ",
+   "   233 S Wacker Dr                         1060 W Addison St                    ",
+   "   Chicago                                 Chicago                              ",
+   "   IL  60606                               IL  60613                            ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   " F3=Exit   F12=Cancel                                                           ",
+   "                                                                                ",
+   "                                                                                "
+  ],
+  "segments": [
+   [
+    {
+     "col": 1,
+     "text": " CUS200                      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 30,
+     "text": " Customer Addresses",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 49,
+     "text": "                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Type a customer number, press Enter. Page Down for the next customer.",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 71,
+     "text": "          ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Customer . . . .    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 22,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 28,
+     "text": " ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 29,
+     "text": " Lakeside Hardware",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 47,
+     "text": "                                  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": " Bill to",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 11,
+     "text": "                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 43,
+     "text": " Ship to",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 51,
+     "text": "                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   233 S Wacker Dr                         1060 W Addison St                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Chicago                                 Chicago                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   IL  60606                               IL  60613                            ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " F3=Exit   F12=Cancel",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 22,
+     "text": "                                                           ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ]
+  ],
+  "fields": [
+   {
+    "id": "4:22",
+    "row": 4,
+    "col": 22,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   }
+  ]
+ },
+ "recorded": "2026-11-09T04:17:20.393Z"
+}

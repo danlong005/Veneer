@@ -46,6 +46,8 @@ npm run demo          # fake IBM i + server + client on http://127.0.0.1:8080 (a
 npm run demo -- --3270  # the same with a fake mainframe (3270); see "Mainframe (3270) hosts"
 npm run dev           # session server against your IBM i, restarts on change
 npm run dev:client    # Vite dev server on :5173 with hot reload; proxies /ws to :8080
+npm run check:screens # check screen definitions and macros against recorded screens (see "Checking definitions in CI")
+npm run demo:record   # record the demo's screens for the check, after changing a demo screen
 npm run package       # release/veneer-<version>.tar.gz and .zip for deployment, plus -src.tar.gz and -src.zip (the source)
 ```
 
@@ -246,6 +248,10 @@ restarting the server:
   user's browser shows that an administrator ended the session. Each end is logged.
 - **Recent warnings and errors** (the last 200, kept in memory whatever `VENEER_LOG_LEVEL`
   is) and **server** facts: version, uptime, the IBM i host and whether TLS is on.
+- **Customizations:** each screen definition and when it last customized a screen since
+  the server started, those not used yet first. One that stays unused while people work
+  is usually for a screen whose layout changed. [Checking definitions in CI](#checking-definitions-in-ci)
+  finds these before they reach users.
 
 Access works like the designer but is separate from it. `VENEER_ADMIN=local` opens the
 page to browsers on the server's own machine (`npm run dev` and `npm run demo` set it);
@@ -520,6 +526,74 @@ definition** goes further. Each definition is one JSON file in `screens/` (or
   components, ready to place from the designer. The [widgets guide](docs/widgets.md#try-them-in-the-demo)
   and [components guide](docs/components.md#try-them-in-the-demo) say which option shows which. `npm run demo -- --3270`
   runs a demo mainframe instead ([Mainframe (3270) hosts](#mainframe-3270-hosts)).
+
+### Checking definitions in CI
+
+Recompiling a display file with a different field layout changes its screen ID. The
+definitions and macros that name the old ID then stop applying, and nothing says so:
+users just get the plain screen again. `veneer check` catches this before release by
+testing the screens folder against **recorded screens**, copies of the screens kept in git
+beside the definitions.
+
+**Record screens** in the designer: open the screen, then click **Record for checks** on
+the Page tab. It writes `snapshots/<definition id>.json` in the screens folder when the
+screen has a saved customization (else `snapshots/screen-<screen ID>.json`). Record the
+screens macros pass through the same way. A recording keeps the screen's text and field
+layout, but never what was typed into input fields. It does keep the data shown on the
+screen, such as customer names in a list, so record on a test system or with test data.
+Click it again after a display file changes to replace the recording, then commit both.
+
+**Run the check:**
+
+```sh
+npm run check:screens                          # from the repository: ./screens or VENEER_SCREENS_DIR
+npm run check:screens -- path/to/screens
+node packages/server/dist/check.js /path/to/screens   # from an installed release
+```
+
+It reports, by file:
+
+- **Errors** (exit code 1): files that aren't valid JSON or valid definitions or macros, or
+  whose name doesn't match their `id`/`name`. A definition that no longer matches the screen
+  recorded for it, with the reason (*its screen ID is now …, not …*, or which text rule
+  failed), or one taken over by a closer-matching definition. Widgets, components and
+  buttons naming input fields that aren't on the recorded screen. Buttons running macros
+  that don't exist, or not giving them their required values. Macro steps whose screen was
+  recorded again with a new ID, fields they type into that are gone, and fixed values too
+  long for their field.
+- **Warnings** (exit code 0, or 1 with `--strict`): definitions and macro steps with no
+  recorded screen to check, and hidden, recolored or moved items or style-rule columns
+  with nothing on the recorded screen where they point. Positions can be blank just
+  because the recording had no data there, so these are only warnings.
+
+`--format github` writes GitHub Actions annotations, so problems show on the pull request's
+files; it is the default when run in GitHub Actions. `--format json` is for other tools.
+
+An example workflow for a repository holding the screens folder, which downloads a Veneer
+release to run the check:
+
+```yaml
+# .github/workflows/veneer-check.yml
+name: Veneer check
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Download Veneer
+        run: |
+          VERSION=0.4.0   # a release with check.js (after 0.3.1)
+          curl -fsSL "https://github.com/danlong005/Veneer/releases/download/v$VERSION/veneer-$VERSION.tar.gz" | tar -xz
+          mv "veneer-$VERSION" "$RUNNER_TEMP/veneer"
+      - run: node "$RUNNER_TEMP/veneer/packages/server/dist/check.js" screens
+```
+
+The admin page shows the same thing from live use: **Customizations** lists each
+definition and when a screen last matched it since the server started (see
+[Admin page](#admin-page)).
 
 ### Field widgets
 

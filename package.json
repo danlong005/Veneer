@@ -18,7 +18,9 @@
     "start": "npm start -w @veneer/server",
     "cli": "npm run cli -w @veneer/tn5250 --",
     "demo": "npm run demo -w @veneer/server --",
+    "demo:record": "npm run demo:record -w @veneer/server",
     "dev:client": "npm run dev -w @veneer/client",
+    "check:screens": "node --conditions=veneer-source packages/server/src/check.ts",
     "package": "node scripts/package.mjs"
   },
   "devDependencies": {

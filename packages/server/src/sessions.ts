@@ -10,6 +10,7 @@ import {
   USER_PROFILE, createHostSession, deviceNameLength, hostAid, hostLabel, hostTypeOf, passwordProblem, type AutoSignOn, type HostSettings,
 } from './host.ts';
 import type { ScreenInventory } from './inventory.ts';
+import type { MatchLog } from './matchLog.ts';
 import { log } from './log.ts';
 import { CloseCode, SIGN_ON_EXTRAS, parseClientMessage, type ClientMessage, type PasswordRules, type ServerMessage } from './protocol.ts';
 import { displayName, signOnUserField, submittedUser } from './signon.ts';
@@ -27,6 +28,8 @@ export interface SessionManagerOptions {
   helloTimeoutMs?: number;
   /** Records each screen sessions show. */
   inventory?: ScreenInventory | undefined;
+  /** Records which definition each screen was shown with. */
+  matches?: MatchLog | undefined;
   /** The first wait after repeated sign-on failures from one address; it doubles each time. Default 2 seconds. */
   signOnDelayMs?: number;
 }
@@ -465,6 +468,7 @@ export class SessionManager {
     // A locked screen is the host still working; count the one the user gets.
     if (!screen.keyboardLocked) {
       this.opts.inventory?.record(bs.id, screen);
+      this.opts.matches?.record(screen);
       // Signed off: with automatic sign-on, the next sign-on is on Veneer's page too.
       if (this.trackSignOn(bs, screen) && this.autoSignOn) return this.signedOff(bs);
     }

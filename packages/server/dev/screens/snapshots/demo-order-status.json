@@ -1,0 +1,478 @@
+{
+ "name": "demo-order-status",
+ "definition": "demo-order-status",
+ "screen": {
+  "host": "5250",
+  "rows": 24,
+  "cols": 80,
+  "cursor": {
+   "row": 1,
+   "col": 1
+  },
+  "keyboardLocked": false,
+  "messageWaiting": false,
+  "error": null,
+  "messageRow": 24,
+  "lines": [
+   " ORD300                           Order Status                                  ",
+   " Type an order number, press Enter.                                             ",
+   "                                                                                ",
+   "   Order  . . . . .                                                             ",
+   "                                                                                ",
+   "   Customer . . . :  Capitol Office Goods                                       ",
+   "   Status . . . . :  SHP                                                        ",
+   "   Ship date  . . :  20260114                                                   ",
+   "   Amount . . . . :  000289000                                                  ",
+   "   Paid . . . . . :  Y                                                          ",
+   "   Picked % . . . :  100                                                        ",
+   "   Email  . . . . :  sales@capitol.example                                      ",
+   "   Phone  . . . . :  202-555-0117                                               ",
+   "   Invoice  . . . :  INV-104573                                                 ",
+   "                                                                                ",
+   "   Tracking . . . :  94001045730042                                             ",
+   "                                                                                ",
+   "                                                                     104573     ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   " F1=Help   F3=Exit   F10=Delivery options   F12=Cancel                          ",
+   "                                                                                ",
+   "                                                                                "
+  ],
+  "segments": [
+   [
+    {
+     "col": 1,
+     "text": " ORD300                          ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 34,
+     "text": " Order Status",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 47,
+     "text": "                                  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Type an order number, press Enter.",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 36,
+     "text": "                                             ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Order  . . . . .  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 22,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 28,
+     "text": "                                                     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Customer . . . :  Capitol Office Goods                                       ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Status . . . . :  SHP                                                        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Ship date  . . :  20260114                                                   ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Amount . . . . :  000289000                                                  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Paid . . . . . :  Y                                                          ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Picked % . . . :  100                                                        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Email  . . . . :  sales@capitol.example                                      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Phone  . . . . :  202-555-0117                                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Invoice  . . . :  INV-104573                                                 ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Tracking . . . :  94001045730042                                             ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                     104573     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " F1=Help   F3=Exit   F10=Delivery options   F12=Cancel",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 55,
+     "text": "                          ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ]
+  ],
+  "fields": [
+   {
+    "id": "4:22",
+    "row": 4,
+    "col": 22,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   }
+  ]
+ },
+ "recorded": "2026-11-09T04:17:20.396Z"
+}

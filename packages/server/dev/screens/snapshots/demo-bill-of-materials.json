@@ -1,0 +1,928 @@
+{
+ "name": "demo-bill-of-materials",
+ "definition": "demo-bill-of-materials",
+ "screen": {
+  "host": "5250",
+  "rows": 24,
+  "cols": 80,
+  "cursor": {
+   "row": 1,
+   "col": 1
+  },
+  "keyboardLocked": false,
+  "messageWaiting": false,
+  "error": null,
+  "messageRow": 24,
+  "lines": [
+   " BOM100                    Display Bill of Materials                            ",
+   "                                                                                ",
+   " Item . . . . . :   BIKE-200     Touring bicycle                                ",
+   " Type options, press Enter.                                                     ",
+   "  5=Display                                                                     ",
+   "                                                                                ",
+   " Opt  Lvl  Component        Description              Qty  UOM                   ",
+   "      1    FRAME-200        Frame, touring 56cm        1  EA                    ",
+   "      2      TUBE-TOP       Top tube, steel            1  EA                    ",
+   "      2      TUBE-DOWN      Down tube, steel           1  EA                    ",
+   "      2      STAY-REAR      Rear stays                 1  PR                    ",
+   "      2      FORK-200       Fork, steel                1  EA                    ",
+   "      3        CROWN-12     Fork crown                 1  EA                    ",
+   "      3        DROPOUT-F    Front dropouts             2  EA                    ",
+   "      1    WHEEL-F          Wheel, front 700c          1  EA                    ",
+   "      2      RIM-700        Rim, 700c 32h              1  EA                    ",
+   "      2      SPOKE-292      Spoke, 292mm              32  EA                    ",
+   "                                                                        More... ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   " F3=Exit   F12=Cancel                                                           ",
+   "                                                                                ",
+   "                                                                                "
+  ],
+  "segments": [
+   [
+    {
+     "col": 1,
+     "text": " BOM100                   ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": " Display Bill of Materials",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 53,
+     "text": "                            ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Item . . . . . :   BIKE-200     Touring bicycle                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Type options, press Enter.",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 28,
+     "text": "                                                     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 2,
+     "text": " 5=Display",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 12,
+     "text": "                                                                     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Opt  Lvl  Component        Description              Qty  UOM",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 62,
+     "text": "                   ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  1    FRAME-200        Frame, touring 56cm        1  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  2      TUBE-TOP       Top tube, steel            1  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  2      TUBE-DOWN      Down tube, steel           1  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  2      STAY-REAR      Rear stays                 1  PR                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  2      FORK-200       Fork, steel                1  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  3        CROWN-12     Fork crown                 1  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  3        DROPOUT-F    Front dropouts             2  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  1    WHEEL-F          Wheel, front 700c          1  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  2      RIM-700        Rim, 700c 32h              1  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 3,
+     "text": "  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 5,
+     "text": "  2      SPOKE-292      Spoke, 292mm              32  EA                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                        More... ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " F3=Exit   F12=Cancel",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 22,
+     "text": "                                                           ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ]
+  ],
+  "fields": [
+   {
+    "id": "8:3",
+    "row": 8,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "9:3",
+    "row": 9,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "10:3",
+    "row": 10,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "11:3",
+    "row": 11,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "12:3",
+    "row": 12,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "13:3",
+    "row": 13,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "14:3",
+    "row": 14,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "15:3",
+    "row": 15,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "16:3",
+    "row": 16,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "17:3",
+    "row": 17,
+    "col": 3,
+    "length": 2,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   }
+  ]
+ },
+ "recorded": "2026-11-09T04:17:20.397Z"
+}

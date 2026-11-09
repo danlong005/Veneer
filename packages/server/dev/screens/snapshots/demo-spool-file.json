@@ -1,0 +1,512 @@
+{
+ "name": "demo-spool-file",
+ "definition": "demo-spool-file",
+ "screen": {
+  "host": "5250",
+  "rows": 24,
+  "cols": 80,
+  "cursor": {
+   "row": 1,
+   "col": 1
+  },
+  "keyboardLocked": false,
+  "messageWaiting": false,
+  "error": null,
+  "messageRow": 24,
+  "lines": [
+   "                           Display Spooled File                                 ",
+   " File  . . . . . :   QPSLS210                      Page/Line   1/1              ",
+   " Control . . . . .                                 Columns     1 - 78           ",
+   " Find  . . . . . .                                                              ",
+   " *...+....1....+....2....+....3....+....4....+....5....+....6....+....7....+... ",
+   "   SLS210   Sales by region and item                       VENEER    11/05/26   ",
+   "                                                                                ",
+   "   Region: CENTRAL                                                              ",
+   "   Item  Description              Qty      Amount                               ",
+   "   ----  --------------------  ------  ----------                               ",
+   "   A100  WIDGET, STEEL            117      292.50                               ",
+   "   B200  GADGET, BRASS            138      517.50                               ",
+   "   C300  SPROCKET 12T             159      795.00                               ",
+   "   D400  FLANGE 2IN               180     1125.00                               ",
+   "   E500  GASKET KIT               201     1507.50                               ",
+   "   F600  BEARING 6203             222     1942.50                               ",
+   "   G700  BOLT M8X40               243     2430.00                               ",
+   "         Region total                             8610.00                       ",
+   "                                                                                ",
+   "   Region: EAST                                                                 ",
+   "                                                                        More... ",
+   "                                                                                ",
+   " F3=Exit   F12=Cancel   F19=Left   F20=Right   F24=More keys                    ",
+   "                                                                                "
+  ],
+  "segments": [
+   [
+    {
+     "col": 1,
+     "text": "                          ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": " Display Spooled File",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 48,
+     "text": "                                 ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " File  . . . . . :   QPSLS210                      Page/Line   1/1              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Control . . . . . ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 20,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 26,
+     "text": "                          Columns     1 - 78           ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Find  . . . . . . ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 20,
+     "text": "                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 50,
+     "text": "                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " *...+....1....+....2....+....3....+....4....+....5....+....6....+....7....+... ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   SLS210   Sales by region and item                       VENEER    11/05/26   ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Region: CENTRAL                                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Item  Description              Qty      Amount                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   ----  --------------------  ------  ----------                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   A100  WIDGET, STEEL            117      292.50                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   B200  GADGET, BRASS            138      517.50                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   C300  SPROCKET 12T             159      795.00                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   D400  FLANGE 2IN               180     1125.00                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   E500  GASKET KIT               201     1507.50                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   F600  BEARING 6203             222     1942.50                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   G700  BOLT M8X40               243     2430.00                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "         Region total                             8610.00                       ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   Region: EAST                                                                 ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                        More... ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " F3=Exit   F12=Cancel   F19=Left   F20=Right   F24=More keys",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 61,
+     "text": "                    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ]
+  ],
+  "fields": [
+   {
+    "id": "3:20",
+    "row": 3,
+    "col": 20,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "4:20",
+    "row": 4,
+    "col": 20,
+    "length": 30,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   }
+  ]
+ },
+ "recorded": "2026-11-09T04:17:20.395Z"
+}

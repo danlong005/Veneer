@@ -1,5 +1,5 @@
 // The admin page (/admin): who is connected, ending stuck sessions, recent
-// warnings and errors, and server facts. Polls /api/admin/status.
+// warnings and errors, customizations not used since startup, and server facts. Polls /api/admin/status.
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useBrand } from '../ui/brand.ts';
@@ -35,10 +35,18 @@ interface Problem {
   fields?: Record<string, unknown>;
 }
 
+interface DefinitionUse {
+  id: string;
+  name: string;
+  lastMatched: string | null;
+}
+
 interface Status {
   server: ServerInfo;
   sessions: SessionInfo[];
   problems: Problem[];
+  /** Older servers leave it out. */
+  definitions?: DefinitionUse[];
 }
 
 type Load =
@@ -149,6 +157,7 @@ export function AdminPage() {
               <Problems problems={status.problems} now={now} />
               <Server info={status.server} />
             </div>
+            {status.definitions && status.definitions.length > 0 && <Customizations definitions={status.definitions} now={now} />}
           </>
         )}
       </main>
@@ -247,6 +256,39 @@ function Problems({ problems, now }: { problems: Problem[]; now: number }) {
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+/** Each definition and when it last customized a screen; the unused ones first. */
+function Customizations({ definitions, now }: { definitions: DefinitionUse[]; now: number }) {
+  const unused = definitions.filter((d) => !d.lastMatched).length;
+  return (
+    <section className="admin-card">
+      <div className="admin-head">
+        <h2>Customizations</h2>
+        <span className="admin-muted">{unused > 0 ? `${unused} of ${definitions.length} not used since start` : `All ${definitions.length} used since start`}</span>
+      </div>
+      {unused > 0 && (
+        <p className="admin-muted">
+          A customization no screen has matched may be for a screen nobody has opened yet, or for one whose layout changed
+          (a recompiled display file). <code>veneer check</code> tells the two apart.
+        </p>
+      )}
+      <ul className="admin-problems">
+        {definitions.map((d) => (
+          <li key={d.id}>
+            <span className={`admin-pill ${d.lastMatched ? 'pill-ok' : 'pill-warn'}`}>{d.lastMatched ? 'Used' : 'Not used'}</span>
+            <div className="admin-problem">
+              <div>{d.name}</div>
+              <code>{d.id}.json</code>
+            </div>
+            {d.lastMatched
+              ? <time dateTime={d.lastMatched} title={new Date(d.lastMatched).toLocaleString()}>{ago(d.lastMatched, now)}</time>
+              : <span className="admin-muted">not since start</span>}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

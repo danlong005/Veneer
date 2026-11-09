@@ -9,6 +9,7 @@ import { handleApi } from './api.ts';
 import { defaultPort, hostTypeOf, pageKeysOf } from './host.ts';
 import type { ServerConfig } from './config.ts';
 import { ScreenInventory } from './inventory.ts';
+import { MatchLog } from './matchLog.ts';
 import { log } from './log.ts';
 import { SessionManager } from './sessions.ts';
 import { serveStatic } from './static.ts';
@@ -34,8 +35,11 @@ export interface VeneerServer {
 
 export function createServer(config: ServerConfig): VeneerServer {
   const inventory = new ScreenInventory(config.dataDir ? path.join(config.dataDir, 'inventory.json') : undefined);
+  const screens = new ScreenStore(config.screensDir);
+  const matches = new MatchLog(() => screens.list(), hostTypeOf(config.host));
   const sessions = new SessionManager({
     inventory,
+    matches,
     host: config.host,
     idleTimeoutMs: config.idleTimeoutMs,
     resumeGraceMs: config.resumeGraceMs,
@@ -44,7 +48,6 @@ export function createServer(config: ServerConfig): VeneerServer {
     trace: config.trace,
     ...(config.signOnDelayMs !== undefined ? { signOnDelayMs: config.signOnDelayMs } : {}),
   });
-  const screens = new ScreenStore(config.screensDir);
   screens.on('changed', (version) => sessions.broadcast({ type: 'screens', version }));
   // Pages get the theme with the definitions, so a theme change reloads them too.
   const themes = new ThemeStore(config.screensDir, config.builtinThemesDir);
@@ -70,7 +73,7 @@ export function createServer(config: ServerConfig): VeneerServer {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', version: VERSION, uptimeSeconds: Math.round(process.uptime()), sessions: sessions.size }));
     } else if (handleApi(req, res, pathname, {
-      store: screens, themes, inventory, sessions, info, componentsDir: config.componentsDir,
+      store: screens, themes, inventory, matches, sessions, info, componentsDir: config.componentsDir,
       designerToken: config.designerToken, designerLocal: config.designerLocal,
       adminToken: config.adminToken, adminLocal: config.adminLocal, brand: config.brand,
       host: { type: hostTypeOf(config.host), pageKeys: pageKeysOf(config.host) },
