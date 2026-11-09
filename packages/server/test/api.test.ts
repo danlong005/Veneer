@@ -244,3 +244,31 @@ test('macros on disk are loaded at startup; invalid ones and misnamed ones are s
     await s.close();
   }
 });
+
+test('snapshots: designers record screens for veneer check; typed values are left out', async () => {
+  assert.equal((await put('order-entry', definition)).status, 200);
+  const snap = {
+    host: '5250', rows: 24, cols: 80, cursor: { row: 1, col: 1 }, keyboardLocked: false, messageWaiting: false, error: null,
+    lines: [' '.repeat(33) + 'Order Entry', '', '  Customer   TYPED-VALUE'],
+    segments: [[{ col: 34, text: 'Order Entry', attr: { color: 'white', reverse: false, underline: false, blink: false, columnSeparator: false, nonDisplay: false } }]],
+    fields: [{ id: '3:14', row: 3, col: 14, length: 11, value: 'TYPED-VALUE', bypass: false, modified: true, mandatoryEnter: false, attr: { color: 'green', reverse: false, underline: true, blink: false, columnSeparator: false, nonDisplay: false } }],
+  };
+  const record = (name: string, body: unknown, token: string | null = TOKEN) => fetch(`http://${base}/api/snapshots/${name}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  assert.equal((await record('order-entry', { definition: 'order-entry', screen: snap }, null)).status, 401);
+  assert.equal((await record('Bad%20Name', { screen: snap })).status, 400);
+  assert.equal((await record('order-entry', { definition: 'missing', screen: snap })).status, 400);
+  const res = await record('order-entry', { definition: 'order-entry', screen: snap });
+  assert.equal(res.status, 200);
+  assert.deepEqual(Object.keys(await res.json()), ['name', 'definition', 'recorded']);
+
+  const file = fs.readFileSync(path.join(dir, 'snapshots', 'order-entry.json'), 'utf8');
+  assert.ok(!file.includes('TYPED-VALUE'));
+  assert.match(file, /Order Entry/);
+  const list = await (await fetch(`http://${base}/api/snapshots`, { headers: { Authorization: `Bearer ${TOKEN}` } })).json();
+  assert.deepEqual(list.snapshots.map((s: { name: string; definition: string }) => [s.name, s.definition]), [['order-entry', 'order-entry']]);
+  assert.equal((await fetch(`http://${base}/api/snapshots`)).status, 401);
+});

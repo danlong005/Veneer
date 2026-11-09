@@ -16,3 +16,7 @@ export {
   fillValue, macroScreens, macroValues, paramsIn, stepMatches, validateMacro,
   type FieldCheck, type Macro, type MacroDone, type MacroParam, type MacroResult, type MacroStart, type MacroStep,
 } from './macros.ts';
+export {
+  RECORDINGS_DIR, checkScreens, definitionFile, macroFile, mismatch, recordScreen, recordingFile, validateRecording,
+  type CheckFinding, type CheckInput, type CheckLevel, type Recording,
+} from './check.ts';

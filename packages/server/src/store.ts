@@ -3,12 +3,14 @@
 // JavaScript live beside them: global.css, global.js (page load) and
 // global-screen.js (every screen). Themes are in themes/ (themes.ts);
 // global.style.json, the style saved before themes, is not a screen.
-// Macros are in macros/, one <name>.json each.
+// Macros are in macros/, one <name>.json each. Screens recorded for
+// `veneer check` are in snapshots/ (see @veneer/screens check.ts); the server
+// only writes them.
 
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { DefinitionError, ID_PATTERN, validateDefinition, validateMacro, validateSite, type Macro, type ScreenDefinition, type SiteCustomization } from '@veneer/screens';
+import { DefinitionError, ID_PATTERN, RECORDINGS_DIR, recordScreen, validateDefinition, validateMacro, validateRecording, validateSite, type Macro, type Recording, type ScreenDefinition, type SiteCustomization } from '@veneer/screens';
 import { log } from './log.ts';
 
 const STYLE_FILE = 'global.style.json';
@@ -104,6 +106,44 @@ export class ScreenStore extends EventEmitter<{ changed: [number] }> {
     this.macros.delete(name);
     this.bump();
     return true;
+  }
+
+  /**
+   * Record a screen for `veneer check`: snapshots/<name>.json, replacing the
+   * one before. Input fields are blanked here, whatever the browser sent.
+   * Throws DefinitionError on bad input.
+   */
+  async saveRecording(input: unknown): Promise<Recording> {
+    const given = validateRecording(input);
+    if (given.definition && !this.screens.has(given.definition)) throw new DefinitionError(`definition: there is no definition "${given.definition}"`);
+    const recording: Recording = { ...given, recorded: new Date().toISOString(), screen: recordScreen(given.screen) };
+    const dir = path.join(this.dir, RECORDINGS_DIR);
+    await fs.mkdir(dir, { recursive: true });
+    const file = path.join(dir, `${recording.name}.json`);
+    const tmp = `${file}.${process.pid}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(recording, null, 1) + '\n');
+    await fs.rename(tmp, file);
+    return recording;
+  }
+
+  /** The recorded screens' names, with the definition each is for. */
+  async listRecordings(): Promise<Array<{ name: string; definition?: string; recorded?: string }>> {
+    const dir = path.join(this.dir, RECORDINGS_DIR);
+    let names: string[];
+    try {
+      names = (await fs.readdir(dir)).filter((n) => n.endsWith('.json')).sort();
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw err;
+    }
+    const out: Array<{ name: string; definition?: string; recorded?: string }> = [];
+    for (const n of names) {
+      try {
+        const { name, definition, recorded } = validateRecording(JSON.parse(await fs.readFile(path.join(dir, n), 'utf8')));
+        out.push({ name, ...(definition ? { definition } : {}), ...(recorded ? { recorded } : {}) });
+      } catch { /* veneer check reports it */ }
+    }
+    return out;
   }
 
   /** Validate and write a definition. Throws DefinitionError on bad input. */

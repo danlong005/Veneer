@@ -7,6 +7,7 @@ import { DefinitionError, ID_PATTERN, MAX_THEME_FILE } from '@veneer/screens';
 import { log, recentProblems } from './log.ts';
 import { listComponents } from './components.ts';
 import type { ScreenInventory } from './inventory.ts';
+import type { MatchLog } from './matchLog.ts';
 import type { SessionManager } from './sessions.ts';
 import type { ScreenStore } from './store.ts';
 import { ThemeError, type ThemeStore } from './themes.ts';
@@ -20,6 +21,8 @@ export interface ApiOptions {
   store: ScreenStore;
   themes?: ThemeStore | undefined;
   inventory?: ScreenInventory | undefined;
+  /** When each definition last applied, for the admin page. */
+  matches?: MatchLog | undefined;
   /** Bearer token required to change definitions. */
   designerToken?: string | undefined;
   /** Requests from this machine may change definitions without the token. */
@@ -131,6 +134,8 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
     }
   }
 
+  if (pathname === '/api/snapshots' || pathname.startsWith('/api/snapshots/')) return snapshots(req, res, pathname, opts);
+
   const mm = /^\/api\/macros\/([^/]+)$/.exec(pathname);
   if (mm) return macros(req, res, mm[1]!, opts);
 
@@ -165,6 +170,30 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
 }
 
 /** The designer's macro editing: PUT /api/macros/<name> saves one, DELETE removes it. */
+/** Screens recorded for veneer check: GET lists them, PUT /api/snapshots/<name> records one. Designers only. */
+async function snapshots(req: http.IncomingMessage, res: http.ServerResponse, pathname: string, opts: ApiOptions): Promise<void> {
+  if (pathname === '/api/snapshots') {
+    if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
+    if (!allowed(req, res, designerRole(opts))) return;
+    return json(res, 200, { snapshots: await opts.store.listRecordings() });
+  }
+  let name: string;
+  try { name = decodeURIComponent(pathname.slice('/api/snapshots/'.length)); } catch { name = ''; }
+  if (!ID_PATTERN.test(name)) return json(res, 400, { error: 'Invalid snapshot name' });
+  if (req.method !== 'PUT') return json(res, 405, { error: 'Method not allowed' });
+  if (!allowed(req, res, designerRole(opts))) return;
+  const body = await jsonBody(req, res);
+  if (body === undefined) return;
+  try {
+    const saved = await opts.store.saveRecording({ ...(body as object), name });
+    log.info('screen recorded for checks', { snapshot: name, ...(saved.definition ? { definition: saved.definition } : {}) });
+    return json(res, 200, { name: saved.name, ...(saved.definition ? { definition: saved.definition } : {}), recorded: saved.recorded });
+  } catch (err) {
+    if (err instanceof DefinitionError) return json(res, 400, { error: err.message });
+    throw err;
+  }
+}
+
 async function macros(req: http.IncomingMessage, res: http.ServerResponse, raw: string, opts: ApiOptions): Promise<void> {
   let name: string;
   try { name = decodeURIComponent(raw); } catch { name = ''; }
@@ -299,6 +328,7 @@ async function admin(req: http.IncomingMessage, res: http.ServerResponse, pathna
       server: opts.info?.() ?? {},
       sessions: opts.sessions?.list() ?? [],
       problems: recentProblems(),
+      definitions: opts.matches?.list() ?? [],
     });
   }
 

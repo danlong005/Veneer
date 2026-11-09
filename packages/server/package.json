@@ -18,7 +18,8 @@
     "start": "node --env-file-if-exists=../../.env dist/main.js",
     "dev": "node --conditions=veneer-source --env-file=dev/dev.env --env-file-if-exists=../../.env --watch src/main.ts",
     "test": "VENEER_LOG_LEVEL=error node --conditions=veneer-source --test test/*.test.ts",
-    "demo": "node --conditions=veneer-source dev/demo.ts"
+    "demo": "node --conditions=veneer-source dev/demo.ts",
+    "demo:record": "node --conditions=veneer-source dev/recordDemo.ts"
   },
   "dependencies": {
     "@veneer/screens": "^0.3.1",

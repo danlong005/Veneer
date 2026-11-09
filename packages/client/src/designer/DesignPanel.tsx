@@ -208,6 +208,14 @@ export function DesignPanel(props: Props) {
       props.onSaved();
     }
   };
+  // Record this screen for veneer check: under the saved definition's id when it is that definition's screen.
+  const recordFor = saved && matches(snap, saved) ? saved.id : undefined;
+  const record = async () => {
+    const name = recordFor ?? `screen-${print.id}`;
+    if (await request('PUT', `/api/snapshots/${encodeURIComponent(name)}`, { ...(recordFor ? { definition: recordFor } : {}), screen: snap })) {
+      setStatus({ kind: 'ok', text: `Recorded as snapshots/${name}.json in the screens folder. Commit it with the definitions; veneer check tests them against it.` });
+    }
+  };
   const remove = async () => {
     if (!window.confirm(`Delete the customization "${draft.name}"?`)) return;
     if (await request('DELETE')) {
@@ -581,6 +589,12 @@ export function DesignPanel(props: Props) {
               </button>
               {saved && <button type="button" className="ghost" disabled={busy || !dirty} onClick={() => setDraft(saved)}>Revert</button>}
               {saved && <button type="button" className="ghost danger" disabled={busy || !canSave} onClick={remove}>Delete</button>}
+              <button
+                type="button" className="ghost" disabled={busy || !canSave} onClick={record}
+                title={recordFor
+                  ? 'Save this screen (without what was typed) so veneer check can tell when the definition stops matching it'
+                  : 'Save this screen (without what was typed) so veneer check can test macros and definitions against it'}
+              >Record for checks</button>
             </div>
         )}
       </footer>
