@@ -2,9 +2,10 @@
 
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { loadApiClients, type ApiClient } from './apiClients.ts';
 import { brandFromEnv, type Brand } from './brand.ts';
 import { DeviceNamePool } from './devices.ts';
-import { deviceNameLength, hostSettingsFromEnv, hostTypeOf, type HostSettings } from './host.ts';
+import { apiSubstitute, deviceNameLength, hostSettingsFromEnv, hostTypeOf, type HostSettings, type PasswordSubstitute } from './host.ts';
 
 export interface ServerConfig {
   listenHost: string;
@@ -46,6 +47,13 @@ export interface ServerConfig {
   brand?: Brand;
   /** For tests: the first wait after repeated failed sign-ons from one address (default 2 seconds). */
   signOnDelayMs?: number;
+  /** The macro API (VENEER_API_CLIENTS): who may call it, and how its runs sign on. */
+  api?: ApiConfig;
+}
+
+export interface ApiConfig {
+  clients: ApiClient[];
+  substitute: PasswordSubstitute;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -70,6 +78,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const admin = env.VENEER_ADMIN ?? '';
   if (admin !== '' && admin !== 'local') throw new Error(`VENEER_ADMIN must be "local" or empty, got "${admin}"`);
 
+  let api: ApiConfig | undefined;
+  if (env.VENEER_API_CLIENTS) {
+    const substitute = apiSubstitute(env, hostTypeOf(host));
+    api = { clients: loadApiClients(env.VENEER_API_CLIENTS, env, substitute), substitute };
+  }
+
   const cert = env.VENEER_HTTPS_CERT, key = env.VENEER_HTTPS_KEY;
   if (Boolean(cert) !== Boolean(key)) throw new Error('Set both VENEER_HTTPS_CERT and VENEER_HTTPS_KEY, or neither');
 
@@ -93,6 +107,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     ...(adminToken ? { adminToken } : {}),
     adminLocal: admin === 'local',
     brand: brandFromEnv(env),
+    ...(api ? { api } : {}),
     log: {
       level: env.VENEER_LOG_LEVEL || 'info',
       ...(env.VENEER_LOG_FILE ? { file: env.VENEER_LOG_FILE } : {}),

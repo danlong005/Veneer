@@ -194,6 +194,11 @@ does all of these:
   gets only a password substitute, never the password. Keep the IBM i connection on TLS
   anyway, so the user name isn't sent in the clear either. See
   [Automatic sign-on](../README.md#automatic-sign-on).
+- [ ] **With the macro API** (`VENEER_API_CLIENTS`), serve Veneer over HTTPS so client
+  tokens aren't sent in the clear, give each client's service profile only the authority
+  its macros need, keep the clients file readable only by Veneer's user, and set the
+  service profiles' password variables in the service's environment, not the file. See
+  [Running macros from other systems](../README.md#running-macros-from-other-systems).
 
 Logs record who signed on (the IBM i user name) but never passwords or other field values.
 `VENEER_TRACE=true` logs host records for diagnosis, but shows only the key and cursor of

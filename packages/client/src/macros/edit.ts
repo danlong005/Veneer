@@ -4,7 +4,7 @@
 
 import { PARAM_NAME, RESERVED_PARAMS, paramsIn, screenId, type FieldCheck, type Macro, type MacroStep } from '@veneer/screens';
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
-import { filterValue } from '../ui/fieldRules.ts';
+import { typingProblem } from '@veneer/view';
 
 /**
  * One recorded step: the screen a key was pressed on, the fields the user
@@ -112,6 +112,28 @@ export function deepLink(macro: Macro, origin: string, values: Readonly<Record<s
   return `${origin}/?${q.toString()}`;
 }
 
+/**
+ * The macro API's named values: change the k-th one's name and position, or
+ * remove it (name null). Order is kept, so renaming doesn't move it.
+ */
+export function setOutput(macro: Macro, k: number, name: string | null, at: string): Macro {
+  const entries = Object.entries(macro.output ?? {});
+  // Another value's name would merge the two: refuse it, as the field can't hold it.
+  if (name !== null && entries.some(([n], i) => i !== k && n === name)) return macro;
+  if (name === null) entries.splice(k, 1);
+  else entries[k] = [name, at];
+  const { output: _o, ...rest } = macro;
+  return entries.length ? { ...rest, output: Object.fromEntries(entries) } : rest;
+}
+
+/** A new named value at a position, under the first free name value1, value2, ... */
+export function addOutput(macro: Macro, at: string): Macro {
+  const taken = new Set(Object.keys(macro.output ?? {}));
+  let n = 1;
+  while (taken.has(`value${n}`)) n++;
+  return { ...macro, output: { ...macro.output, [`value${n}`]: at } };
+}
+
 /** A deep link in the page address: the macro's name and the values given. */
 export function linkedMacro(search: string): { name: string; given: Record<string, string> } | null {
   const q = new URLSearchParams(search);
@@ -122,5 +144,4 @@ export function linkedMacro(search: string): { name: string; given: Record<strin
 }
 
 /** The browser's own field rules for a value a macro types: what a user could not type, a macro can't either. */
-export const macroFieldCheck: FieldCheck = (field, value) =>
-  filterValue(field, value) !== value ? `“${value}” can't be typed into the field at ${field.id}.` : undefined;
+export const macroFieldCheck: FieldCheck = typingProblem;

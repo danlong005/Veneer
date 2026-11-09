@@ -4,7 +4,7 @@ import { screenId } from '@veneer/screens';
 import { Attr, HostStream, Terminal, buildRecord, getCodepage } from '@veneer/tn5250';
 import { snapshot } from '@veneer/tn5250';
 import { HelpReader, helpPage } from '../src/help/help.ts';
-import { transform } from '../src/transform/index.ts';
+import { transform } from '@veneer/view';
 import { orderEntry } from './screens.ts';
 
 const cp = getCodepage(37);

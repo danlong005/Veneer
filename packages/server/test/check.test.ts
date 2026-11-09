@@ -121,5 +121,7 @@ test('the match log lists definitions no screen has matched since startup first'
 test('the demo screens folder passes veneer check (npm run demo:record refreshes its recordings)', async () => {
   const result = await checkFolder(fileURLToPath(new URL('../dev/screens', import.meta.url)));
   assert.deepEqual(result.findings, []);
-  assert.equal(result.recordings, result.definitions);
+  // Every definition's screen, and the main menu the demo macros start from.
+  assert.equal(result.recordings, result.definitions + 1);
+  assert.ok(result.macros >= 2);
 });

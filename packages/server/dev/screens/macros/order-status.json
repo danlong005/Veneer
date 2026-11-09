@@ -1,0 +1,38 @@
+{
+  "name": "order-status",
+  "label": "Order status",
+  "host": "5250",
+  "params": {
+    "order": {
+      "label": "order number",
+      "required": true,
+      "pattern": "[0-9]{1,6}"
+    }
+  },
+  "steps": [
+    {
+      "screen": "1cb4b4c7237e07",
+      "title": "Demo Main Menu",
+      "fields": {
+        "20:7": "15"
+      },
+      "press": "Enter"
+    },
+    {
+      "screen": "005ae4fb0b6762",
+      "title": "Order Status",
+      "fields": {
+        "4:22": "{order}"
+      },
+      "press": "Enter"
+    }
+  ],
+  "menu": true,
+  "api": true,
+  "output": {
+    "customer": "6:22",
+    "status": "7:22",
+    "ship_date": "8:22",
+    "amount": "9:22"
+  }
+}

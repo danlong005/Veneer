@@ -10,10 +10,10 @@ import { matchScreen, validateDefinition, type ScreenDefinition } from '@veneer/
 import { type ScreenSnapshot } from '@veneer/terminal';
 import { Session, Terminal, buildRecord, getCodepage, snapshot } from '@veneer/tn5250';
 import { listData } from '../../client/src/custom/components.ts';
-import { listOf, tablePage } from '../../client/src/export/exporter.ts';
-import { exportColumns } from '../../client/src/export/sheet.ts';
-import { customize } from '../../client/src/transform/customize.ts';
-import { transform } from '../../client/src/transform/index.ts';
+import { listOf, tablePage } from '@veneer/view';
+import { exportColumns } from '@veneer/view';
+import { customize } from '@veneer/view';
+import { transform } from '@veneer/view';
 import * as chart from '../dev/components/bar-chart.js';
 import * as board from '../dev/components/board.js';
 import * as calendar from '../dev/components/calendar.js';

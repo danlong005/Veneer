@@ -12,8 +12,8 @@ export {
   type ActiveTheme, type BuiltinTheme, type ThemeSummary, type ThemeVariable,
 } from './themes.ts';
 export {
-  DEFAULT_MACRO_TIMEOUT, MAX_PARAM_VALUE, MAX_PARAMS, MAX_STEPS, MacroRun, PARAM_NAME, RESERVED_PARAMS,
-  fillValue, macroScreens, macroValues, paramsIn, stepMatches, validateMacro,
+  DEFAULT_MACRO_TIMEOUT, MAX_OUTPUTS, MAX_PARAM_VALUE, MAX_PARAMS, MAX_STEPS, MacroRun, PARAM_NAME, RESERVED_PARAMS,
+  apiValues, fillValue, macroScreens, macroValues, paramsIn, stepMatches, validateMacro,
   type FieldCheck, type Macro, type MacroDone, type MacroParam, type MacroResult, type MacroStart, type MacroStep,
 } from './macros.ts';
 export {

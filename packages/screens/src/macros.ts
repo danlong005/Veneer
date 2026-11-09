@@ -49,10 +49,19 @@ export interface Macro {
   menu?: boolean;
   /** Seconds to wait for each step's screen. */
   timeout?: number;
+  /** Other systems may run it through the macro API (POST /api/run/<name>). Off unless set. */
+  api?: boolean;
+  /**
+   * For the macro API: values to read from the screen it ends on, by the name
+   * the caller gets them under. Each is a field id or a position ("12:40");
+   * text at a position runs to the next wide gap.
+   */
+  output?: Record<string, string>;
 }
 
 export const MAX_STEPS = 50;
 export const MAX_PARAMS = 20;
+export const MAX_OUTPUTS = 50;
 /** The longest value a parameter can have. */
 export const MAX_PARAM_VALUE = 256;
 export const DEFAULT_MACRO_TIMEOUT = 30;
@@ -96,6 +105,21 @@ export function validateMacro(input: unknown): Macro {
   const steps = list.map((x, i) => step(x, `steps[${i}]`, host, params));
   if (o.menu !== undefined && typeof o.menu !== 'boolean') fail('menu', 'must be true or false');
   const timeout = o.timeout !== undefined ? int(o.timeout, 'timeout', 1, 600) : undefined;
+  if (o.api !== undefined && typeof o.api !== 'boolean') fail('api', 'must be true or false');
+  let output: Record<string, string> | undefined;
+  if (o.output !== undefined) {
+    const out = obj(o.output, 'output');
+    if (Object.keys(out).length > MAX_OUTPUTS) fail('output', `has more than ${MAX_OUTPUTS} values`);
+    output = {};
+    for (const [key, value] of Object.entries(out)) {
+      const path = `output.${key.slice(0, 32)}`;
+      if (!PARAM_NAME.test(key)) fail(path, 'must be a name of letters, digits and _');
+      const at = str(value, path, 7);
+      if (!FIELD_ID.test(at)) fail(path, 'must be a position such as "12:40"');
+      output[key] = at;
+    }
+    if (Object.keys(output).length === 0) output = undefined;
+  }
   // In the order a person reads the file: what it is, its values, its steps.
   return {
     name, label,
@@ -104,6 +128,8 @@ export function validateMacro(input: unknown): Macro {
     steps,
     ...(o.menu ? { menu: true } : {}),
     ...(timeout !== undefined ? { timeout } : {}),
+    ...(o.api ? { api: true } : {}),
+    ...(output ? { output } : {}),
   };
 }
 
@@ -179,6 +205,25 @@ export function macroValues(macro: Macro, given: Readonly<Record<string, string 
     values[name] = value;
   }
   return values;
+}
+
+/**
+ * The values a macro API caller gives, checked: only the macro's parameters,
+ * each a string (a number is taken as its digits). Throws DefinitionError.
+ */
+export function apiValues(macro: Macro, body: unknown): Record<string, string> {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) throw new DefinitionError('The body must be a JSON object of the macro\'s values.');
+  const given: Record<string, string> = {};
+  for (const [name, value] of Object.entries(body)) {
+    if (!macro.params?.[name]) {
+      const known = Object.keys(macro.params ?? {});
+      throw new DefinitionError(`“${name.slice(0, 32)}” is not one of the macro's values${known.length ? ` (${known.join(', ')})` : ': it takes none'}.`);
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) given[name] = String(value);
+    else if (typeof value === 'string') given[name] = value;
+    else throw new DefinitionError(`${macro.params[name]!.label ?? name} must be text or a number.`);
+  }
+  return macroValues(macro, given);
 }
 
 /** A field value with its {parameters} filled in. */

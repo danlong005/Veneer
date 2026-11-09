@@ -3,7 +3,11 @@
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -12,8 +16,29 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src", "test"],
-  "references": [{ "path": "../terminal" }, { "path": "../tn5250" }, { "path": "../server" }, { "path": "../screens" }]
+  "include": [
+    "src",
+    "test"
+  ],
+  "references": [
+    {
+      "path": "../terminal"
+    },
+    {
+      "path": "../tn5250"
+    },
+    {
+      "path": "../server"
+    },
+    {
+      "path": "../screens"
+    },
+    {
+      "path": "../view"
+    }
+  ]
 }

@@ -49,6 +49,17 @@ export interface SessionInfo {
   graceEndsAt: string | null;
 }
 
+/**
+ * A host connection that isn't a browser's (a macro API run): it counts
+ * toward the session limit and takes a device name from the pool.
+ */
+export interface HostLease {
+  readonly deviceName: string | undefined;
+  /** The host says `name` is in use: the next name to try, or undefined to give up. */
+  nextDeviceName(name: string, attempt: number): string | undefined;
+  release(): void;
+}
+
 /** Other device names to try when the host says one is in use. */
 const DEVICE_NAME_RETRIES = 3;
 
@@ -106,6 +117,8 @@ export class SessionManager {
   private signOnRefused = false;
   /** Failed automatic sign-ons by address, to slow down guessing. */
   private readonly signOnFailures = new Map<string, { count: number; last: number; nextAt: number }>();
+  /** Host connections lent out (macro API runs), with the device name each holds. */
+  private readonly leases = new Set<{ deviceName: string | undefined }>();
 
   constructor(opts: SessionManagerOptions) {
     this.opts = opts;
@@ -114,8 +127,45 @@ export class SessionManager {
     this.idleSweep.unref();
   }
 
+  /** Browser sessions and API runs. */
   get size(): number {
-    return this.sessions.size;
+    return this.sessions.size + this.leases.size;
+  }
+
+  /**
+   * A host connection for a macro API run, or why there is none: the session
+   * limit is reached, or every device name is in use.
+   */
+  lease(): HostLease | { refused: string } {
+    if (this.size >= this.opts.maxSessions) {
+      log.warn('session limit reached', { max: this.opts.maxSessions, for: 'macro API' });
+      return { refused: 'Too many sessions; try again later' };
+    }
+    const held = { deviceName: this.devices?.acquire() };
+    if (this.devices && !held.deviceName) {
+      log.warn('no free device names', { prefix: this.devices.prefix, capacity: this.devices.capacity, for: 'macro API' });
+      return { refused: 'No free device names; try again later' };
+    }
+    this.leases.add(held);
+    const devices = this.devices;
+    let released = false;
+    return {
+      get deviceName() { return held.deviceName; },
+      nextDeviceName: (name, attempt) => {
+        if (!devices) return undefined;
+        devices.avoid(name);
+        const next = attempt <= DEVICE_NAME_RETRIES ? devices.acquire() : undefined;
+        log.warn('device name in use', { for: 'macro API', device: name, ...(next ? { trying: next } : { giving_up: true }) });
+        held.deviceName = next;
+        return next;
+      },
+      release: () => {
+        if (released) return;
+        released = true;
+        this.leases.delete(held);
+        if (held.deviceName) devices?.release(held.deviceName);
+      },
+    };
   }
 
   /** Users sign on from Veneer's page (VENEER_SIGNON=auto) unless the IBM i turned it down. */
@@ -150,7 +200,7 @@ export class SessionManager {
   }
 
   private create(socket: WebSocket, remote: string, secure: boolean): void {
-    if (this.sessions.size >= this.opts.maxSessions) {
+    if (this.size >= this.opts.maxSessions) {
       log.warn('session limit reached', { remote, max: this.opts.maxSessions });
       socket.send(JSON.stringify({ type: 'error', message: 'Too many sessions; try again later' } satisfies ServerMessage));
       socket.close(CloseCode.SESSION_LIMIT, 'Session limit reached');
@@ -175,6 +225,7 @@ export class SessionManager {
   private hostsOpen(): number {
     let n = 0;
     for (const bs of this.sessions.values()) if (bs.deviceName) n++;
+    for (const l of this.leases) if (l.deviceName) n++;
     return n;
   }
 

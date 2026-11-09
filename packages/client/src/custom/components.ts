@@ -17,9 +17,9 @@
 import type { ComponentOptions, Role } from '@veneer/screens';
 import type { AidName } from '@veneer/terminal';
 import { useSyncExternalStore } from 'react';
-import { exportColumns, headerOf } from '../export/sheet.ts';
-import { listOf, tablePage, type TablePage } from '../export/exporter.ts';
-import type { ScreenView, TableItem } from '../transform/types.ts';
+import { exportColumns, headerOf } from '@veneer/view';
+import { listOf, tablePage, type TablePage } from '@veneer/view';
+import type { ScreenView, TableItem } from '@veneer/view';
 import type { ListData, ListRecord, PagesData, ReadListOptions, ReadPagesOptions, ScreenInfo } from './runtime.ts';
 
 export type { ListData, ListRecord, PagesData, ReadListOptions, ReadPagesOptions } from './runtime.ts';

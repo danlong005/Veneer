@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { matchScreen, type ScreenDefinition } from '@veneer/screens';
-import { customize, itemAt } from '../src/transform/customize.ts';
-import { transform, type FieldItem, type TableItem, type TextItem } from '../src/transform/index.ts';
+import { customize, itemAt } from '@veneer/view';
+import { transform, type FieldItem, type TableItem, type TextItem } from '@veneer/view';
 import { resolveSelection } from '../src/designer/edit.ts';
 import { mainMenu, orderEntry, promptWindow, workWithJobs } from './screens.ts';
 

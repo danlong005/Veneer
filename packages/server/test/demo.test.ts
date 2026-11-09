@@ -10,8 +10,8 @@ import { type ScreenSnapshot, type SignOnResult } from '@veneer/terminal';
 import { Session, Terminal, buildRecord, getCodepage, snapshot } from '@veneer/tn5250';
 // The browser's view of a screen, as the client builds it for components.
 import { tablesOf } from '../../client/src/custom/components.ts';
-import { customize } from '../../client/src/transform/customize.ts';
-import { transform } from '../../client/src/transform/index.ts';
+import { customize } from '@veneer/view';
+import { transform } from '@veneer/view';
 import * as cards from '../dev/components/cards.js';
 import * as map from '../dev/components/map.js';
 import * as listTable from '../dev/components/list-table.js';

@@ -4,7 +4,7 @@
 
 import type { ScreenDefinition, Target } from '@veneer/screens';
 import type { ScreenSnapshot } from '@veneer/terminal';
-import type { ScreenView } from '../transform/types.ts';
+import type { ScreenView } from '@veneer/view';
 import { describeChange } from './changes.ts';
 import { Section } from './Section.tsx';
 

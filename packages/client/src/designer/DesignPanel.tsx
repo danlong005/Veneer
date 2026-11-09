@@ -24,7 +24,7 @@ import { ComponentEditor, ComponentsSection, componentForFieldChange } from './C
 import { TextAreaPart, WidgetEditor, defaultWidget, showAsChoices } from './Widgets.tsx';
 import { ColumnDisplays, TextDisplay } from './Displays.tsx';
 import { ImageEditor, LabelEditor, LabelsSection } from './Placed.tsx';
-import type { ScreenView } from '../transform/types.ts';
+import type { ScreenView } from '@veneer/view';
 import {
   addScreenId, buttonsOf, cardAround, cardsOf, componentAt, componentForField, formatOptions, freeSpot, htmlAt, htmlOf, imageAt, isHidden, labelAt, originalText, parseOptions, removeScreenId, roleOf, setButtons, setPlaced,
   ROLE_LABELS, moveOf, setCard, setComponent, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textAreaOf, textOf, widgetOf, type Selection,

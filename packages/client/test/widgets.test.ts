@@ -8,8 +8,8 @@ import { validateDefinition, type ScreenDefinition, type Widget } from '@veneer/
 import type { FieldSnapshot } from '@veneer/terminal';
 import { describeChange } from '../src/designer/changes.ts';
 import { fieldsBelow, resolveSelection, setWidget, textAreaOf, toggleTextAreaField } from '../src/designer/edit.ts';
-import { customize } from '../src/transform/customize.ts';
-import { transform, type FieldItem } from '../src/transform/index.ts';
+import { customize } from '@veneer/view';
+import { transform, type FieldItem } from '@veneer/view';
 import { keyAction } from '../src/ui/keys.ts';
 import { layoutOf } from '../src/ui/layout.ts';
 import { parseValue, stepValue } from '../src/ui/spinner.ts';

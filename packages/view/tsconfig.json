@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true,
+    "lib": ["ES2023"]
+  },
+  "include": ["src"],
+  "references": [{ "path": "../terminal" }, { "path": "../screens" }]
+}

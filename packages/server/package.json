@@ -26,6 +26,7 @@
     "@veneer/terminal": "^0.3.1",
     "@veneer/tn3270": "^0.3.1",
     "@veneer/tn5250": "^0.3.1",
+    "@veneer/view": "^0.3.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {

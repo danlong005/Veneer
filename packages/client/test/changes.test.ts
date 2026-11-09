@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Change } from '@veneer/screens';
 import { describeChange } from '../src/designer/changes.ts';
-import { transform } from '../src/transform/index.ts';
+import { transform } from '@veneer/view';
 import { orderEntry } from './screens.ts';
 
 const snap = orderEntry();

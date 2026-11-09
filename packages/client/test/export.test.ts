@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ListExporter } from '../src/export/exporter.ts';
-import { exportColumns, numberOf, toCsv, toXlsx } from '../src/export/sheet.ts';
-import { crc32 } from '../src/export/zip.ts';
-import type { ScreenView, TableItem } from '../src/transform/types.ts';
+import { ListExporter } from '@veneer/view';
+import { exportColumns, numberOf, toCsv, toXlsx } from '@veneer/view';
+import { crc32 } from '@veneer/view';
+import type { ScreenView, TableItem } from '@veneer/view';
 import type { FieldSnapshot } from '@veneer/terminal';
 
 const option = { id: '11:3', bypass: false, value: '' } as FieldSnapshot;

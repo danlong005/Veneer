@@ -592,7 +592,7 @@ export function shippingSummary(fields: Map<string, string>): string {
     `weight ${value('8:22') || 'unchanged'}, ${changed} comment line${changed === 1 ? '' : 's'} changed`;
 }
 
-function mainMenu(user: string, message?: string): number[] {
+export function mainMenu(user: string, message?: string): number[] {
   return new HostStream().clear().write()
     .text(1, 2, 'MAIN')
     .text(1, centered('Demo Main Menu'), 'Demo Main Menu', WHITE)

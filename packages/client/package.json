@@ -19,6 +19,7 @@
     "@veneer/terminal": "^0.3.1",
     "@veneer/tn3270": "^0.3.1",
     "@veneer/tn5250": "^0.3.1",
+    "@veneer/view": "^0.3.1",
     "@vitejs/plugin-react": "^6.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

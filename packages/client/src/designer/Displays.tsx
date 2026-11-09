@@ -8,7 +8,7 @@ import {
 } from '@veneer/screens';
 import type { ScreenSnapshot } from '@veneer/terminal';
 import { useState } from 'react';
-import type { TableItem } from '../transform/types.ts';
+import type { TableItem } from '@veneer/view';
 import { formatDate, formatNumber } from '../ui/display.ts';
 import { DISPLAY_CHOICES, defaultDisplay } from './defaults.ts';
 import { ROLE_LABELS, displayOf, setDisplay } from './edit.ts';

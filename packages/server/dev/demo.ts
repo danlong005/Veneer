@@ -11,8 +11,11 @@ import { DemoHost3270 } from './demoHost3270.ts';
 import { demoEnv, demoHostType } from './demoEnv.ts';
 
 const type = demoHostType(process.argv.slice(2), process.env);
-// VENEER_SIGNON=auto: the demo IBM i signs users on from Veneer's page, with the password "demo".
-const hostPort = await (type === '3270' ? new DemoHost3270() : new DemoHost({ autoSignOn: process.env.VENEER_SIGNON === 'auto' })).listen();
+// The demo IBM i offers automatic sign-on (password "demo"): for the macro API, and for
+// users with VENEER_SIGNON=auto. Without it, browsers get the host's own sign-on screen.
+const offered = demoEnv(type, 0, process.env);
+const autoSignOn = offered.VENEER_SIGNON === 'auto' || Boolean(offered.VENEER_API_CLIENTS);
+const hostPort = await (type === '3270' ? new DemoHost3270() : new DemoHost({ autoSignOn })).listen();
 const config = loadConfig(demoEnv(type, hostPort, process.env));
 // The "other system" Order Status embeds and links to (5250 demo only).
 const docs = type === '3270' ? undefined : await startDocsServer();
@@ -25,6 +28,7 @@ log.info('demo ready', {
   screens: config.screensDir,
   designer: config.designerLocal ? 'no token needed from this machine' : 'off',
   admin: config.adminLocal ? `http://${addr.address}:${addr.port}/admin` : 'off',
+  macroApi: config.api ? `curl -H 'Authorization: Bearer demo-api-token' -d '{"order":"104571"}' http://${addr.address}:${addr.port}/api/run/order-status` : 'off',
   ...(docs ? { documents: 'server' in docs ? `http://127.0.0.1:${docs.port}` : `off: ${docs.error}` } : {}),
 });
 process.on('SIGINT', () => void server.close().then(() => process.exit(0)));

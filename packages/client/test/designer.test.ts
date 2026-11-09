@@ -5,8 +5,8 @@ import {
   addScreenId, formatOptions, isHidden, newDefinition, originalText, parseOptions, removeScreenId, resolveSelection,
   freeSpot, htmlAt, htmlOf, moveOf, setCss, setMove, setScript, setHidden, setHtml, setRole, setText, setWidget, slug, textOf, widgetOf,
 } from '../src/designer/edit.ts';
-import { customize } from '../src/transform/customize.ts';
-import { transform } from '../src/transform/index.ts';
+import { customize } from '@veneer/view';
+import { transform } from '@veneer/view';
 import { mainMenu, orderEntry, workWithJobs } from './screens.ts';
 
 test('a new definition is recognised by the screen id', () => {

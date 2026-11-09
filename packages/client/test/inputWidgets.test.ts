@@ -7,8 +7,8 @@ import { describe, test } from 'node:test';
 import { validateDefinition, type Change, type ScreenDefinition, type Widget } from '@veneer/screens';
 import { describeChange } from '../src/designer/changes.ts';
 import { defaultWidget, showAsChoices } from '../src/designer/defaults.ts';
-import { customize } from '../src/transform/customize.ts';
-import { transform, type FieldItem, type Item } from '../src/transform/index.ts';
+import { customize } from '@veneer/view';
+import { transform, type FieldItem, type Item } from '@veneer/view';
 import { applyMask, caretAfter, maskComplete, maskLength, maskedText, slotCount, slotTakes, slotsBefore } from '../src/ui/mask.ts';
 import { orderNotes } from './screens.ts';
 

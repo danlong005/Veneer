@@ -1,0 +1,8 @@
+{
+  "demo": {
+    "token": "sha256:9477b34a9c255f76f79d282640e9f9d02f1b32a370408fdac63538ce33a788ed",
+    "user": "APIDEMO",
+    "passwordEnv": "VENEER_API_DEMO_PASSWORD",
+    "maxRuns": 2
+  }
+}

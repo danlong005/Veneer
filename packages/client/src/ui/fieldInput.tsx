@@ -4,7 +4,7 @@ import { hostToIso, hostToTime, isoToHost, timeHasSeconds, timeToHost, type Widg
 import type { AidName, FieldSnapshot } from '@veneer/terminal';
 import { monocase } from '@veneer/terminal';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
-import type { Option } from '../transform/types.ts';
+import type { Option } from '@veneer/view';
 import { filterValue, isNumeric, overtyped, withSign, isShortField } from './fieldRules.ts';
 import { LookupField, MaskField, RadioField, SpinnerField, TextAreaField } from './widgets.tsx';
 

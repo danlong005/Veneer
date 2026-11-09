@@ -5,9 +5,9 @@
 import { screenId } from '@veneer/screens';
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { componentFailed, mountComponent, tablesOf, useComponents, visibleList, type ComponentContext, type ComponentInstance } from '../custom/components.ts';
-import { regionPage } from '../export/exporter.ts';
+import { regionPage } from '@veneer/view';
 import { screenInfo, veneer } from '../custom/runtime.ts';
-import type { ComponentItem, ScreenView } from '../transform/types.ts';
+import type { ComponentItem, ScreenView } from '@veneer/view';
 import type { FieldBinding } from './fieldInput.tsx';
 
 export function ComponentBox({ item, view, binding, design, className, style, dataAt }: {

@@ -2,8 +2,8 @@
 
 import { MAX_TEXTAREA_FIELDS, screenId, type ButtonAction, type Change, type Display, type Role, type ScreenDefinition, type ScreenEvent, type TabBand, type Target, type TextMatch, type Widget } from '@veneer/screens';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
-import { heightOf, homeOf, isBox, itemAt } from '../transform/customize.ts';
-import type { Item, ScreenView } from '../transform/types.ts';
+import { heightOf, homeOf, isBox, itemAt } from '@veneer/view';
+import type { Item, ScreenView } from '@veneer/view';
 
 const same = (a: Target, b: Target) => a.row === b.row && a.col === b.col;
 

@@ -1,0 +1,17 @@
+{
+  "name": "active-jobs",
+  "label": "Active jobs",
+  "host": "5250",
+  "steps": [
+    {
+      "screen": "1cb4b4c7237e07",
+      "title": "Demo Main Menu",
+      "fields": {
+        "20:7": "1"
+      },
+      "press": "Enter"
+    }
+  ],
+  "menu": true,
+  "api": true
+}
