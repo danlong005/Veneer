@@ -6,6 +6,14 @@
 DIR=$(cd "$(dirname "$0")/../.." && pwd)
 CONFIG=${VENEER_CONFIG:-/QOpenSys/etc/veneer/veneer.env}
 
+if [ ! -f "$DIR/packages/server/dist/main.js" ] || [ ! -f "$DIR/packages/client/dist/index.html" ]; then
+  echo "veneer: Veneer has not been built: $DIR is the source (a git clone, fork or -src download), not a release." >&2
+  echo "veneer: Install the release archive veneer-<version>.tar.gz or .zip from https://github.com/danlong005/Veneer/releases," >&2
+  echo "veneer: or build one on a PC or Linux machine with 'npm ci' then 'npm run package' and copy it here." >&2
+  echo "veneer: The source can't be built on IBM i. See 'From a clone, fork or source download' in deploy/README.md." >&2
+  exit 1
+fi
+
 NODE=${VENEER_NODE:-}
 if [ -z "$NODE" ]; then
   for candidate in /QOpenSys/pkgs/bin/node /QOpenSys/pkgs/lib/nodejs22/bin/node /QOpenSys/pkgs/lib/nodejs20/bin/node; do
