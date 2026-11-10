@@ -416,7 +416,8 @@ shows which macros use each screen.
 ## Screen customizations and the designer
 
 Auto-transform handles every screen. For the screens people use most, a **screen
-definition** goes further. Each definition is one JSON file in `screens/` (or
+definition** goes further. **[The designer guide](docs/designer.md)** shows how to open the
+designer and make each kind of change, step by step; this section describes the files. Each definition is one JSON file in `screens/` (or
 `VENEER_SCREENS_DIR`), so customizations are reviewed and versioned in git like code.
 
 ```json

@@ -78,7 +78,7 @@ file viewer; option 4: cards; option 3: maps).
 
 ## Placing a component
 
-**In the designer** (see [Screen customizations and the designer](../README.md#screen-customizations-and-the-designer)):
+**In the designer** (see [the designer guide](designer.md)):
 
 1. Open the screen in Veneer and click **Design**.
 2. In the **Page** tab's **Components** section, pick the component and click **Add

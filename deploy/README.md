@@ -99,6 +99,8 @@ Look at the startup lines in `VENEER_LOG_FILE` (or the job's `QPRINT` spooled fi
 
 ## Getting into the designer
 
+Once you're in, [the designer guide](../docs/designer.md) shows how to customize screens.
+
 The designer is off until it is turned on in the config file, in one of two ways:
 
 | Setting | Who can use the designer |

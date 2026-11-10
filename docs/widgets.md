@@ -43,7 +43,7 @@ orders that have shipped have a tracking barcode.
 
 ## Adding a widget
 
-**In the designer** (see [Screen customizations and the designer](../README.md#screen-customizations-and-the-designer)
+**In the designer** (see [the designer guide](designer.md)
 for turning it on):
 
 1. Open the screen in Veneer and click **Design**. If the screen has no customization
@@ -55,7 +55,7 @@ for turning it on):
 4. Click **Preview** to see the page as users will, and try the widget there.
 5. Click **Save**. Everyone's page picks up the change at once.
 
-The **Page** tab's **Changes** list shows every change in the customization, such as
+The **Page** tab's **All changes** section shows every change in the customization, such as
 "Show Status as a status badge". Click one to select what it changes, or × to remove it.
 
 **In a definition file:** add the change to the definition's `changes` in
