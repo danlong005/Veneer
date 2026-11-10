@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { setText } from '../src/designer/edit.ts';
 import { labelAt, labelText, nameAt } from '../src/designer/names.ts';
-import { customize } from '../src/transform/customize.ts';
-import { transform } from '../src/transform/index.ts';
+import { customize } from '@veneer/view';
+import { transform } from '@veneer/view';
 import { orderEntry, workWithJobs } from './screens.ts';
 
 test('reads labels without dot leaders or a colon', () => {

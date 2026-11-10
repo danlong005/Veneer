@@ -7,10 +7,10 @@ import { DefinitionError, paramsIn, screenId, stepMatches, validateMacro, type M
 import type { AidName, HostType, ScreenSnapshot } from '@veneer/terminal';
 import { useEffect, useMemo, useState } from 'react';
 import { loadToken, storeToken } from '../designer/token.ts';
-import type { ScreenView } from '../transform/types.ts';
+import type { ScreenView } from '@veneer/view';
 import { buttonAids, keyHint } from '../ui/keys.ts';
 import {
-  deepLink, makeParameter, moveStep, nameFor, newMacro, paramNameProblem, removeParameter, removeStep, setStep, unusedParams,
+  addOutput, deepLink, makeParameter, moveStep, nameFor, newMacro, paramNameProblem, removeParameter, removeStep, setOutput, setStep, unusedParams,
 } from './edit.ts';
 
 interface Props {
@@ -114,6 +114,7 @@ export function MacrosPanel(props: Props) {
 
   const keys = buttonAids(host);
   const params = Object.entries(draft?.params ?? {});
+  const outputs = Object.entries(draft?.output ?? {});
   const unused = draft ? unusedParams(draft) : [];
   const hereId = screenId(snap);
   const link = draft ? deepLink(draft, location.origin, testValues) : '';
@@ -165,7 +166,33 @@ export function MacrosPanel(props: Props) {
                 <input type="checkbox" checked={draft.menu ?? false} onChange={(e) => setDraft(e.target.checked ? { ...draft, menu: true } : (({ menu: _m, ...rest }) => rest)(draft))} />
                 List under Go to in the page header
               </label>
+              <label className="dp-check">
+                <input type="checkbox" checked={draft.api ?? false} onChange={(e) => setDraft(e.target.checked ? { ...draft, api: true } : (({ api: _a, ...rest }) => rest)(draft))} />
+                Other systems can run it (macro API)
+              </label>
             </section>
+
+            {draft.api && (
+              <section>
+                <h3>API results</h3>
+                <p className="dp-hint">Values to read from the screen the macro ends on, by the name callers get them under: a field, or text at a position (to the next wide gap). Every field, the list (all pages) and the messages come back too.</p>
+                {outputs.map(([name, at], k) => (
+                  <div key={k} className="macro-field">
+                    <input value={name} aria-label="Name callers get it under" spellCheck={false} placeholder="name"
+                      onChange={(e) => setDraft(setOutput(draft, k, e.target.value, at))} />
+                    <input value={at} aria-label={`Position of ${name}`} spellCheck={false} placeholder="row:col" size={7}
+                      onChange={(e) => setDraft(setOutput(draft, k, name, e.target.value))} />
+                    <button type="button" className="ghost danger" aria-label={`Remove ${name}`} onClick={() => setDraft(setOutput(draft, k, null, ''))}>✕</button>
+                  </div>
+                ))}
+                <div className="dp-actions">
+                  <button type="button" title="A value at the cursor's position on this screen" onClick={() => setDraft(addOutput(draft, `${snap.cursor.row}:${snap.cursor.col}`))}>Add value at cursor</button>
+                </div>
+                <label className="dp-row">Run it with
+                  <input readOnly value={`POST ${location.origin}/api/run/${draft.name}`} onFocus={(e) => e.target.select()} />
+                </label>
+              </section>
+            )}
 
             <section>
               <h3>Values</h3>

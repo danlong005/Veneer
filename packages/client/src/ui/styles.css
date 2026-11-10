@@ -372,7 +372,7 @@ button:disabled { cursor: default; opacity: 0.55; }
 .tab-strip button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 /* Custom components: the module draws inside .component-host. */
-/* Over the screen's text, as hit-testing has it (transform/customize.ts). */
+/* Over the screen's text, as hit-testing has it (@veneer/view, transform/customize.ts). */
 .custom-component { white-space: normal; line-height: 1.4; z-index: 1; }
 .component-host { position: absolute; inset: 0; }
 .component-note {

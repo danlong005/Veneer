@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
 import { listData, tablesOf, visibleList } from '../src/custom/components.ts';
-import { PageReader, RowSeeker, listOf, listSource, regionPage, regionSource, tablePage, type ReadStep, type TablePage, type TextPage } from '../src/export/exporter.ts';
-import { exportColumns } from '../src/export/sheet.ts';
-import type { ScreenView, TableItem } from '../src/transform/types.ts';
+import { PageReader, RowSeeker, listOf, listSource, regionPage, regionSource, tablePage, type ReadStep, type TablePage, type TextPage } from '@veneer/view';
+import { exportColumns } from '@veneer/view';
+import type { ScreenView, TableItem } from '@veneer/view';
 
 const optionField = (row: number) => ({ id: `${row}:3`, row, col: 3, length: 1, bypass: false, value: '' }) as FieldSnapshot;
 

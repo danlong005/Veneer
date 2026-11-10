@@ -7,8 +7,11 @@
 FROM node:22-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
+COPY packages/terminal/package.json packages/terminal/
 COPY packages/tn5250/package.json packages/tn5250/
+COPY packages/tn3270/package.json packages/tn3270/
 COPY packages/screens/package.json packages/screens/
+COPY packages/view/package.json packages/view/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
 RUN npm ci --no-audit --no-fund

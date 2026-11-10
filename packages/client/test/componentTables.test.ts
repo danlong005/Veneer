@@ -7,8 +7,8 @@ import { test } from 'node:test';
 import type { ScreenDefinition } from '@veneer/screens';
 import { Attr, HostStream, Terminal, buildRecord, getCodepage, snapshot } from '@veneer/tn5250';
 import { tablesOf } from '../src/custom/components.ts';
-import { customize } from '../src/transform/customize.ts';
-import { transform } from '../src/transform/index.ts';
+import { customize } from '@veneer/view';
+import { transform } from '@veneer/view';
 import { workWithJobs } from './screens.ts';
 
 const definition = (changes: ScreenDefinition['changes']): ScreenDefinition => ({

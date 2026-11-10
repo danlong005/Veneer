@@ -2,7 +2,7 @@
 // screen, and tabs that split its rows into bands shown one at a time.
 
 import type { ScreenDefinition } from '@veneer/screens';
-import type { ScreenView } from '../transform/types.ts';
+import type { ScreenView } from '@veneer/view';
 import { cardsOf, moveTabEdge, removeTab, setCard, setTabs, splitTabs, tabRegion, tabsOf, type Selection } from './edit.ts';
 import { Section } from './Section.tsx';
 

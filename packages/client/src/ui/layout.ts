@@ -5,8 +5,8 @@
 // draws them (after moves).
 
 import type { Target } from '@veneer/screens';
-import { heightOf, itemAt } from '../transform/customize.ts';
-import type { Card, Item, ScreenView, TabBand } from '../transform/types.ts';
+import { heightOf, itemAt } from '@veneer/view';
+import type { Card, Item, ScreenView, TabBand } from '@veneer/view';
 
 /** Items and cards drawn together: view row `from` is drawn at layout row `row`. */
 export interface Group {

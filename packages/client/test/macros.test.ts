@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { screenId, validateMacro, type Macro } from '@veneer/screens';
 import {
+  addOutput, setOutput,
   deepLink, linkedMacro, macroFieldCheck, makeParameter, moveStep, nameFor, newMacro, paramNameProblem, recordStep,
   removeParameter, removeStep, setStep, unusedParams,
 } from '../src/macros/edit.ts';
@@ -74,4 +75,18 @@ test('a macro types only what a user could: letters are refused in numeric field
   const quantity = s.fields.find((f) => f.id === '6:20')!;
   assert.equal(macroFieldCheck(quantity, '12'), undefined);
   assert.equal(macroFieldCheck(quantity, '1A'), '“1A” can\'t be typed into the field at 6:20.');
+});
+
+test('the macro API\'s named values: added at the cursor, renamed in place, removed', () => {
+  const base = validateMacro({ name: 'm', label: 'M', api: true, steps: [{ screen: screenId(mainMenu()), press: 'Enter' }] });
+  let m = addOutput(base, '6:22');
+  m = addOutput(m, '7:22');
+  assert.deepEqual(m.output, { value1: '6:22', value2: '7:22' });
+  m = setOutput(m, 0, 'customer', '6:22');
+  assert.deepEqual(Object.entries(m.output!), [['customer', '6:22'], ['value2', '7:22']], 'renaming keeps the order');
+  assert.equal(setOutput(m, 1, 'customer', '7:22'), m, 'another value\'s name is refused rather than merging the two');
+  m = setOutput(m, 0, null, '');
+  assert.deepEqual(m.output, { value2: '7:22' });
+  assert.equal('output' in setOutput(m, 0, null, ''), false, 'the last one gone, output goes');
+  assert.deepEqual(validateMacro(addOutput(base, '6:22')).output, { value1: '6:22' });
 });

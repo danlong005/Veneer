@@ -8,7 +8,7 @@ import { Session as Session3270, modelOf } from '@veneer/tn3270';
 import { Session as Session5250, substituteFor, type AutoSignOn, type PasswordSubstitute } from '@veneer/tn5250';
 
 // Automatic sign-on is IBM i's; the session code checks a sign-on with these.
-export { USER_PROFILE, passwordProblem, type AutoSignOn } from '@veneer/tn5250';
+export { USER_PROFILE, passwordProblem, type AutoSignOn, type PasswordSubstitute } from '@veneer/tn5250';
 
 export const HOST_TYPES: readonly HostType[] = ['5250', '3270'];
 
@@ -131,7 +131,8 @@ function parseSignOn(env: NodeJS.ProcessEnv, type: HostType): HostSettings['auto
   const mode = (env.VENEER_SIGNON ?? '').trim();
   const level = (env.VENEER_QPWDLVL ?? '').trim();
   if (mode === '' || mode === 'host') {
-    if (level !== '') throw new Error('VENEER_QPWDLVL is for automatic sign-on (VENEER_SIGNON=auto)');
+    // The macro API (VENEER_API_CLIENTS) signs on automatically too, so it needs the level either way.
+    if (level !== '' && !env.VENEER_API_CLIENTS) throw new Error('VENEER_QPWDLVL is for automatic sign-on (VENEER_SIGNON=auto, or the macro API)');
     return undefined;
   }
   if (mode !== 'auto') throw new Error(`VENEER_SIGNON must be auto or host, got "${env.VENEER_SIGNON}"`);
@@ -140,6 +141,19 @@ function parseSignOn(env: NodeJS.ProcessEnv, type: HostType): HostSettings['auto
     throw new Error(`VENEER_SIGNON=auto needs VENEER_QPWDLVL: the IBM i's QPWDLVL system value (0, 1, 2 or 3; DSPSYSVAL QPWDLVL shows it)${level ? `, got "${level}"` : ''}`);
   }
   return { substitute: substituteFor(Number(level)) };
+}
+
+/**
+ * The password substitute the macro API signs on with: VENEER_QPWDLVL, which
+ * it needs whether or not users sign on automatically.
+ */
+export function apiSubstitute(env: NodeJS.ProcessEnv, type: HostType): PasswordSubstitute {
+  if (type !== '5250') throw new Error('VENEER_API_CLIENTS (the macro API) is for IBM i hosts (VENEER_HOST_TYPE=5250)');
+  const level = (env.VENEER_QPWDLVL ?? '').trim();
+  if (!/^[0-3]$/.test(level)) {
+    throw new Error(`The macro API (VENEER_API_CLIENTS) signs on automatically, so it needs VENEER_QPWDLVL: the IBM i's QPWDLVL system value (0, 1, 2 or 3; DSPSYSVAL QPWDLVL shows it)${level ? `, got "${level}"` : ''}`);
+  }
+  return substituteFor(Number(level));
 }
 
 /** VENEER_PAGE_KEYS: "PF7,PF8" (or "F7,F8"), "off", or blank for the default. */

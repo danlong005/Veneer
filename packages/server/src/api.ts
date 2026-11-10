@@ -14,6 +14,7 @@ import { ThemeError, type ThemeStore } from './themes.ts';
 import { brandInfo, type Brand } from './brand.ts';
 import type { HostType } from '@veneer/terminal';
 import type { PageKeys } from './host.ts';
+import type { MacroApi } from './macroApi.ts';
 
 const MAX_BODY = 1024 * 1024;
 
@@ -39,6 +40,8 @@ export interface ApiOptions {
   brand?: Brand | undefined;
   /** The kind of host, and what Page Up and Page Down send (null: nothing), for the browser's keys. */
   host?: HostInfo | undefined;
+  /** Running macros for other systems (/api/run), when VENEER_API_CLIENTS is set. */
+  macroApi?: MacroApi | undefined;
 }
 
 export interface HostInfo {
@@ -82,6 +85,10 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, pathna
   res.setHeader('Cache-Control', 'no-store');
 
   if (pathname === '/api/admin' || pathname.startsWith('/api/admin/')) return admin(req, res, pathname, opts);
+  if (pathname === '/api/run' || pathname.startsWith('/api/run/')) {
+    if (!opts.macroApi) return json(res, 403, { error: 'The macro API is off (set VENEER_API_CLIENTS)' });
+    return opts.macroApi.handle(req, res, pathname);
+  }
 
   if (pathname === '/api/config' && req.method === 'GET') {
     const access = accessFor(req, designerRole(opts));
@@ -329,6 +336,7 @@ async function admin(req: http.IncomingMessage, res: http.ServerResponse, pathna
       sessions: opts.sessions?.list() ?? [],
       problems: recentProblems(),
       definitions: opts.matches?.list() ?? [],
+      ...(opts.macroApi ? { apiClients: opts.macroApi.status() } : {}),
     });
   }
 
@@ -386,7 +394,7 @@ function authorized(req: http.IncomingMessage, token: string): boolean {
   return given !== '' && timingSafeEqual(a, b);
 }
 
-async function readBody(req: http.IncomingMessage): Promise<string> {
+export async function readBody(req: http.IncomingMessage): Promise<string> {
   return (await readRaw(req, MAX_BODY)).toString('utf8');
 }
 
@@ -412,7 +420,7 @@ function readRaw(req: http.IncomingMessage, max: number): Promise<Buffer> {
   });
 }
 
-function json(res: http.ServerResponse, status: number, body: unknown): void {
+export function json(res: http.ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));
 }

@@ -18,6 +18,9 @@ export function demoEnv(type: HostType, hostPort: number, env: NodeJS.ProcessEnv
     VENEER_COMPONENTS_DIR: fileURLToPath(new URL('./components', import.meta.url)),
     VENEER_DESIGNER: 'local',
     VENEER_ADMIN: 'local',
+    // The macro API, for the client "demo" with the token demo-api-token (5250 demo only).
+    VENEER_API_CLIENTS: fileURLToPath(new URL('./api-clients.json', import.meta.url)),
+    VENEER_API_DEMO_PASSWORD: 'demo',
     ...env,
     VENEER_HOST_TYPE: type,
     VENEER_TERMINAL_TYPE: fits ? terminalType : '',
@@ -25,8 +28,10 @@ export function demoEnv(type: HostType, hostPort: number, env: NodeJS.ProcessEnv
     // LU names are at most 8 characters: a longer 5250 device name prefix is dropped.
     VENEER_DEVNAME_PREFIX: type === '3270' && (env.VENEER_DEVNAME_PREFIX ?? '').length > 6 ? '' : env.VENEER_DEVNAME_PREFIX ?? '',
     // Automatic sign-on is for IBM i; the demo one takes either password level (default 3).
+    // The macro API signs on that way too, so the level is set whenever it is on.
     VENEER_SIGNON: type === '3270' ? '' : env.VENEER_SIGNON ?? '',
-    VENEER_QPWDLVL: type === '3270' || env.VENEER_SIGNON !== 'auto' ? '' : env.VENEER_QPWDLVL || '3',
+    VENEER_QPWDLVL: type === '3270' ? '' : env.VENEER_QPWDLVL || '3',
+    VENEER_API_CLIENTS: type === '3270' ? '' : env.VENEER_API_CLIENTS ?? fileURLToPath(new URL('./api-clients.json', import.meta.url)),
     VENEER_HOST: '127.0.0.1', VENEER_PORT: String(hostPort), VENEER_TLS: 'false',
   };
 }

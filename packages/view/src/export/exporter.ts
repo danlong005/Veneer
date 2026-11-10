@@ -29,6 +29,11 @@ export interface PageSource<P> {
   size(page: P): number;
 }
 
+export interface ReadOptions {
+  /** Page back to the page reading started on (default true). */
+  goBack?: boolean;
+}
+
 export type ReadStep<P> =
   | { send: AidName }
   /** Finished: `pages` (top to bottom) unless cancelled or failed; `current` is the user's page. */
@@ -43,6 +48,8 @@ export type ReadStep<P> =
 export class PageReader<P> {
   private readonly source: PageSource<P>;
   private readonly maxPages: number;
+  /** Page back to where reading started (a user's screen); off for a macro API run, which ends there. */
+  private readonly goBack: boolean;
   private readonly pages: P[] = [];
   private phase: Progress['phase'] = 'rewinding';
   /** Pages from the user's page: negative above it, positive below. */
@@ -57,9 +64,10 @@ export class PageReader<P> {
   private stopped = false;
   private error: string | undefined;
 
-  constructor(source: PageSource<P>, first: P, maxPages = MAX_PAGES) {
+  constructor(source: PageSource<P>, first: P, maxPages = MAX_PAGES, opts: ReadOptions = {}) {
     this.source = source;
     this.maxPages = maxPages;
+    this.goBack = opts.goBack ?? true;
     this.lastPage = source.signature(first);
   }
 
@@ -124,7 +132,7 @@ export class PageReader<P> {
   /** Head back to the user's page, or finish when there. */
   private back(): ReadStep<P> {
     this.phase = 'returning';
-    if (this.pos === 0) return this.finish();
+    if (this.pos === 0 || !this.goBack) return this.finish();
     return this.page(this.pos > 0 ? 'PageUp' : 'PageDown');
   }
 
@@ -196,10 +204,10 @@ export class ListExporter {
   private readonly reader: PageReader<TablePage>;
   private readonly header: string[];
 
-  constructor(table: TableItem, screenId: string, maxPages = MAX_PAGES) {
+  constructor(table: TableItem, screenId: string, maxPages = MAX_PAGES, opts: ReadOptions = {}) {
     const columns = exportColumns(table);
     this.header = headerOf(table, columns);
-    this.reader = new PageReader(listSource(table, screenId), tablePage(table, columns), maxPages);
+    this.reader = new PageReader(listSource(table, screenId), tablePage(table, columns), maxPages, opts);
   }
 
   get progress(): Progress { return this.reader.progress; }
@@ -214,14 +222,14 @@ export class ListExporter {
     if (s.error) return { done: true, error: s.error };
     if (!s.pages) return { done: true };
     const sheet: Sheet = { header: this.header, rows: s.pages.flatMap((p) => p.rows) };
-    return { done: true, sheet };
+    return { done: true, sheet, ...(s.complete === false ? { complete: false } : {}) };
   }
 }
 
 export type Step =
   | { send: AidName }
-  /** Finished: `sheet` unless cancelled or failed. */
-  | { done: true; sheet?: Sheet; error?: string };
+  /** Finished: `sheet` unless cancelled or failed; `complete: false` when it stopped at the page limit. */
+  | { done: true; sheet?: Sheet; complete?: boolean; error?: string };
 
 // ---- a region of the screen (spool files, long text) ---------------------------
 

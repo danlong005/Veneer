@@ -3,8 +3,8 @@
 // matches, so the designer can see it working.
 
 import { ROLES, STYLE_TESTS, conditionTester, testOf, type Role, type ScreenDefinition, type StyleCondition, type StyleTarget, type StyleTest, type Target } from '@veneer/screens';
-import type { Item, ScreenView } from '../transform/types.ts';
-import { itemAt } from '../transform/customize.ts';
+import type { Item, ScreenView } from '@veneer/view';
+import { itemAt } from '@veneer/view';
 import { ROLE_LABELS, setStyles, stylesOf, type StyleRule } from './edit.ts';
 import { Section } from './Section.tsx';
 

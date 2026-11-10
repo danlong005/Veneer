@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Attr } from '@veneer/tn5250';
-import { findWindows, transform, type FieldItem, type LinkItem, type TableItem, type TextItem } from '../src/transform/index.ts';
-import { stripLeaders } from '../src/transform/text.ts';
+import { findWindows, transform, type FieldItem, type LinkItem, type TableItem, type TextItem } from '@veneer/view';
+import { stripLeaders } from '@veneer/view';
 import { drawnLines, mainMenu, promptWindow, render, signOn, titled, workWithJobs, type WindowOptions } from './screens.ts';
 
 const texts = (items: unknown[]) => (items as TextItem[]).filter((i) => i.kind === 'text').map((i) => i.text);

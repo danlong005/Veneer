@@ -32,6 +32,7 @@ install.
 | `packages/server` | Milestone 2 | Session server: one host session per browser tab over WebSocket |
 | `packages/client` | Milestone 3 | Browser client: React UI with auto-transform rules and the designer |
 | `packages/screens` | Milestone 4 | Screen definitions: identification, customizations, validation |
+| `packages/view` | | How a screen is read: the transform rules, customizations applied, and reading a list across its pages (the browser and the macro API) |
 
 ## Development
 
@@ -48,6 +49,7 @@ npm run dev           # session server against your IBM i, restarts on change
 npm run dev:client    # Vite dev server on :5173 with hot reload; proxies /ws to :8080
 npm run check:screens # check screen definitions and macros against recorded screens (see "Checking definitions in CI")
 npm run demo:record   # record the demo's screens for the check, after changing a demo screen
+npm run api:token     # a new macro API client token (see "Running macros from other systems")
 npm run package       # release/veneer-<version>.tar.gz and .zip for deployment, plus -src.tar.gz and -src.zip (the source)
 ```
 
@@ -401,8 +403,9 @@ step waits.
 
 ### Security
 
-- A macro runs as the signed-on user, with that user's authority. It never signs on and
-  never holds a password.
+- A macro a user runs runs as that user, with their authority. It never signs on and
+  never holds a password. (Through the [macro API](#running-macros-from-other-systems),
+  it runs as the calling system's own service profile.)
 - Only installed macros run: a deep link names a macro, it can't supply steps. Values
   only go into the fields the macro names; each is checked against its pattern before
   the first key, and against the field (length, numeric) before it is typed.
@@ -412,6 +415,106 @@ step waits.
 Steps recognise screens by screen ID. If a display file is recompiled and a screen's ID
 changes, macros through it stop at that step; the designer's screen inventory (**Screens**)
 shows which macros use each screen.
+
+### Running macros from other systems
+
+The **macro API** lets other systems (an ERP, a web shop, a script) use green-screen
+applications over HTTP, with no host code written: Veneer signs on, runs an installed
+macro and returns the screen it ends on as JSON.
+
+```sh
+curl -H 'Authorization: Bearer <token>' -d '{"order": "104572"}' \
+  https://veneer.example.com/api/run/order-status
+```
+
+```json
+{
+  "screen": { "id": "005ae4fb0b6762", "title": "Order Status", "definition": "demo-order-status" },
+  "values": { "customer": "Harbor Supply Co", "status": "DLV", "ship_date": "20261106", "amount": "000031840" },
+  "fields": { "4:22": "104572" },
+  "list": null,
+  "messages": [],
+  "lines": [" ORD300                           Order Status", "..."]
+}
+```
+
+- **`values`**: what the macro names under `output`, read from the last screen: a field,
+  or the text at a position, up to the next wide gap. In the Macros panel, tick **Other
+  systems can run it** and add them under **API results**.
+- **`fields`**: every field by position, except hidden ones such as passwords.
+- **`list`**: when the screen has a list, every page of it (Veneer pages through as
+  Export does, up to 100 pages), as rows by column heading:
+  `{"columns": ["Job", "User", ...], "rows": [{"Job": "QBATCH", "User": "QSYS", ...}], "complete": true}`.
+- **`messages`**: the host's message line and any error. A macro that runs to the end
+  returns 200 even if the host says "Order not found", so check `messages`.
+
+Only macros with `"api": true` can be run this way, and only by the clients listed in the
+file `VENEER_API_CLIENTS` names. Each client has its own token, and its runs sign on as
+its own IBM i **service profile**, so the IBM i's authority, auditing and job logs apply
+to it:
+
+```json
+{
+  "erp": {
+    "token": "sha256:0e3a2597eba540652f467da51d95983ffe6d8db20e106fb5fd9a6cc6c0c08d9f",
+    "user": "VENEERAPI",
+    "passwordEnv": "VENEER_API_ERP_PASSWORD",
+    "macros": ["order-status"],
+    "maxRuns": 2
+  }
+}
+```
+
+| Setting | Meaning |
+| --- | --- |
+| `token` | The SHA-256 of the client's token. `npm run api:token` (in a release, `node packages/server/dist/apiToken.js`) makes a token and prints this line. Veneer keeps only the hash. |
+| `user` | The IBM i user profile its runs sign on as. Give it only the authority those macros need. |
+| `passwordEnv` | The environment variable holding that profile's password: passwords are never in the file or a request. |
+| `macros` | The macros it may run. Left out: every macro marked for the API. |
+| `maxRuns` | Runs it may have under way at once (default 2, at most 20); more get 429. |
+
+The macro API signs on with [automatic sign-on](#automatic-sign-on), so it needs IBM i,
+`QRMTSIGN` set to `*VERIFY` or `*SAMEPRF`, and `VENEER_QPWDLVL`, whether or not users
+sign on that way (`VENEER_SIGNON`).
+
+**How a run goes.** Each call gets a session of its own: Veneer connects, signs on,
+waits for the macro's first screen (past screens such as Display Program Messages, if
+the macro marks them **only sometimes**), runs the steps with the same checks as a
+user's run, reads the last screen and its list, and closes the session, which ends the
+IBM i job. A run counts toward `VENEER_MAX_SESSIONS` and takes a device name from
+`VENEER_DEVNAME_PREFIX`, like a browser session. In the demo it takes about 50 ms.
+
+| Status | When |
+| --- | --- |
+| 200 | It ran to the end. |
+| 400 | The body isn't a JSON object. |
+| 401 | No token, or not a client's. |
+| 404 | No such macro for this client, including one not marked for the API. |
+| 409 | It stopped: a screen it didn't expect, a host error, or a value a field won't take. `step` says which step, `lastScreen` is where it stopped. |
+| 422 | A value is missing, isn't one of the macro's, or doesn't match its pattern. Checked before signing on. |
+| 429 | The client has `maxRuns` runs under way (`Retry-After`). |
+| 502 | The service profile didn't sign on, or the connection to the IBM i failed. |
+| 503 | Veneer is at its session limit or has no free device name (`Retry-After`). |
+| 504 | A screen didn't appear within the macro's `timeout` (default 30 seconds). |
+
+Errors are `{"error": "Step 2 expected the “Order Status” screen.", "step": 2, "lastScreen": {...}}`.
+If the IBM i turns the service profile down (a wrong or expired password, a disabled
+profile), Veneer stops signing on as it until it restarts, so repeated calls can't
+disable the profile, and logs why.
+
+`GET /api/run` lists the macros a client may run, with their values, and
+`GET /api/run/openapi.json` describes them as OpenAPI 3.1 for code generators and API
+tools. Each run is logged (`api run`: client, macro, outcome, HTTP status, time, the
+step it stopped at), never with its values. The admin page's status (`/api/admin/status`)
+lists the clients, their runs under way and any stopped client.
+
+To try it, run `npm run demo` and call the demo's `order-status` or `active-jobs` macro
+with the token `demo-api-token`:
+
+```sh
+curl -H 'Authorization: Bearer demo-api-token' -d '{"order": "104572"}' http://127.0.0.1:8080/api/run/order-status
+curl -H 'Authorization: Bearer demo-api-token' -X POST http://127.0.0.1:8080/api/run/active-jobs
+```
 
 ## Screen customizations and the designer
 

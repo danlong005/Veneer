@@ -10,8 +10,8 @@ import { getCodepage, type AidName, type ScreenSnapshot } from '@veneer/terminal
 import { Session, Terminal, encodeAddress, snapshot } from '@veneer/tn3270';
 import { loadConfig } from '../src/config.ts';
 // The browser's view of a screen.
-import { customize } from '../../client/src/transform/customize.ts';
-import { transform } from '../../client/src/transform/index.ts';
+import { customize } from '@veneer/view';
+import { transform } from '@veneer/view';
 import { demoEnv, demoHostType } from '../dev/demoEnv.ts';
 import {
   BASIC, CUSTOMERS, FIELDS, LOGON_LINES, ORDERS, DemoHost3270, capabilities, inquiry, logonScreen, menu, orders, ordersPerPage, signOn, update,

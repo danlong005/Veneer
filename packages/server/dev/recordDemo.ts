@@ -1,4 +1,5 @@
-// npm run demo:record: records each demo screen that has a definition into
+// npm run demo:record: records each demo screen that has a definition, and
+// the main menu the demo macros start from, into
 // dev/screens/snapshots/, as the designer's Record for checks would, so
 // `npm run check:screens -- packages/server/dev/screens` checks the demo's
 // definitions. Run it again after changing a demo screen.
@@ -8,7 +9,7 @@ import { getCodepage, type ScreenSnapshot } from '@veneer/terminal';
 import * as tn3270 from '@veneer/tn3270';
 import * as tn5250 from '@veneer/tn5250';
 import { ScreenStore } from '../src/store.ts';
-import { contacts, customerAddresses, jobs, orderEntry, shippingNotes, spoolFile } from './demoHost.ts';
+import { contacts, customerAddresses, jobs, mainMenu, orderEntry, shippingNotes, spoolFile } from './demoHost.ts';
 import { CUSTOMERS as CUSTOMERS_3270, orders as orders3270, update, type Capabilities } from './demoHost3270.ts';
 import { DEFAULT_ORDER, ORDER_VIEWS, billOfMaterials, deliveryOptions, orderStatus, orders, type OrderView } from './demoOrders.ts';
 import { fileURLToPath } from 'node:url';
@@ -56,6 +57,9 @@ for (const snap of screens) {
   await store.saveRecording({ name: def.id, definition: def.id, screen: snap });
   recorded.add(def.id);
 }
+// Screens the demo macros pass through that no definition customizes.
+await store.saveRecording({ name: 'main-menu', screen: screen5250(mainMenu('DEMO')) });
+
 const missing = store.list().filter((d) => !recorded.has(d.id)).map((d) => d.id);
-console.log(`Recorded ${recorded.size} screens in ${store.dir}/snapshots.${missing.length ? ` No demo screen for: ${missing.join(', ')}.` : ''}`);
+console.log(`Recorded ${recorded.size + 1} screens in ${store.dir}/snapshots.${missing.length ? ` No demo screen for: ${missing.join(', ')}.` : ''}`);
 if (missing.length) process.exitCode = 1;

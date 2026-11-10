@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import type { ScreenSnapshot } from '@veneer/terminal';
 import { Attr, HostStream, Terminal, buildRecord, getCodepage, snapshot } from '@veneer/tn5250';
 import {
-  DefinitionError, MacroRun, fillValue, macroScreens, macroValues, screenId, validateMacro,
+  DefinitionError, MacroRun, apiValues, fillValue, macroScreens, macroValues, screenId, validateMacro,
   type Macro, type MacroResult,
 } from '../src/index.ts';
 
@@ -69,6 +69,25 @@ test('parameter values: declared ones only, required, matching the whole pattern
   assert.throws(() => macroValues(macro, { order: '1'.repeat(300) }), /too long/);
   assert.equal(fillValue('{order}/{user}/{other}', { order: '1', user: 'DLONG' }), '1/DLONG/{other}');
   assert.deepEqual(macroScreens(macro), [id(messages), id(mainMenu), id(orderMenu), id(inquiry)]);
+});
+
+test('the macro API: opted in with api, named results in output, and values checked as given', () => {
+  const m = validateMacro({ ...MACRO, api: true, output: { customer: '4:12', status: '6:30' } });
+  assert.equal(m.api, true);
+  assert.deepEqual(m.output, { customer: '4:12', status: '6:30' });
+  assert.deepEqual(Object.keys(m).slice(-2), ['api', 'output']);
+  assert.equal(validateMacro({ ...MACRO, api: false }).api, undefined, 'off is left out of the file');
+  assert.equal(validateMacro({ ...MACRO, output: {} }).output, undefined);
+  assert.throws(() => validateMacro({ ...MACRO, api: 'yes' }), /api: must be true or false/);
+  assert.throws(() => validateMacro({ ...MACRO, output: { 'the customer': '4:12' } }), /output\.the customer: must be a name/);
+  assert.throws(() => validateMacro({ ...MACRO, output: { customer: '4-12' } }), /must be a position such as "12:40"/);
+
+  assert.deepEqual(apiValues(m, { order: 12345 }), { order: '12345' }, 'a number is taken as its digits');
+  assert.throws(() => apiValues(m, { order: '1', evil: 'x' }), /“evil” is not one of the macro's values \(order\)/);
+  assert.throws(() => apiValues(m, { order: { n: 1 } }), /order number must be text or a number/);
+  assert.throws(() => apiValues(m, ['12345']), /must be a JSON object/);
+  assert.throws(() => apiValues(m, {}), /needs order number/);
+  assert.throws(() => apiValues({ ...m, params: undefined }, { order: '1' }), /it takes none/);
 });
 
 test('a run types and presses step by step, skipping an optional screen that does not appear', () => {

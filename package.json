@@ -21,6 +21,7 @@
     "demo:record": "npm run demo:record -w @veneer/server",
     "dev:client": "npm run dev -w @veneer/client",
     "check:screens": "node --conditions=veneer-source packages/server/src/check.ts",
+    "api:token": "node --conditions=veneer-source packages/server/src/apiToken.ts",
     "package": "node scripts/package.mjs"
   },
   "devDependencies": {

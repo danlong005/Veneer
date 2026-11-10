@@ -9,6 +9,7 @@ import { handleApi } from './api.ts';
 import { defaultPort, hostTypeOf, pageKeysOf } from './host.ts';
 import type { ServerConfig } from './config.ts';
 import { ScreenInventory } from './inventory.ts';
+import { MacroApi } from './macroApi.ts';
 import { MatchLog } from './matchLog.ts';
 import { log } from './log.ts';
 import { SessionManager } from './sessions.ts';
@@ -49,6 +50,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     ...(config.signOnDelayMs !== undefined ? { signOnDelayMs: config.signOnDelayMs } : {}),
   });
   screens.on('changed', (version) => sessions.broadcast({ type: 'screens', version }));
+  const macroApi = config.api ? new MacroApi({ api: config.api, host: config.host, store: screens, sessions, trace: config.trace }) : undefined;
   // Pages get the theme with the definitions, so a theme change reloads them too.
   const themes = new ThemeStore(config.screensDir, config.builtinThemesDir);
   themes.on('changed', () => screens.touch());
@@ -62,6 +64,7 @@ export function createServer(config: ServerConfig): VeneerServer {
     https: Boolean(config.https),
     maxSessions: config.maxSessions,
     deviceNamePrefix: config.deviceNamePrefix ?? null,
+    macroApi: config.api ? { clients: config.api.clients.length } : null,
   });
 
   const onRequest: http.RequestListener = (req, res) => {
@@ -77,6 +80,7 @@ export function createServer(config: ServerConfig): VeneerServer {
       designerToken: config.designerToken, designerLocal: config.designerLocal,
       adminToken: config.adminToken, adminLocal: config.adminLocal, brand: config.brand,
       host: { type: hostTypeOf(config.host), pageKeys: pageKeysOf(config.host) },
+      macroApi,
     })) {
       // handled
     } else if (req.method !== 'GET' && req.method !== 'HEAD') {

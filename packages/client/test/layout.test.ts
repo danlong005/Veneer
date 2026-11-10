@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Change, ScreenDefinition, TabBand } from '@veneer/screens';
-import { customize } from '../src/transform/customize.ts';
-import { transform, type Item, type TextItem } from '../src/transform/index.ts';
+import { customize } from '@veneer/view';
+import { transform, type Item, type TextItem } from '@veneer/view';
 import { cardAround, cardsOf, resolveSelection, moveTabEdge, removeTab, setCard, setTabs, splitTabs, tabsOf } from '../src/designer/edit.ts';
 import { layoutOf, tabAtCursor, viewRow } from '../src/ui/layout.ts';
 import { orderEntry, promptWindow } from './screens.ts';

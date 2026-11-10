@@ -4,9 +4,9 @@
 
 import type { Target } from '@veneer/screens';
 import type { ScreenSnapshot } from '@veneer/terminal';
-import { homeOf, itemAt } from '../transform/customize.ts';
-import { stripLeaders } from '../transform/text.ts';
-import type { FieldItem, Item, ScreenView, TableItem } from '../transform/types.ts';
+import { homeOf, itemAt } from '@veneer/view';
+import { stripLeaders } from '@veneer/view';
+import type { FieldItem, Item, ScreenView, TableItem } from '@veneer/view';
 
 /** A label as people read it: up to a wide gap, without the dot leaders and colon of "Customer . . . :". */
 export function labelText(text: string): string {

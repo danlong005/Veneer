@@ -5,7 +5,7 @@
 // key; the app sends it and reports each new screen.
 
 import type { AidName } from '@veneer/terminal';
-import type { ScreenView } from '../transform/types.ts';
+import type { ScreenView } from '@veneer/view';
 
 export interface HelpPage {
   title: string;

@@ -3,7 +3,7 @@
 
 import { testOf, type Change, type DisplayType, type Target, type WidgetType } from '@veneer/screens';
 import type { ScreenSnapshot } from '@veneer/terminal';
-import type { ScreenView } from '../transform/types.ts';
+import type { ScreenView } from '@veneer/view';
 import { ROLE_LABELS } from './edit.ts';
 import { clip, nameAt } from './names.ts';
 import { keyHint } from '../ui/keys.ts';
