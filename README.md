@@ -399,6 +399,8 @@ never recorded. Then:
   (`{order}`), with a name people see, whether it's required, and the values allowed (a
   regular expression, such as `[0-9]{1,9}`). `{user}` is the signed-on user.
 - Change typed values or keys, mark steps **only sometimes**, reorder or delete them.
+- **Check a value** and **Check the message** add [checks](#checking-what-a-macro-sees)
+  of what a screen must show, while recording or after.
 - **Test** runs the macro from the screen you are on, with values you type.
 - The panel shows the deep link; **List under Go to** adds the macro to the menu.
 
@@ -429,7 +431,7 @@ step waits.
 
 A macro can check what screens show, which makes it a test of a green-screen
 application: run it after a change to a program, and it fails if the screen it ends on
-is wrong. There are two places for checks, both edited in the macro's file for now:
+is wrong. There are two places for checks:
 
 - **`expect` on a step** is checked when that step's screen appears, before anything is
   typed. A failed check stops the run there, so the macro never types into a screen
@@ -437,6 +439,17 @@ is wrong. There are two places for checks, both edited in the macro's file for n
 - **`end`** is the screen the macro must end on, after its last key: the screen ID it
   must have (`screen`, with `text` rules for screens that share an ID), and its checks
   (`expect`). Every end check is made, and the run fails if any of them fails.
+
+**Adding checks in the Macros panel.** While recording, **Checks on this screen** adds
+checks to the screen showing: **Check a value**, then click the value on the screen
+(Esc cancels), or **Check the message**. A new check tests that the value is what it is
+now, named after the label before it ("Status"); change it to *is not*, *contains* or
+*matches* as needed. Checks go on the step recorded when you press the next key, or,
+when you choose **Stop** on that screen, they become the end: the macro must end on
+that screen. After recording, each step and the **End** section list their checks to
+edit. While a check's screen is showing, each one says whether it passes there
+("✓ Passes here: “DLV”"), and new ones can be picked on it. **Must end on this screen**
+sets the end screen to the one showing.
 
 ```json
 {

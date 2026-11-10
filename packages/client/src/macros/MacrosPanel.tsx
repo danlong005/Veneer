@@ -9,8 +9,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { loadToken, storeToken } from '../designer/token.ts';
 import type { ScreenView } from '@veneer/view';
 import { buttonAids, keyHint } from '../ui/keys.ts';
+import { ChecksEditor } from './ChecksEditor.tsx';
 import {
-  addOutput, deepLink, makeParameter, moveStep, nameFor, newMacro, paramNameProblem, removeParameter, removeStep, setOutput, setStep, unusedParams,
+  addOutput, checksOf, deepLink, endAnywhere, endHere, makeParameter, moveStep, nameFor, newMacro, paramNameProblem, removeParameter, removeStep,
+  setChecks, setOutput, setStep, unusedParams, type RecordedChecks,
 } from './edit.ts';
 
 interface Props {
@@ -22,6 +24,13 @@ interface Props {
   /** Steps recorded so far while recording; null when not recording. */
   recorded: MacroStep[] | null;
   onRecord: (on: boolean) => void;
+  /** Checks added while recording, on the screen they were added on. */
+  recordedChecks: RecordedChecks | null;
+  onRecordChecks: (checks: RecordedChecks | null) => void;
+  /** Pick a position on the screen for a check; null when the screen can't be picked on (the classic view). */
+  onPick: ((done: (at: { row: number; col: number }) => void) => void) | null;
+  /** A pick is waiting for a click. */
+  picking: boolean;
   /** A macro is running (a test, or Go to). */
   running: boolean;
   onTest: (macro: Macro, values: Record<string, string>) => void;
@@ -61,8 +70,13 @@ export function MacrosPanel(props: Props) {
   };
   const stopRecording = () => {
     const steps = recorded ?? [];
+    // Checks on the screen it stopped on: the screen the macro must end on.
+    const pending = props.recordedChecks;
+    const end = pending && pending.screen === screenId(snap) && pending.expect.length > 0
+      ? { screen: pending.screen, ...(pending.title ? { title: pending.title } : {}), expect: pending.expect } : undefined;
     props.onRecord(false);
-    if (steps.length > 0) setDraft(newMacro(steps, host, macros.map((m) => m.name)));
+    props.onRecordChecks(null);
+    if (steps.length > 0) setDraft(newMacro(steps, host, macros.map((m) => m.name), end));
   };
 
   // What is wrong with the draft, as the server would say it.
@@ -117,6 +131,10 @@ export function MacrosPanel(props: Props) {
   const outputs = Object.entries(draft?.output ?? {});
   const unused = draft ? unusedParams(draft) : [];
   const hereId = screenId(snap);
+  const hereTitle = props.view.window?.title ?? props.view.title;
+  const pendingChecks = props.recordedChecks?.screen === hereId ? props.recordedChecks.expect : [];
+  const end = draft?.end;
+  const endIsHere = end?.screen ? stepMatches({ screen: end.screen, ...(end.text ? { text: end.text } : {}), press: 'Enter' }, snap, hereId) : true;
   const link = draft ? deepLink(draft, location.origin, testValues) : '';
 
   return (
@@ -144,8 +162,15 @@ export function MacrosPanel(props: Props) {
             <>
               <p className="dp-recording" role="status"><span className="dp-rec-dot" aria-hidden /> Recording: {recorded.length} {recorded.length === 1 ? 'step' : 'steps'}</p>
               <ol className="dp-list macro-steps-brief">
-                {recorded.map((s, i) => <li key={i}>{s.title ?? s.screen} <kbd>{keyHint(s.press, host)}</kbd></li>)}
+                {recorded.map((s, i) => (
+                  <li key={i}>{s.title ?? s.screen} <kbd>{keyHint(s.press, host)}</kbd>
+                    {s.expect?.length ? <span className="dp-hint"> {s.expect.length === 1 ? '1 check' : `${s.expect.length} checks`}</span> : null}</li>
+                ))}
               </ol>
+              <h3>Checks on this screen</h3>
+              <p className="dp-hint">What this screen must show when the macro runs. They are made before the key you press next, or, if you stop here, on the screen the macro must end on.</p>
+              <ChecksEditor checks={pendingChecks} snap={snap} here name="this screen" onPick={props.onPick} picking={props.picking}
+                onChange={(expect) => props.onRecordChecks({ screen: hereId, ...(hereTitle ? { title: hereTitle } : {}), expect })} />
               <div className="dp-actions"><button type="button" className="primary" onClick={stopRecording}>Stop</button></div>
             </>
           )}
@@ -247,6 +272,13 @@ export function MacrosPanel(props: Props) {
                         )}
                       </div>
                     ))}
+                    {(s.expect?.length || stepMatches(s, snap, hereId)) ? (
+                      <details className="macro-step-checks" open={Boolean(s.expect?.length)}>
+                        <summary>{s.expect?.length ? `Checks (${s.expect.length})` : 'Checks'}</summary>
+                        <ChecksEditor checks={checksOf(draft, i)} snap={snap} here={stepMatches(s, snap, hereId)} name={`step ${i + 1}`}
+                          onPick={props.onPick} picking={props.picking} onChange={(checks) => setDraft(setChecks(draft, i, checks))} />
+                      </details>
+                    ) : null}
                     <div className="macro-step-foot">
                       <label className="dp-inline">Then press
                         <select value={s.press} onChange={(e) => setDraft(setStep(draft, i, { ...s, press: e.target.value as AidName }))}>
@@ -261,6 +293,21 @@ export function MacrosPanel(props: Props) {
                   </li>
                 ))}
               </ol>
+            </section>
+
+            <section>
+              <h3>End</h3>
+              <p className="dp-hint">What the screen the macro ends on must show, which makes it a test: a run fails if a check fails. Checks on a step, above, are made on its screen before anything is typed.</p>
+              <div className="macro-field">
+                <span className="macro-end-screen">
+                  {end?.screen ? <>Must end on <strong>{end.title ?? `screen ${end.screen.slice(0, 8)}`}</strong>{endIsHere && <span className="dp-hint"> (this screen)</span>}</> : 'Can end on any screen'}
+                </span>
+                {end?.screen
+                  ? <button type="button" className="ghost" onClick={() => setDraft(endAnywhere(draft))}>Any screen</button>
+                  : <button type="button" className="ghost" title="The screen showing now" onClick={() => setDraft(endHere(draft, snap, hereTitle))}>Must end on this screen</button>}
+              </div>
+              <ChecksEditor checks={checksOf(draft, 'end')} snap={snap} here={endIsHere} name="the end"
+                onPick={props.onPick} picking={props.picking} onChange={(checks) => setDraft(setChecks(draft, 'end', checks))} />
             </section>
 
             <section>

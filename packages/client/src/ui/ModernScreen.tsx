@@ -35,6 +35,11 @@ interface Props {
     /** Resize custom HTML or a component (at its position), or a card (at its top-left), in cells. */
     onResize: (at: Target, size: { width: number; height: number }, kind: BoxKind) => void;
   } | undefined;
+  /**
+   * Picking a position for a macro check: the next click names the item's
+   * position (or the cell clicked) instead of acting on it.
+   */
+  pick?: ((at: Target) => void) | undefined;
 }
 
 /** What a resize handle resizes. */
@@ -58,7 +63,7 @@ function designClass(design: Props['design'], home: Target, hidden?: boolean): s
  * for empty space, the cell clicked (where custom HTML can be added).
  * `rowAt` gives the screen row drawn at a canvas row.
  */
-function selectInDesign(design: Props['design'], top: number, rows: number, cols: number, rowAt: (row: number) => number | undefined) {
+function selectInDesign(design: Pick<NonNullable<Props['design']>, 'onSelect'> | undefined, top: number, rows: number, cols: number, rowAt: (row: number) => number | undefined) {
   return (e: MouseEvent<HTMLElement>) => {
     if (!design) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-at]');
@@ -106,6 +111,7 @@ export function ModernScreen(props: Props) {
   const active = !tabs ? 0
     : Math.min(tabs.bands.length - 1, picked?.snap === view.snapshot ? picked.index : tabAtCursor(layout, view, view.snapshot.cursor));
   const select = selectInDesign(design, top, bottom - top + 1, view.cols, (row) => viewRow(layout, row, active));
+  const pick = selectInDesign(props.pick ? { onSelect: props.pick } : undefined, top, bottom - top + 1, view.cols, (row) => viewRow(layout, row, active));
   const drag = useDrag(design, bottom - top + 1, view.cols);
   useNudge(design);
   useReveal(drag.ref, (index) => setPicked({ snap: view.snapshot, index }));
@@ -116,7 +122,7 @@ export function ModernScreen(props: Props) {
     {props.history && props.history.length > 0 && <ConsoleHistory lines={props.history} cols={view.cols} />}
     <div
       ref={drag.ref}
-      className={`canvas${design ? ' designing' : ''}${view.lineMode ? ' line-mode' : ''}`}
+      className={`canvas${design ? ' designing' : ''}${props.pick && !design ? ' picking' : ''}${view.lineMode ? ' line-mode' : ''}`}
       style={{ '--cols': view.cols, height: `calc(${bottom - top + 1} * var(--rh))` } as CSSProperties}
       onClickCapture={design ? (e) => {
         // The tab strip switches tabs while designing too.
@@ -124,8 +130,8 @@ export function ModernScreen(props: Props) {
         if (!drag.swallowClick()) return select(e);
         e.preventDefault();
         e.stopPropagation();
-      } : undefined}
-      onMouseDownCapture={design ? (e) => e.preventDefault() : undefined}
+      } : props.pick ? pick : undefined}
+      onMouseDownCapture={design || props.pick ? (e) => e.preventDefault() : undefined}
       onPointerDown={design ? drag.down : undefined}
       onPointerMove={design ? drag.move : undefined}
       onPointerUp={design ? drag.up : undefined}

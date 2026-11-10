@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { screenId, validateMacro, type Macro } from '@veneer/screens';
 import {
   addOutput, setOutput,
+  checkAt, checksOf, endAnywhere, endHere, messageCheck, setChecks, setTest, testOf,
   deepLink, linkedMacro, macroFieldCheck, makeParameter, moveStep, nameFor, newMacro, paramNameProblem, recordStep,
   removeParameter, removeStep, setStep, unusedParams,
 } from '../src/macros/edit.ts';
@@ -89,4 +90,42 @@ test('the macro API\'s named values: added at the cursor, renamed in place, remo
   assert.deepEqual(m.output, { value2: '7:22' });
   assert.equal('output' in setOutput(m, 0, null, ''), false, 'the last one gone, output goes');
   assert.deepEqual(validateMacro(addOutput(base, '6:22')).output, { value1: '6:22' });
+});
+
+// ---- checks, as the Macros panel adds and edits them
+
+test('a check picked on the screen tests what is there now, named by the label before it', () => {
+  const menu = mainMenu();
+  assert.deepEqual(checkAt(menu, { row: 1, col: 74 }), { at: '1:74', equals: 'PUB400', label: 'System' });
+  assert.deepEqual(checkAt(menu, { row: 20, col: 7 }), { at: '20:7', equals: '' }, 'a field, blank; "===>" is no name');
+  const entry = orderEntry();
+  assert.deepEqual(checkAt(entry, { row: 4, col: 20 }), { at: '4:20', equals: '', label: 'Customer' });
+  assert.deepEqual(messageCheck('  Order 9 not found.  '), { message: true, contains: 'Order 9 not found.' });
+  assert.deepEqual(messageCheck(''), { message: true, equals: '' }, 'no message now: that there is none');
+});
+
+test('a check\'s test changes keep its value; checks go on a step or the end, and empty ones are left out', () => {
+  const c = { at: '1:74', equals: 'PUB400', label: 'System' };
+  assert.equal(testOf(c), 'equals');
+  assert.deepEqual(setTest(c, 'contains'), { at: '1:74', label: 'System', contains: 'PUB400' });
+  assert.deepEqual(setTest(c, 'matches', 'PUB\\d+'), { at: '1:74', label: 'System', matches: 'PUB\\d+' });
+
+  const withStep = setChecks(recorded, 1, [c]);
+  assert.deepEqual(checksOf(withStep, 1), [c]);
+  assert.deepEqual(checksOf(withStep, 0), []);
+  assert.equal(setChecks(withStep, 1, []).steps[1]!.expect, undefined, 'no checks: no expect in the file');
+
+  const menu = mainMenu();
+  const ends = endHere(setChecks(recorded, 'end', [c]), menu, 'IBM i Main Menu');
+  assert.deepEqual(ends.end, { expect: [c], screen: screenId(menu), title: 'IBM i Main Menu' });
+  assert.deepEqual(endAnywhere(ends).end, { expect: [c] }, 'the checks stay');
+  assert.equal(setChecks(endAnywhere(ends), 'end', []).end, undefined, 'nothing left: no end');
+  assert.deepEqual(validateMacro(ends).end, ends.end, 'valid as the panel makes it');
+});
+
+test('a recorded macro ends where checks were added when recording stopped', () => {
+  const end = { screen: 'c3c3c3c3c3c3c3', title: 'Order 12345', expect: [{ message: true as const, equals: '' }] };
+  const m = newMacro(recorded.steps, '5250', [], end);
+  assert.deepEqual(m.end, end);
+  assert.deepEqual(validateMacro(m).end, end);
 });
