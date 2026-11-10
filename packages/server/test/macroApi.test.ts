@@ -43,6 +43,15 @@ function screensDir(): string {
   write('wrong-turn', { api: true, steps: [{ ...menu, fields: { '20:7': '2' } }, { screen: '005ae4fb0b6762', title: 'Order Status', press: 'Enter' }] });
   // Starts from a screen the demo never shows after signing on.
   write('never-starts', { api: true, timeout: 1, steps: [{ screen: '0123456789abcd', title: 'Somewhere Else', press: 'Enter' }] });
+  // order-status as a test: it must end on Order Status, delivered, with no message.
+  const status = JSON.parse(fs.readFileSync(path.join(dir, 'macros/order-status.json'), 'utf8'));
+  write('order-delivered', {
+    ...status, name: 'order-delivered', label: 'order-delivered', menu: false,
+    end: {
+      screen: '005ae4fb0b6762', title: 'Order Status',
+      expect: [{ at: '7:22', equals: 'DLV', label: 'Status' }, { message: true, contains: 'not found', not: true }],
+    },
+  });
   return dir;
 }
 
@@ -101,6 +110,35 @@ test('a macro runs signed on as the client\'s profile and returns the screen it 
   assert.equal(server.sessions.size, 0);
 });
 
+test('a macro with checks returns each one: 200 when all pass, 409 with the failure when one doesn\'t', async () => {
+  const { url } = await start();
+  const passed = await call(url, 'erp-token', 'order-delivered', { order: '104572' });
+  assert.equal(passed.status, 200, JSON.stringify(passed.body));
+  assert.deepEqual(passed.body.checks, [
+    { check: 'It ends on “Order Status”', passed: true, actual: '005ae4fb0b6762' },
+    { check: 'Status equals “DLV”', passed: true, actual: 'DLV' },
+    { check: 'The message doesn\'t contain “not found”', passed: true, actual: '' },
+  ]);
+  assert.deepEqual(passed.body.values.status, 'DLV', 'the screen comes back as without checks');
+
+  // The host's message line is read as the browser shows it.
+  const failed = await call(url, 'erp-token', 'order-delivered', { order: '999999' });
+  assert.equal(failed.status, 409, JSON.stringify(failed.body));
+  assert.match(failed.body.error, /^At the end: Status equals “DLV”, but it is .+\. 1 other check failed too\.$/);
+  assert.equal(failed.body.step, undefined);
+  assert.deepEqual(failed.body.checks.map((c: { passed: boolean }) => c.passed), [true, false, false]);
+  assert.equal(failed.body.checks[2].actual, 'Order 999999 not found.');
+  assert.deepEqual(failed.body.lastScreen.messages, ['Order 999999 not found.']);
+
+  // A macro without checks has no checks in its result.
+  assert.equal((await call(url, 'erp-token', 'order-status', { order: '104572' })).body.checks, undefined);
+  // The OpenAPI description says the result has them.
+  const spec = (await call(url, 'erp-token', 'openapi.json', undefined, 'GET')).body;
+  const ok = spec.paths['/api/run/order-delivered'].post.responses[200].content['application/json'].schema;
+  assert.deepEqual(ok.allOf[1].required, ['checks']);
+  assert.equal(spec.components.schemas.Checks.type, 'array');
+});
+
 test('a list comes back whole, every page, rows by column heading', async () => {
   const { url } = await start();
   const r = await call(url, 'erp-token', 'active-jobs');
@@ -130,7 +168,7 @@ test('who may run what: a client token, a macro marked for the API, and the clie
   assert.deepEqual(list.macros.map((m) => m.name), ['order-status']);
   const spec = await fetch(`${url}/api/run/openapi.json`, { headers: { Authorization: 'Bearer erp-token' } }).then((r) => r.json()) as { openapi: string; paths: Record<string, any> };
   assert.equal(spec.openapi, '3.1.0');
-  assert.deepEqual(Object.keys(spec.paths), ['/api/run/active-jobs', '/api/run/never-starts', '/api/run/order-status', '/api/run/wrong-turn']);
+  assert.deepEqual(Object.keys(spec.paths), ['/api/run/active-jobs', '/api/run/never-starts', '/api/run/order-delivered', '/api/run/order-status', '/api/run/wrong-turn']);
   const schema = spec.paths['/api/run/order-status'].post.requestBody.content['application/json'].schema;
   assert.deepEqual(schema.required, ['order']);
   assert.equal(schema.properties.order.pattern, '^(?:[0-9]{1,6})$');

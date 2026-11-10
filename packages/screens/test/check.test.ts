@@ -146,3 +146,16 @@ test('a recording for a definition that is gone is a warning', () => {
     'warning snapshots/old.json: It was recorded for the definition "old-screen", which doesn\'t exist.',
   ]);
 });
+
+test('the screen a macro must end on is checked like a step\'s', () => {
+  const macro = (end: Record<string, unknown>) => validateMacro({ name: 'order-test', label: 'Order test', steps: [{ screen: screenId(menu), title: 'Order Menu', press: 'Enter' }], end });
+  const ends = macro({ screen: screenId(inquiry), title: 'Order Inquiry', expect: [{ at: '6:30', equals: 'D' }] });
+  assert.deepEqual(checkScreens({ definitions: [], macros: [ends], recordings: [rec('menu', menu), rec('inquiry', inquiry)] }), []);
+  assert.deepEqual(messages(checkScreens({ definitions: [], macros: [ends], recordings: [rec('menu', menu), rec('inquiry', inquiry2)] })), [
+    `error macros/order-test.json: It must end on the “Order Inquiry” screen with screen ID ${screenId(inquiry)}, but that screen is recorded (snapshots/inquiry.json) with ${screenId(inquiry2)}.`,
+  ]);
+  assert.deepEqual(messages(checkScreens({ definitions: [], macros: [ends], recordings: [rec('menu', menu)] })), [
+    'warning macros/order-test.json: The screen it must end on isn\'t recorded, so it can\'t be checked.',
+  ]);
+  assert.deepEqual(checkScreens({ definitions: [], macros: [macro({ expect: [{ message: true, equals: '' }] })], recordings: [rec('menu', menu)] }), [], 'checks alone name no screen');
+});

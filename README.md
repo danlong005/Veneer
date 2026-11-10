@@ -425,6 +425,83 @@ such as F4 that depend on where the cursor is), and `"text"` rules as in screen
 definitions, for screens that share an ID. `"timeout"` (seconds) changes how long each
 step waits.
 
+### Checking what a macro sees
+
+A macro can check what screens show, which makes it a test of a green-screen
+application: run it after a change to a program, and it fails if the screen it ends on
+is wrong. There are two places for checks, both edited in the macro's file for now:
+
+- **`expect` on a step** is checked when that step's screen appears, before anything is
+  typed. A failed check stops the run there, so the macro never types into a screen
+  that isn't what it should be.
+- **`end`** is the screen the macro must end on, after its last key: the screen ID it
+  must have (`screen`, with `text` rules for screens that share an ID), and its checks
+  (`expect`). Every end check is made, and the run fails if any of them fails.
+
+```json
+{
+  "name": "order-delivered",
+  "label": "Order is delivered",
+  "params": { "order": { "required": true } },
+  "steps": [
+    { "screen": "1cb4b4c7237e07", "title": "Demo Main Menu", "fields": { "20:7": "15" }, "press": "Enter",
+      "expect": [{ "at": "20:7", "equals": "" }] },
+    { "screen": "005ae4fb0b6762", "title": "Order Status", "fields": { "4:22": "{order}" }, "press": "Enter" }
+  ],
+  "end": {
+    "screen": "005ae4fb0b6762", "title": "Order Status",
+    "expect": [
+      { "at": "7:22", "equals": "DLV", "label": "Status" },
+      { "at": "6:22", "contains": "Harbor" },
+      { "message": true, "contains": "not found", "not": true }
+    ]
+  }
+}
+```
+
+Each check reads one thing and tests it one way:
+
+| | |
+| --- | --- |
+| `"at": "7:22"` | A field's value (what is typed in it), or the text at that position up to the next wide gap, as in `output`. A hidden field (a password) always reads as blank. |
+| `"message": true` | The host's message: the message line (a window's, when one is open) and any error. |
+| `"equals"` | The whole value is this; `""` means blank. |
+| `"contains"` | The value has this in it. |
+| `"matches"` | The whole value matches this regular expression, such as `"\\d{8}"`. |
+| `"not": true` | The check passes when the test fails: the message doesn't contain "not found". |
+| `"label"` | What results call it: "Status equals “DLV”" rather than "The value at 7:22 equals “DLV”". |
+
+Values are compared without leading and trailing blanks, and case matters. A host error
+after the last key fails the run, unless `end` checks the message: then the error is
+what the test expects ("Order 999999 not found.").
+
+**Where results show:**
+
+- **In the browser** (**Test** in the Macros panel, a button or Go to), a run that
+  fails a check stops with the reason: "Order is delivered stopped: At the end: Status
+  equals “DLV”, but it is “SHP”." One that passes says "all 4 checks passed".
+- **Through the [macro API](#running-macros-from-other-systems),** the result has
+  `checks`: every check made, in order, with what the screen showed. A failed check
+  returns 409, with `checks` and `lastScreen`:
+
+  ```json
+  {
+    "error": "At the end: Status equals “DLV”, but it is “SHP”.",
+    "checks": [
+      { "step": 1, "check": "The value at 20:7 is blank", "passed": true, "actual": "" },
+      { "check": "It ends on “Order Status”", "passed": true, "actual": "005ae4fb0b6762" },
+      { "check": "Status equals “DLV”", "passed": false, "actual": "SHP" },
+      { "check": "The value at 6:22 contains “Harbor”", "passed": true, "actual": "Harbor Supply Co" },
+      { "check": "The message doesn't contain “not found”", "passed": true, "actual": "" }
+    ],
+    "lastScreen": { "...": "..." }
+  }
+  ```
+
+  A `step` says which step's screen a check was made on; end checks have none.
+- **In CI,** `npm run check:screens` checks the screen in `end` against the recorded
+  screens, as it does each step's (see [Checking definitions in CI](#checking-definitions-in-ci)).
+
 ### Security
 
 - A macro a user runs runs as that user, with their authority. It never signs on and

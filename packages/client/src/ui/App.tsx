@@ -2,7 +2,7 @@ import type { AidName, ScreenSnapshot } from '@veneer/terminal';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DefinitionError, MacroRun, fillText, fillUrl, macroValues, matchScreen, screenId, themeBase,
-  type ButtonAction, type Macro, type MacroAction, type MacroResult, type MacroStart, type MacroStep, type ScreenDefinition, type Target,
+  type ButtonAction, type CheckResult, type Macro, type MacroAction, type MacroResult, type MacroStart, type MacroStep, type ScreenDefinition, type Target,
 } from '@veneer/screens';
 import { download, fileBase } from '../export/download.ts';
 import { ListExporter, MAX_PAGES, PageReader, RowSeeker, listOf, listSource, regionPage, regionSource, tablePage, type Progress, type ReadStep, type SeekStep, type Step, type TablePage, type TextPage } from '@veneer/view';
@@ -18,7 +18,7 @@ import { record, redo, startHistory, undo, type History } from '../designer/hist
 import { cardsOf, componentAt, htmlAt, imageAt, labelAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove, setPlaced, toggleTextAreaField } from '../designer/edit.ts';
 import { customize } from '@veneer/view';
 import { EMPTY_CONSOLE, nextConsole } from '@veneer/view';
-import { transform } from '@veneer/view';
+import { screenMessage, transform } from '@veneer/view';
 import type { Action, FunctionKey, ScreenView, TableItem } from '@veneer/view';
 import { ClassicScreen } from './ClassicScreen.tsx';
 import { DropMenu, ExportMenu, type ExportFormat } from './ExportMenu.tsx';
@@ -477,7 +477,7 @@ export function App() {
   // what to type and press; keys go through the same checks as a user's.
   const macroJob = useRef<{ run: MacroRun; timer?: number; cancelled?: boolean } | null>(null);
   const [macroNote, setMacroNote] = useState<{ label: string; step: number; total: number } | null>(null);
-  const finishMacro = (result: { error?: string; step?: number }) => {
+  const finishMacro = (result: { error?: string; step?: number; checks?: CheckResult[] }) => {
     const job = macroJob.current;
     if (!job) return;
     window.clearTimeout(job.timer);
@@ -486,6 +486,11 @@ export function App() {
     const outcome = job.cancelled ? 'cancelled' : result.error ? 'failed' : 'done';
     session.send({ type: 'macro', macro: job.run.macro.name, outcome, ...(result.step ? { step: result.step } : {}) });
     if (outcome === 'failed') setNotice({ id: Date.now(), message: `${job.run.macro.label} stopped: ${result.error}` });
+    // A macro with checks says that they passed, as it says when one fails.
+    else if (outcome === 'done' && result.checks?.length) {
+      const n = result.checks.length;
+      setNotice({ id: Date.now(), message: `${job.run.macro.label}: ${n === 1 ? 'the check' : `all ${n} checks`} passed.` });
+    }
   };
   const macroStep = (result: MacroResult, from: ScreenSnapshot) => {
     const job = macroJob.current;
@@ -513,7 +518,7 @@ export function App() {
       setNotice({ id: Date.now(), message: err.message });
       return;
     }
-    const run = new MacroRun(macro, values, { start, user: session.user ?? undefined, check: macroFieldCheck });
+    const run = new MacroRun(macro, values, { start, user: session.user ?? undefined, check: macroFieldCheck, message: screenMessage });
     macroJob.current = { run };
     setMacroNote({ label: macro.label, step: 0, total: run.total });
     if (snap && canSubmit) macroStep(run.onScreen(snap), snap);

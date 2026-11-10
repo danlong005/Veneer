@@ -12,9 +12,10 @@ export {
   type ActiveTheme, type BuiltinTheme, type ThemeSummary, type ThemeVariable,
 } from './themes.ts';
 export {
-  DEFAULT_MACRO_TIMEOUT, MAX_OUTPUTS, MAX_PARAM_VALUE, MAX_PARAMS, MAX_STEPS, MacroRun, PARAM_NAME, RESERVED_PARAMS,
-  apiValues, fillValue, macroScreens, macroValues, paramsIn, stepMatches, validateMacro,
-  type FieldCheck, type Macro, type MacroDone, type MacroParam, type MacroResult, type MacroStart, type MacroStep,
+  DEFAULT_MACRO_TIMEOUT, MAX_CHECKS, MAX_OUTPUTS, MAX_PARAM_VALUE, MAX_PARAMS, MAX_STEPS, MacroRun, PARAM_NAME, RESERVED_PARAMS,
+  apiValues, failureText, fillValue, macroScreens, macroValues, paramsIn, runCheck, stepMatches, validateMacro, valueAt,
+  type CheckResult, type FieldCheck, type Macro, type MacroCheck, type MacroDone, type MacroEnd, type MacroParam, type MacroResult,
+  type MacroStart, type MacroStep, type MessageReader,
 } from './macros.ts';
 export {
   RECORDINGS_DIR, checkScreens, definitionFile, macroFile, mismatch, recordScreen, recordingFile, validateRecording,
