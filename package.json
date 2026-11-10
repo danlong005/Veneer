@@ -15,6 +15,7 @@
     "typecheck": "tsc -b packages/server packages/tn3270 && tsc -p packages/client --noEmit",
     "test": "npm test --workspaces --if-present",
     "dev": "npm run dev -w @veneer/server",
+    "prestart": "node scripts/check-built.mjs",
     "start": "npm start -w @veneer/server",
     "cli": "npm run cli -w @veneer/tn5250 --",
     "demo": "npm run demo -w @veneer/server --",

@@ -4,7 +4,20 @@ Veneer runs either on the IBM i, installed in the IFS and run in PASE, or off it
 or in Docker, connecting to the IBM i over the network. It ships as a self-contained
 archive, `veneer-<version>.tar.gz`, or as a Docker image (see [Docker](#docker)). The archive holds the compiled server, the browser client and the
 production dependencies, so the target needs only **Node.js 20.12 or later**: no compiler,
-no `npm install`, and no internet access. Build it on a development machine:
+no `npm install`, and no internet access.
+
+**Check which download you have.** Only the release archive is ready to run:
+
+| You have | Install with |
+| --- | --- |
+| `veneer-<version>.tar.gz` or `veneer-<version>.zip` from the [releases page](https://github.com/danlong005/Veneer/releases) | [IBM i](#ibm-i) or [Linux](#linux), below. Nothing to build. |
+| A clone of the repository (`docker compose`) | [Docker](#docker). The image builds Veneer itself. |
+| A `git clone` or fork, `veneer-<version>-src.tar.gz` / `-src.zip`, or GitHub's **Source code** zip or tar.gz | [From a clone, fork or source download](#from-a-clone-fork-or-source-download): build it first. |
+
+The quickest way to tell: a release has `packages/server/dist/main.js` and a
+`node_modules` folder; the source has neither.
+
+To build the release archive yourself, on a development machine (not the IBM i):
 
 ```sh
 npm ci
@@ -328,7 +341,9 @@ from a 5250 command line.
    CRTUSRPRF USRPRF(VENEER) PASSWORD(*NONE) USRCLS(*USER) TEXT('Veneer web server')
    ```
 
-2. Unpack the archive and create the directories (PASE `tar` may not read gzip directly).
+2. Unpack the release archive, `veneer-<version>.tar.gz` or `.zip`, not a clone, fork or
+   `-src` download ([why](#from-a-clone-fork-or-source-download)), and create the
+   directories (PASE `tar` may not read gzip directly).
    With `unzip` installed (`yum install unzip`), `unzip -q /tmp/veneer-0.3.1.zip` in place
    of the `gzip` line unpacks the `.zip` release instead:
 
@@ -475,6 +490,57 @@ Notes:
 - The health check calls `/healthz` (`docker ps` shows the status). `docker stop` sends
   SIGTERM, and Veneer ends its 5250 sessions before exiting; Compose allows 15 seconds.
 - To upgrade, rebuild (`docker compose up --build -d`); customizations stay in the volume.
+
+## From a clone, fork or source download
+
+A `git clone`, a fork, the `-src` archives and GitHub's **Source code** downloads hold
+only the TypeScript source. Running them before they are built fails with "Veneer has
+not been built" (from `veneer.sh` and `npm start`), or with Node.js's
+`Cannot find module '.../packages/server/dist/main.js'`.
+
+Building needs Node.js 20.12 or later, npm and internet access (to download the build
+tools), on Linux or macOS. **It doesn't work on the IBM i:** the browser client's
+bundler (Vite) has no build for PASE. So for the IBM i, build on another machine and copy
+the result across.
+
+### To install on the IBM i
+
+On a PC or Linux machine, from the clone or fork (with any changes of your own):
+
+```sh
+npm ci
+npm run package        # writes release/veneer-<version>.tar.gz and .zip
+```
+
+Copy `release/veneer-<version>.tar.gz` (or the `.zip`) to `/tmp` on the IBM i, for
+example with `scp`, and install it as in [IBM i](#ibm-i). If you haven't changed the code,
+skip the build and download the release archive from the
+[releases page](https://github.com/danlong005/Veneer/releases) instead.
+
+Don't copy the clone itself to the IBM i: even with a `node_modules` folder built
+elsewhere, `npm run build` won't run there, and a `node_modules` copied from another
+operating system is the wrong one for PASE.
+
+### To install on Linux
+
+Either build a release archive as above and install it as in [Linux](#linux), which is
+best for a server, or build and run in place:
+
+```sh
+cd Veneer              # the clone
+npm ci                 # all dependencies, including the build tools
+npm run build          # compiles packages/*/dist and the browser client
+cp .env.example .env   # set VENEER_HOST, VENEER_PORT, VENEER_TLS, VENEER_LISTEN_HOST
+npm start              # http://127.0.0.1:8080 (or the address in VENEER_LISTEN_HOST)
+```
+
+Run `npm run build` again after every `git pull`; `npm start` runs the last build, not
+the current source.
+
+### To run in Docker
+
+Nothing to build first: `docker compose up --build -d` compiles Veneer inside the image
+([Docker](#docker)).
 
 ## Upgrade and roll back
 

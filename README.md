@@ -22,6 +22,27 @@ and locks the designer and admin page behind tokens.
 [Securing Veneer](deploy/README.md#securing-veneer) is the checklist for a production
 install.
 
+## Install
+
+Veneer comes in two forms: a **release**, built and ready to run, and the **source**,
+which has to be built before it runs. Look at what you have:
+
+| What you have | Ready to run? | What to do |
+| --- | --- | --- |
+| `veneer-<version>.tar.gz` or `veneer-<version>.zip` from the [releases page](https://github.com/danlong005/Veneer/releases) | **Yes** | Unpack it on the IBM i, Linux server or PC and follow [deploy/README.md](deploy/README.md). The machine needs only Node.js 20.12 or later: no `npm install`, no build, no internet access. |
+| Docker | Builds itself | From a clone of the repository: `cp .env.example .env`, set `VENEER_HOST`, then `docker compose up --build -d`. See [Docker](deploy/README.md#docker). |
+| A `git clone` or a fork of this repository | **No** | Build it first. See [From a clone, fork or source download](deploy/README.md#from-a-clone-fork-or-source-download). |
+| `veneer-<version>-src.tar.gz` or `-src.zip`, or GitHub's **Source code (zip)** / **Source code (tar.gz)** links | **No** | The same as a clone: build it first. |
+
+**On an IBM i, use a release.** A clone, fork or source download can't run until it has
+been built, and the build doesn't run in PASE: its browser bundler (Vite) has no IBM i
+version. If you started from a fork, build a release from it on a PC or Linux machine
+(`npm ci`, then `npm run package`) and copy the `.tar.gz` or `.zip` from its `release/`
+folder to the IBM i, or download the release instead.
+
+If you run a source checkout without building it, Veneer stops with "Veneer has not been
+built", or Node.js reports `Cannot find module '.../packages/server/dist/main.js'`.
+
 ## Packages
 
 | Package | Status | Purpose |
@@ -35,6 +56,9 @@ install.
 | `packages/view` | | How a screen is read: the transform rules, customizations applied, and reading a list across its pages (the browser and the macro API) |
 
 ## Development
+
+Everything below runs from a clone of the repository on a development machine, not on
+the IBM i (see [Install](#install)).
 
 ```sh
 npm install
