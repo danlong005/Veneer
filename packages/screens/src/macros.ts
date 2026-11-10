@@ -36,6 +36,52 @@ export interface MacroStep {
   press: AidName;
   /** The screen only sometimes appears (Display Program Messages): when it doesn't, carry on with the next step. */
   optional?: boolean;
+  /** What the step's screen must show, checked when it appears, before anything is typed. A failed check stops the run. */
+  expect?: MacroCheck[];
+}
+
+/**
+ * A check of what a screen shows: a field or the text at a position (`at`),
+ * or the host's message (`message`), against exactly one of `equals`,
+ * `contains` or `matches`. Values are compared without leading and trailing
+ * blanks, and case matters.
+ */
+export interface MacroCheck {
+  /** A field id or a position ("6:22"); text at a position runs to the next wide gap. */
+  at?: string;
+  /** The message line and any error the host shows. */
+  message?: true;
+  equals?: string;
+  contains?: string;
+  /** A regular expression the whole value must match. */
+  matches?: string;
+  /** Passes when the test fails: the message doesn't contain "not found". */
+  not?: true;
+  /** What results call it ("Status"); else the position or "The message". */
+  label?: string;
+}
+
+/** The screen a macro must end on, and what it must show. */
+export interface MacroEnd {
+  /** The screen id it must end on. */
+  screen?: string;
+  /** Text that must also be on it, for screens that share an id. */
+  text?: TextMatch[];
+  /** The screen's title, for people reading the macro and for results. */
+  title?: string;
+  /** Checked on the screen the macro ends on; every check is made, and any failure fails the run. */
+  expect?: MacroCheck[];
+}
+
+/** One check made during a run. */
+export interface CheckResult {
+  /** The step whose screen was checked, from 1; left out for the screen the macro ends on. */
+  step?: number;
+  /** The check in words: Status equals “DLV”. */
+  check: string;
+  passed: boolean;
+  /** What the screen showed. */
+  actual: string;
 }
 
 export interface Macro {
@@ -57,9 +103,12 @@ export interface Macro {
    * text at a position runs to the next wide gap.
    */
   output?: Record<string, string>;
+  /** The screen the macro must end on and what it must show, for macros used as tests. */
+  end?: MacroEnd;
 }
 
 export const MAX_STEPS = 50;
+export const MAX_CHECKS = 50;
 export const MAX_PARAMS = 20;
 export const MAX_OUTPUTS = 50;
 /** The longest value a parameter can have. */
@@ -120,6 +169,7 @@ export function validateMacro(input: unknown): Macro {
     }
     if (Object.keys(output).length === 0) output = undefined;
   }
+  const end = o.end !== undefined ? macroEnd(o.end) : undefined;
   // In the order a person reads the file: what it is, its values, its steps.
   return {
     name, label,
@@ -130,7 +180,53 @@ export function validateMacro(input: unknown): Macro {
     ...(timeout !== undefined ? { timeout } : {}),
     ...(o.api ? { api: true } : {}),
     ...(output ? { output } : {}),
+    ...(end ? { end } : {}),
   };
+}
+
+function macroEnd(v: unknown): MacroEnd {
+  const o = obj(v, 'end');
+  const out: MacroEnd = {};
+  if (o.screen !== undefined) {
+    out.screen = str(o.screen, 'end.screen', 32);
+    if (!SCREEN_ID.test(out.screen)) fail('end.screen', 'must be a screen id (hex digits)');
+  }
+  if (o.text !== undefined) out.text = arr(o.text, 'end.text', 10).map((x, i) => textMatch(x, `end.text[${i}]`));
+  if (o.title !== undefined) out.title = str(o.title, 'end.title', 132);
+  if (o.expect !== undefined) out.expect = checks(o.expect, 'end.expect');
+  if (!out.screen && !out.text?.length && !out.expect?.length) fail('end', 'needs a screen, text or checks');
+  return out;
+}
+
+function checks(v: unknown, path: string): MacroCheck[] {
+  return arr(v, path, MAX_CHECKS).map((x, i) => check(x, `${path}[${i}]`));
+}
+
+function check(v: unknown, path: string): MacroCheck {
+  const o = obj(v, path);
+  const out: MacroCheck = {};
+  if (o.at !== undefined) {
+    out.at = str(o.at, `${path}.at`, 7);
+    if (!FIELD_ID.test(out.at)) fail(`${path}.at`, 'must be a position such as "6:22"');
+  }
+  if (o.message !== undefined) {
+    if (o.message !== true) fail(`${path}.message`, 'must be true');
+    out.message = true;
+  }
+  if ((out.at === undefined) === (out.message === undefined)) fail(path, 'needs either "at" (a position) or "message": true');
+  const tests = (['equals', 'contains', 'matches'] as const).filter((k) => o[k] !== undefined);
+  if (tests.length !== 1) fail(path, 'needs exactly one of "equals", "contains" or "matches"');
+  const test = tests[0]!;
+  out[test] = str(o[test], `${path}.${test}`, 3564);
+  if (test === 'matches') {
+    try { new RegExp(out.matches!); } catch { fail(`${path}.matches`, 'is not a valid regular expression'); }
+  }
+  if (o.not !== undefined) {
+    if (typeof o.not !== 'boolean') fail(`${path}.not`, 'must be true or false');
+    if (o.not) out.not = true;
+  }
+  if (o.label !== undefined) out.label = str(o.label, `${path}.label`, 60);
+  return out;
 }
 
 function param(v: unknown, path: string): MacroParam {
@@ -172,6 +268,7 @@ function step(v: unknown, path: string, host: HostType | undefined, params: Reco
   }
   const cursor = o.cursor !== undefined ? target(o.cursor, `${path}.cursor`) : undefined;
   if (o.optional !== undefined && typeof o.optional !== 'boolean') fail(`${path}.optional`, 'must be true or false');
+  const expect = o.expect !== undefined ? checks(o.expect, `${path}.expect`) : undefined;
   // In the order the step happens: which screen, what to type, which key.
   return {
     screen,
@@ -181,6 +278,7 @@ function step(v: unknown, path: string, host: HostType | undefined, params: Reco
     ...(cursor ? { cursor } : {}),
     press,
     ...(o.optional ? { optional: true } : {}),
+    ...(expect?.length ? { expect } : {}),
   };
 }
 
@@ -238,7 +336,46 @@ export function stepMatches(s: MacroStep, snap: ScreenSnapshot, id = screenId(sn
 
 /** The screens a macro uses, for the screen inventory. */
 export function macroScreens(macro: Macro): string[] {
-  return [...new Set(macro.steps.map((s) => s.screen))];
+  return [...new Set([...macro.steps.map((s) => s.screen), ...(macro.end?.screen ? [macro.end.screen] : [])])];
+}
+
+/** A field's value, or the text at a position up to the next wide gap. Non-display fields (passwords) read as blank. */
+export function valueAt(snap: ScreenSnapshot, at: string): string {
+  const field = snap.fields.find((f) => f.id === at);
+  if (field) return field.attr.nonDisplay ? '' : field.value.trim();
+  const [row, col] = at.split(':').map(Number) as [number, number];
+  const rest = snap.lines[row - 1]?.slice(col - 1) ?? '';
+  return rest.trimStart().split(/\s{2,}/)[0]!.trim();
+}
+
+/** The host's message on a screen: its message line and any error. */
+export type MessageReader = (snap: ScreenSnapshot) => string;
+
+const errorOnly: MessageReader = (snap) => snap.error?.trim() ?? '';
+
+/** Makes one check on a screen. */
+export function runCheck(c: MacroCheck, snap: ScreenSnapshot, message: MessageReader = errorOnly, step?: number): CheckResult {
+  const actual = c.message ? message(snap).trim() : valueAt(snap, c.at!);
+  const what = c.label ?? (c.message ? 'The message' : `The value at ${c.at}`);
+  let ok: boolean;
+  let test: string;
+  if (c.equals !== undefined) {
+    const want = c.equals.trim();
+    ok = actual === want;
+    test = want === '' ? (c.not ? 'is not blank' : 'is blank') : `${c.not ? 'doesn\'t equal' : 'equals'} “${want}”`;
+  } else if (c.contains !== undefined) {
+    ok = actual.includes(c.contains);
+    test = `${c.not ? 'doesn\'t contain' : 'contains'} “${c.contains}”`;
+  } else {
+    ok = new RegExp(`^(?:${c.matches})$`).test(actual);
+    test = `${c.not ? 'doesn\'t match' : 'matches'} ${c.matches}`;
+  }
+  return { ...(step ? { step } : {}), check: `${what} ${test}`, passed: c.not ? !ok : ok, actual };
+}
+
+/** Why a check failed, for an error message: Status equals “DLV”, but it is “OPN”. */
+export function failureText(r: CheckResult): string {
+  return `${r.check}, but it is ${r.actual === '' ? 'blank' : `“${r.actual}”`}.`;
 }
 
 /** Where a run starts: a deep link's new session, or the screen the user is on (a button, Go to, a test). */
@@ -249,8 +386,11 @@ export type MacroResult =
   | { send: { aid: AidName; fields: Record<string, string>; cursor?: Target }; step: number }
   /** Nothing to do yet: wait for the next screen. */
   | { wait: true }
-  /** Finished: left on the screen it reached; `error` says why it stopped early. */
-  | { done: true; error?: string; step?: number };
+  /**
+   * Finished: left on the screen it reached; `error` says why it stopped early
+   * or failed a check. `checks` has every check made, when the macro has any.
+   */
+  | { done: true; error?: string; step?: number; checks?: CheckResult[] };
 
 export type MacroDone = Extract<MacroResult, { done: true }>;
 
@@ -268,15 +408,31 @@ export class MacroRun {
   private readonly values: Record<string, string>;
   private readonly start: MacroStart;
   private readonly check: FieldCheck | undefined;
+  private readonly message: MessageReader;
+  private readonly made: CheckResult[] = [];
   /** The next step expected, or -1 before the first one is found. */
   private next = -1;
   private finished = false;
 
-  constructor(macro: Macro, values: Record<string, string>, opts: { start: MacroStart; user?: string | undefined; check?: FieldCheck }) {
+  constructor(
+    macro: Macro, values: Record<string, string>,
+    opts: { start: MacroStart; user?: string | undefined; check?: FieldCheck; message?: MessageReader },
+  ) {
     this.macro = macro;
     this.values = { ...values, user: opts.user ?? '' };
     this.start = opts.start;
     this.check = opts.check;
+    this.message = opts.message ?? errorOnly;
+  }
+
+  /** The macro checks what screens show (`expect` on a step, or `end`). */
+  get checks(): boolean {
+    return Boolean(this.macro.end) || this.macro.steps.some((s) => s.expect?.length);
+  }
+
+  /** The checks made so far, when the macro has any. */
+  get results(): CheckResult[] | undefined {
+    return this.checks ? [...this.made] : undefined;
   }
 
   /** The step being waited for (from 1), or 0 before the run has found where to start. */
@@ -296,13 +452,15 @@ export class MacroRun {
 
   onScreen(snap: ScreenSnapshot): MacroResult {
     if (this.finished) return { done: true };
+    const steps = this.macro.steps;
     // After a key: the host's answer to it. An error keeps the keyboard locked until Reset.
+    // Past the last step, an `end` that checks the message expects it.
+    if (this.next >= steps.length && snap.error && this.macro.end?.expect?.some((c) => c.message)) return this.end(snap);
     if (this.next > 0 && snap.error) return this.stop(`Step ${this.next}: ${snap.error.trim()}`, this.next);
     if (snap.keyboardLocked) return { wait: true };
     if (this.macro.host && snap.host !== this.macro.host) return this.stop('It is for another kind of host.');
     const id = screenId(snap);
-    const steps = this.macro.steps;
-    if (this.next >= steps.length) return this.stop();
+    if (this.next >= steps.length) return this.end(snap, id);
 
     if (this.next < 0) {
       const first = steps.findIndex((s) => stepMatches(s, snap, id));
@@ -330,6 +488,8 @@ export class MacroRun {
 
   private perform(k: number, snap: ScreenSnapshot): MacroResult {
     const s = this.macro.steps[k]!;
+    const failed = this.expect(s.expect, snap, k + 1);
+    if (failed) return this.stop(`Step ${k + 1}: ${failed}`, k + 1);
     const fields: Record<string, string> = {};
     for (const [id, template] of Object.entries(s.fields ?? {})) {
       const field = snap.fields.find((f) => f.id === id && !f.bypass);
@@ -343,8 +503,36 @@ export class MacroRun {
     return { send: { aid: s.press, fields, ...(s.cursor ? { cursor: s.cursor } : {}) }, step: k + 1 };
   }
 
+  /** The screen the last step's key led to: the macro's `end`, if it has one. */
+  private end(snap: ScreenSnapshot, id = screenId(snap)): MacroDone {
+    const end = this.macro.end;
+    if (!end) return this.stop();
+    if (end.screen || end.text?.length) {
+      const expected = end.title ? `“${end.title}”` : 'the screen it should';
+      const on = (end.screen === undefined || end.screen === id) && (end.text ?? []).every((t) => textMatches(snap, t));
+      this.made.push({ check: `It ends on ${expected}`, passed: on, actual: id });
+      if (!on) return this.stop(`It ended on another screen than ${expected}.`);
+    }
+    const failed = this.expect(end.expect, snap);
+    return this.stop(failed ? `At the end: ${failed}` : undefined);
+  }
+
+  /** Makes every check on a screen; the first failure in words (with how many others failed), or undefined. */
+  private expect(list: readonly MacroCheck[] | undefined, snap: ScreenSnapshot, step?: number): string | undefined {
+    if (!list?.length) return undefined;
+    const now = list.map((c) => runCheck(c, snap, this.message, step));
+    this.made.push(...now);
+    const failed = now.filter((r) => !r.passed);
+    if (failed.length === 0) return undefined;
+    const more = failed.length - 1;
+    return failureText(failed[0]!) + (more > 0 ? ` ${more} other ${more === 1 ? 'check' : 'checks'} failed too.` : '');
+  }
+
   private stop(error?: string, step?: number): MacroDone {
     this.finished = true;
-    return { done: true, ...(error ? { error } : {}), ...(step ? { step } : {}) };
+    return {
+      done: true, ...(error ? { error } : {}), ...(step ? { step } : {}),
+      ...(this.checks ? { checks: [...this.made] } : {}),
+    };
   }
 }

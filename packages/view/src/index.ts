@@ -13,3 +13,4 @@ export * from './export/exporter.ts';
 export * from './export/sheet.ts';
 export { crc32, zip } from './export/zip.ts';
 export * from './fieldRules.ts';
+export { screenMessage, screenMessages } from './message.ts';

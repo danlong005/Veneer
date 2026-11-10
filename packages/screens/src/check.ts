@@ -242,6 +242,17 @@ function checkMacro(macro: Macro, recordings: readonly Recording[], out: CheckFi
       }
     }
   });
+  // The screen it must end on, like a step's.
+  const end = macro.end;
+  if (end?.screen && recordings.length > 0) {
+    const ends = { screen: end.screen, ...(end.text ? { text: end.text } : {}), press: 'Enter' as const };
+    if (!recordings.some((r) => stepMatches(ends, r.screen))) {
+      const same = end.title ? recordings.find((r) => (!macro.host || r.screen.host === macro.host) && hasTitle(r.screen, end.title!)) : undefined;
+      out.push(same
+        ? { level: 'error', file, message: `It must end on the “${end.title}” screen with screen ID ${end.screen}, but that screen is recorded (${recordingFile(same.name)}) with ${screenId(same.screen)}.` }
+        : { level: 'warning', file, message: 'The screen it must end on isn\'t recorded, so it can\'t be checked.' });
+    }
+  }
   if (unrecorded.length > 0 && recordings.length > 0) {
     const steps = unrecorded.length === 1 ? `Step ${unrecorded[0]}'s screen isn't` : `The screens of steps ${unrecorded.join(', ')} aren't`;
     out.push({ level: 'warning', file, message: `${steps} recorded, so ${unrecorded.length === 1 ? 'it' : 'they'} can't be checked.` });

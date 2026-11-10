@@ -158,3 +158,115 @@ test('a run can time out, be cancelled, and only runs on its kind of host', () =
   const mainframe: Macro = { ...macro, host: '3270' };
   assert.deepEqual(new MacroRun(mainframe, {}, { start: 'here' }).onScreen(mainMenu), { done: true, error: 'It is for another kind of host.' });
 });
+
+// ---- checks: expect on a step, end on the screen the run ends on
+
+const status = (s: string) => screen((b) => b.text(1, 33, 'Order 12345', WHITE).text(4, 2, 'Customer  Lakeside Hardware').text(6, 2, 'Status').text(6, 22, `${s}   Shipped`));
+const TEST = {
+  ...MACRO,
+  steps: [MACRO.steps[3]],
+  end: {
+    screen: id(order), title: 'Order 12345',
+    expect: [
+      { at: '6:22', equals: 'DLV', label: 'Status' },
+      { at: '4:12', contains: 'Lakeside' },
+      { message: true, contains: 'not found', not: true },
+    ],
+  },
+};
+
+test('a macro file\'s checks: on a step (expect) and on the screen it ends on (end)', () => {
+  const m = validateMacro({ ...TEST, steps: [{ ...TEST.steps[0], expect: [{ at: '4:30', equals: '', label: 'Order number' }] }] });
+  assert.deepEqual(m.end, TEST.end);
+  assert.deepEqual(Object.keys(m).at(-1), 'end');
+  assert.deepEqual(Object.keys(m.steps[0]!).at(-1), 'expect');
+  assert.deepEqual(macroScreens(m), [id(inquiry), id(order)], 'the end screen is one the macro uses');
+  const bad = (end: unknown, message: RegExp) =>
+    assert.throws(() => validateMacro({ ...TEST, end }), (e: Error) => e instanceof DefinitionError && message.test(e.message));
+  bad({}, /^end: needs a screen, text or checks/);
+  bad({ screen: 'order' }, /end\.screen: must be a screen id/);
+  bad({ expect: [{ equals: 'x' }] }, /needs either "at" \(a position\) or "message": true/);
+  bad({ expect: [{ at: '6:22', message: true, equals: 'x' }] }, /needs either/);
+  bad({ expect: [{ at: '6-22', equals: 'x' }] }, /must be a position such as "6:22"/);
+  bad({ expect: [{ at: '6:22' }] }, /exactly one of "equals", "contains" or "matches"/);
+  bad({ expect: [{ at: '6:22', equals: 'x', contains: 'y' }] }, /exactly one of/);
+  bad({ expect: [{ at: '6:22', matches: '[A-' }] }, /not a valid regular expression/);
+  bad({ expect: [{ message: 'yes', contains: 'x' }] }, /message: must be true/);
+});
+
+test('a run that ends on the expected screen with every check passing is done, with each result', () => {
+  const run = new MacroRun(validateMacro(TEST), { order: '12345' }, { start: 'here' });
+  assert.deepEqual(keys(run.onScreen(inquiry)), [1, 'Enter', { '4:30': '12345' }]);
+  assert.deepEqual(run.onScreen(status('DLV')), {
+    done: true,
+    checks: [
+      { check: 'It ends on “Order 12345”', passed: true, actual: id(order) },
+      { check: 'Status equals “DLV”', passed: true, actual: 'DLV' },
+      { check: 'The value at 4:12 contains “Lakeside”', passed: true, actual: 'Lakeside Hardware' },
+      { check: 'The message doesn\'t contain “not found”', passed: true, actual: '' },
+    ],
+  });
+});
+
+test('a failed check fails the run: every check on the screen is made, the first failure is the error', () => {
+  const run = new MacroRun(validateMacro(TEST), { order: '12345' }, { start: 'here', message: () => 'Order 12345 not found' });
+  run.onScreen(inquiry);
+  const r = run.onScreen(status('OPN'));
+  assert.ok('done' in r);
+  assert.equal(r.error, 'At the end: Status equals “DLV”, but it is “OPN”. 1 other check failed too.');
+  assert.equal(r.step, undefined);
+  assert.deepEqual(r.checks!.map((c) => c.passed), [true, false, true, false]);
+  assert.equal(r.checks![3]!.actual, 'Order 12345 not found', 'the message comes from the reader given');
+});
+
+test('ending on another screen fails, before its checks are made', () => {
+  const run = new MacroRun(validateMacro(TEST), { order: '1' }, { start: 'here' });
+  run.onScreen(inquiry);
+  const r = run.onScreen(mainMenu);
+  assert.deepEqual(r, { done: true, error: 'It ended on another screen than “Order 12345”.', checks: [{ check: 'It ends on “Order 12345”', passed: false, actual: id(mainMenu) }] });
+});
+
+test('a step\'s checks are made on its screen before typing; a failure stops the run there', () => {
+  const m = validateMacro({ ...MACRO, steps: [{ ...MACRO.steps[2], expect: [{ at: '5:6', matches: '3\\. Order .*' }, { at: '5:9', equals: 'Customer inquiry', not: true }] }, MACRO.steps[3]] });
+  const ok = new MacroRun(m, { order: '1' }, { start: 'here' });
+  assert.deepEqual(keys(ok.onScreen(orderMenu)), [1, 'Enter', { '20:7': '3' }]);
+  assert.deepEqual(ok.results, [
+    { step: 1, check: 'The value at 5:6 matches 3\\. Order .*', passed: true, actual: '3. Order inquiry' },
+    { step: 1, check: 'The value at 5:9 doesn\'t equal “Customer inquiry”', passed: true, actual: 'Order inquiry' },
+  ]);
+  const menu = screen((s) => s.text(1, 34, 'Order Menu', WHITE).text(5, 6, '3. Returns').text(20, 2, '===>').field(20, 7, 73));
+  const failed = new MacroRun(m, { order: '1' }, { start: 'here' });
+  const r = failed.onScreen(menu);
+  assert.ok('done' in r);
+  assert.equal(r.error, 'Step 1: The value at 5:6 matches 3\\. Order .*, but it is “3. Returns”.');
+  assert.equal(r.step, 1);
+});
+
+test('blank, a field\'s typed value, and a password field, which always reads blank', () => {
+  const m = validateMacro({ ...MACRO, steps: [{ ...MACRO.steps[1], expect: [{ at: '20:7', equals: '' }, { at: '20:7', equals: '', not: true }] }] });
+  const r = new MacroRun(m, {}, { start: 'here' });
+  r.onScreen(mainMenu);
+  assert.deepEqual(r.results!.map((c) => [c.check, c.passed]), [['The value at 20:7 is blank', true], ['The value at 20:7 is not blank', false]]);
+  const pw = validateMacro({ ...MACRO, steps: [{ screen: id(signOn), press: 'Enter', expect: [{ at: '7:53', equals: '' }] }] });
+  const typed = { ...signOn, fields: signOn.fields.map((f) => ({ ...f, value: 'SECRET' })) };
+  const run = new MacroRun(pw, {}, { start: 'here' });
+  run.onScreen(typed);
+  assert.equal(run.results![0]!.actual, '', 'a non-display field is never read');
+});
+
+test('a host error after the last step fails the run, unless the end checks the message', () => {
+  const error = { ...status('DLV'), keyboardLocked: true, error: 'Order 99 not found.' };
+  const plain = new MacroRun(validateMacro({ ...TEST, end: { expect: [{ at: '6:22', equals: 'DLV' }] } }), { order: '99' }, { start: 'here' });
+  plain.onScreen(inquiry);
+  assert.equal((plain.onScreen(error) as { error?: string }).error, 'Step 1: Order 99 not found.');
+  const negative = new MacroRun(validateMacro({ ...TEST, end: { expect: [{ message: true, contains: 'not found' }] } }), { order: '99' }, { start: 'here' });
+  negative.onScreen(inquiry);
+  assert.deepEqual(negative.onScreen(error), { done: true, checks: [{ check: 'The message contains “not found”', passed: true, actual: 'Order 99 not found.' }] });
+});
+
+test('a macro without checks reports none', () => {
+  const run = new MacroRun(macro, { order: '1' }, { start: 'here' });
+  assert.equal(run.results, undefined);
+  run.onScreen(inquiry);
+  assert.deepEqual(run.onScreen(order), { done: true });
+});

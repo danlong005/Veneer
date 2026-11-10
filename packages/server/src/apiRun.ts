@@ -5,9 +5,9 @@
 // fields, the values the macro names, its messages and its list, every
 // page. Then the session closes, which ends the IBM i job.
 
-import { DEFAULT_MACRO_TIMEOUT, MacroRun, matchScreen, screenId, type Macro, type ScreenDefinition } from '@veneer/screens';
+import { DEFAULT_MACRO_TIMEOUT, MacroRun, matchScreen, screenId, valueAt, type CheckResult, type Macro, type ScreenDefinition } from '@veneer/screens';
 import { DeviceNameInUseError, type ScreenSnapshot, type SignOnResult, type TerminalSession } from '@veneer/terminal';
-import { ListExporter, checkFields, customize, listOf, transform, typingProblem, type ScreenView, type Sheet, type Step } from '@veneer/view';
+import { ListExporter, checkFields, customize, listOf, screenMessage, transform, typingProblem, type ScreenView, type Sheet, type Step } from '@veneer/view';
 import { createHostSession, hostAid, type AutoSignOn, type HostSettings } from './host.ts';
 import { log } from './log.ts';
 import type { HostLease } from './sessions.ts';
@@ -41,9 +41,10 @@ export interface ListResult {
 }
 
 export type RunResult =
-  | { outcome: 'done'; result: ScreenResult }
-  /** It stopped on a screen it didn't expect, a host error or a value the field won't take; `result` is that screen. */
-  | { outcome: 'stopped' | 'timeout'; error: string; step?: number; result: ScreenResult }
+  /** `checks`: every check the macro made, when it has any (`expect`, `end`). */
+  | { outcome: 'done'; result: ScreenResult; checks?: CheckResult[] }
+  /** It stopped on a screen it didn't expect, a host error, a value the field won't take or a failed check; `result` is that screen. */
+  | { outcome: 'stopped' | 'timeout'; error: string; step?: number; result: ScreenResult; checks?: CheckResult[] }
   /** It never ran: the service profile didn't sign on. `refused` says signing on again would fail the same way. */
   | { outcome: 'signon'; error: string; refused: boolean }
   /** It never finished: the connection failed or closed. */
@@ -82,7 +83,7 @@ class ApiRun {
     this.input = input;
     this.resolve = resolve;
     this.stepMs = (input.macro.timeout ?? DEFAULT_MACRO_TIMEOUT) * 1000;
-    this.run = new MacroRun(input.macro, input.values, { start: 'link', user: input.signOn.user, check: typingProblem });
+    this.run = new MacroRun(input.macro, input.values, { start: 'link', user: input.signOn.user, check: typingProblem, message: screenMessage });
     let retries = 0;
     const { lease } = input;
     this.host = createHostSession(input.host, {
@@ -160,7 +161,7 @@ class ApiRun {
       this.press(snap, aid, fields, cursor);
       this.wait(() => {
         const t = this.run.timedOut();
-        this.finish({ outcome: 'timeout', error: t.error!, ...(t.step ? { step: t.step } : {}), result: this.read(this.host.snapshot()) });
+        this.finish({ outcome: 'timeout', error: t.error!, ...(t.step ? { step: t.step } : {}), ...this.checkResults(), result: this.read(this.host.snapshot()) });
       });
       return;
     }
@@ -169,7 +170,7 @@ class ApiRun {
     const view = this.view(snap);
     this.ended = this.read(snap, view);
     const table = listOf(view);
-    if (!table) return this.finish({ outcome: 'done', result: this.ended });
+    if (!table) return this.finish({ outcome: 'done', result: this.ended, ...this.checkResults() });
     this.phase = 'list';
     this.reader = new ListExporter(table, screenId(snap), API_MAX_PAGES, { goBack: false });
     this.listStep(this.reader.start(), snap);
@@ -198,8 +199,8 @@ class ApiRun {
       this.wait(() => this.finish({ outcome: 'timeout', error: 'Reading the list: the next page did not appear in time.', result: this.ended! }));
       return;
     }
-    if (s.error || !s.sheet) return this.finish({ outcome: 'stopped', error: `Reading the list: ${s.error ?? 'it stopped.'}`, result: this.ended! });
-    this.finish({ outcome: 'done', result: { ...this.ended!, list: listResult(s.sheet, s.complete !== false) } });
+    if (s.error || !s.sheet) return this.finish({ outcome: 'stopped', error: `Reading the list: ${s.error ?? 'it stopped.'}`, result: this.ended!, ...this.checkResults() });
+    this.finish({ outcome: 'done', result: { ...this.ended!, list: listResult(s.sheet, s.complete !== false) }, ...this.checkResults() });
   }
 
   private press(snap: ScreenSnapshot, aid: Parameters<typeof hostAid>[1], fields: Record<string, string>, cursor?: { row: number; col: number }): void {
@@ -209,7 +210,13 @@ class ApiRun {
   }
 
   private stop(error: string, step: number | undefined, snap: ScreenSnapshot): void {
-    this.finish({ outcome: 'stopped', error, ...(step ? { step } : {}), result: this.read(snap) });
+    this.finish({ outcome: 'stopped', error, ...(step ? { step } : {}), result: this.read(snap), ...this.checkResults() });
+  }
+
+  /** Every check the macro made, for the result, when it has any. */
+  private checkResults(): { checks?: CheckResult[] } {
+    const checks = this.run.results;
+    return checks ? { checks } : {};
   }
 
   private view(snap: ScreenSnapshot): ScreenView {
@@ -256,15 +263,6 @@ export function readScreen(snap: ScreenSnapshot, view: ScreenView, output: Reado
     screen: { id: screenId(snap), title: view.window?.title ?? view.title ?? null, definition: view.definition?.id ?? null },
     values, fields, list: null, messages, lines: snap.lines.map((l) => l.trimEnd()),
   };
-}
-
-/** A field's value, or the text at a position up to the next wide gap. */
-function valueAt(snap: ScreenSnapshot, at: string): string {
-  const field = snap.fields.find((f) => f.id === at);
-  if (field) return field.attr.nonDisplay ? '' : field.value.trim();
-  const [row, col] = at.split(':').map(Number) as [number, number];
-  const rest = snap.lines[row - 1]?.slice(col - 1) ?? '';
-  return rest.trimStart().split(/\s{2,}/)[0]!.trim();
 }
 
 /** Rows by column heading: a blank heading is "column3", a repeated one "Date 2". */

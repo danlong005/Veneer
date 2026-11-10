@@ -140,7 +140,8 @@ export class MacroApi {
     const status = STATUS[result.outcome];
     const step = 'step' in result && result.step ? { step: result.step } : {};
     log.info('api run', { ...fields, outcome: result.outcome, status, ms: Date.now() - started, ...step });
-    if (result.outcome === 'done') return json(res, 200, result.result);
+    const checks = 'checks' in result && result.checks ? { checks: result.checks } : {};
+    if (result.outcome === 'done') return json(res, 200, { ...result.result, ...checks });
     if (result.outcome === 'signon') {
       if (result.refused) {
         this.refused.set(client.name, result.error);
@@ -150,8 +151,13 @@ export class MacroApi {
       }
     }
     if (result.outcome === 'host') log.warn('api run failed', { ...fields, error: result.error });
-    return json(res, status, { error: result.error, ...step, ...('result' in result ? { lastScreen: result.result } : {}) });
+    return json(res, status, { error: result.error, ...step, ...checks, ...('result' in result ? { lastScreen: result.result } : {}) });
   }
+}
+
+/** The macro checks what screens show, so its results include `checks`. */
+function checked(m: Macro): boolean {
+  return Boolean(m.end) || m.steps.some((s) => s.expect?.length);
 }
 
 /** A macro as GET /api/run lists it. */
@@ -169,7 +175,7 @@ export function openApi(macros: readonly Macro[]): Record<string, unknown> {
     400: 'The body is not a JSON object.',
     401: 'No token, or not a client\'s token.',
     404: 'No such macro for this client.',
-    409: 'It stopped on a screen it didn\'t expect, a host error, or a value a field won\'t take. lastScreen is where it stopped.',
+    409: 'It stopped on a screen it didn\'t expect, a host error, a value a field won\'t take, or a failed check. lastScreen is where it stopped.',
     422: 'A value is missing, unknown, or doesn\'t match its pattern.',
     429: 'The client has its limit of runs under way. Retry after the Retry-After seconds.',
     502: 'The service profile didn\'t sign on, or the connection to the IBM i failed.',
@@ -203,11 +209,20 @@ export function openApi(macros: readonly Macro[]): Record<string, unknown> {
         },
         responses: {
           200: {
-            description: 'It ran to the end: the screen it ended on.',
+            description: 'It ran to the end: the screen it ended on, and every check passed.',
             content: {
               'application/json': {
-                schema: outputs.length
-                  ? { allOf: [{ $ref: '#/components/schemas/Screen' }, { type: 'object', properties: { values: { type: 'object', properties: Object.fromEntries(outputs.map((o) => [o, { type: 'string' }])), required: outputs } } }] }
+                schema: outputs.length || checked(m)
+                  ? {
+                    allOf: [{ $ref: '#/components/schemas/Screen' }, {
+                      type: 'object',
+                      properties: {
+                        ...(outputs.length ? { values: { type: 'object', properties: Object.fromEntries(outputs.map((o) => [o, { type: 'string' }])), required: outputs } } : {}),
+                        ...(checked(m) ? { checks: { $ref: '#/components/schemas/Checks' } } : {}),
+                      },
+                      ...(checked(m) ? { required: ['checks'] } : {}),
+                    }],
+                  }
                   : { $ref: '#/components/schemas/Screen' },
               },
             },
@@ -247,7 +262,22 @@ export function openApi(macros: readonly Macro[]): Record<string, unknown> {
       securitySchemes: { token: { type: 'http', scheme: 'bearer' } },
       schemas: {
         Screen: screen,
-        Error: { type: 'object', required: ['error'], properties: { error: str, step: { type: 'integer' }, lastScreen: { $ref: '#/components/schemas/Screen' } } },
+        Error: {
+          type: 'object', required: ['error'],
+          properties: { error: str, step: { type: 'integer' }, checks: { $ref: '#/components/schemas/Checks' }, lastScreen: { $ref: '#/components/schemas/Screen' } },
+        },
+        Checks: {
+          type: 'array', description: 'Every check the macro made (its expect and end), in order.',
+          items: {
+            type: 'object', required: ['check', 'passed', 'actual'],
+            properties: {
+              step: { type: 'integer', description: 'The step whose screen was checked; left out for the screen the macro ends on.' },
+              check: { ...str, description: 'The check in words.' },
+              passed: { type: 'boolean' },
+              actual: { ...str, description: 'What the screen showed.' },
+            },
+          },
+        },
       },
     },
     security: [{ token: [] }],
