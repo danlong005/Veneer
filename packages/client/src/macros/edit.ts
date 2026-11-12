@@ -2,7 +2,9 @@
 // macro in the designer, the check each typed value gets, and deep links.
 // The runner itself is MacroRun in @veneer/screens.
 
-import { PARAM_NAME, RESERVED_PARAMS, paramsIn, screenId, type FieldCheck, type Macro, type MacroStep } from '@veneer/screens';
+import {
+  PARAM_NAME, RESERVED_PARAMS, paramsIn, screenId, valueAt, type FieldCheck, type Macro, type MacroCheck, type MacroEnd, type MacroStep,
+} from '@veneer/screens';
 import type { AidName, FieldSnapshot, ScreenSnapshot } from '@veneer/terminal';
 import { typingProblem } from '@veneer/view';
 
@@ -41,11 +43,92 @@ function inField(snap: ScreenSnapshot, f: FieldSnapshot, at: { row: number; col:
   return pos >= start && pos <= start + f.length;
 }
 
-/** A new macro from recorded steps. */
-export function newMacro(steps: MacroStep[], host: Macro['host'], taken: readonly string[]): Macro {
+/** A new macro from recorded steps, and the screen it must end on if checks were added there. */
+export function newMacro(steps: MacroStep[], host: Macro['host'], taken: readonly string[], end?: MacroEnd): Macro {
   let n = 1;
   while (taken.includes(`macro-${n}`)) n++;
-  return { name: `macro-${n}`, label: `Macro ${n}`, ...(host ? { host } : {}), steps };
+  return { name: `macro-${n}`, label: `Macro ${n}`, ...(host ? { host } : {}), steps, ...(end ? { end } : {}) };
+}
+
+// ---- checks (MacroCheck): what a screen must show, on a step (expect) or at the end
+
+/**
+ * Checks added while recording, on the screen showing: they go on the step
+ * recorded when a key is pressed on it, or become the end if recording stops there.
+ */
+export interface RecordedChecks {
+  screen: string;
+  title?: string;
+  expect: MacroCheck[];
+}
+
+/** A check that the value at a position is what it is now: a field's value, or the text there to the next wide gap. */
+export function checkAt(snap: ScreenSnapshot, at: { row: number; col: number }): MacroCheck {
+  const pos = `${at.row}:${at.col}`;
+  return { at: pos, equals: valueAt(snap, pos), ...labelFor(snap, at) };
+}
+
+/** A check on the host's message: that it says what it says now, or that there is none. */
+export function messageCheck(message: string): MacroCheck {
+  const text = message.trim();
+  return text ? { message: true, contains: text } : { message: true, equals: '' };
+}
+
+/**
+ * A name for the value at a position, from the label before it on the row:
+ * "Status . . . :  DLV" gives "Status". None when there is no text before it.
+ */
+function labelFor(snap: ScreenSnapshot, at: { row: number; col: number }): { label?: string } {
+  const before = (snap.lines[at.row - 1] ?? '').slice(0, at.col - 1);
+  const label = before.split(/\s{2,}/).filter((t) => t.trim()).at(-1)?.replace(/[\s.:]+$/, '').trim() ?? '';
+  return label && /[A-Za-z]/.test(label) ? { label: label.slice(0, 60) } : {};
+}
+
+export type CheckTest = 'equals' | 'contains' | 'matches';
+
+export function testOf(c: MacroCheck): CheckTest {
+  return c.equals !== undefined ? 'equals' : c.contains !== undefined ? 'contains' : 'matches';
+}
+
+/** The check with another test, keeping the value it tests against. */
+export function setTest(c: MacroCheck, test: CheckTest, value = c[testOf(c)] ?? ''): MacroCheck {
+  const { equals: _e, contains: _c, matches: _m, ...rest } = c;
+  return { ...rest, [test]: value };
+}
+
+/** The checks of step i, or of the end (i = 'end'), replaced. An end with nothing left goes. */
+export function setChecks(macro: Macro, where: number | 'end', checks: MacroCheck[]): Macro {
+  if (where === 'end') {
+    const { expect: _x, ...end } = macro.end ?? {};
+    return setEnd(macro, checks.length ? { ...end, expect: checks } : end);
+  }
+  return { ...macro, steps: macro.steps.map((s, k) => {
+    if (k !== where) return s;
+    const { expect: _x, ...rest } = s;
+    return checks.length ? { ...rest, expect: checks } : rest;
+  }) };
+}
+
+export function checksOf(macro: Macro, where: number | 'end'): MacroCheck[] {
+  return (where === 'end' ? macro.end?.expect : macro.steps[where]?.expect) ?? [];
+}
+
+/** The end: the screen it must end on and its checks; left out of the macro when empty. */
+export function setEnd(macro: Macro, end: MacroEnd): Macro {
+  const { end: _e, ...rest } = macro;
+  return end.screen || end.text?.length || end.expect?.length ? { ...rest, end } : rest;
+}
+
+/** It must end on this screen (with its title), keeping the end's checks. */
+export function endHere(macro: Macro, snap: ScreenSnapshot, title: string | undefined): Macro {
+  const { text: _t, title: _old, ...end } = macro.end ?? {};
+  return setEnd(macro, { ...end, screen: screenId(snap), ...(title ? { title: title.slice(0, 132) } : {}) });
+}
+
+/** It may end on any screen; its checks stay. */
+export function endAnywhere(macro: Macro): Macro {
+  const { screen: _s, text: _t, title: _old, ...end } = macro.end ?? {};
+  return setEnd(macro, end);
 }
 
 /** A macro's file name from its label: "Order inquiry" -> "order-inquiry". */

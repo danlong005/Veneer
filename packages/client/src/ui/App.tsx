@@ -13,7 +13,7 @@ import { exportColumns, toCsv, toXlsx } from '@veneer/view';
 import { connectHost, notifyScreen, runScript, runSiteScript, screenInfo, setScreen } from '../custom/runtime.ts';
 import { DesignPanel } from '../designer/DesignPanel.tsx';
 import { MacrosPanel } from '../macros/MacrosPanel.tsx';
-import { linkedMacro, macroFieldCheck, recordStep } from '../macros/edit.ts';
+import { linkedMacro, macroFieldCheck, recordStep, type RecordedChecks } from '../macros/edit.ts';
 import { record, redo, startHistory, undo, type History } from '../designer/history.ts';
 import { cardsOf, componentAt, htmlAt, imageAt, labelAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove, setPlaced, toggleTextAreaField } from '../designer/edit.ts';
 import { customize } from '@veneer/view';
@@ -262,8 +262,12 @@ export function App() {
     }
     // Recording a macro: the user's own keys, not paging for an export, help or a macro.
     if (recording.current && !exporting.current && !helping.current && !macroJob.current) {
-      recording.current = [...recording.current, recordStep(snap, view?.title, aid, fields, cursor)];
+      const step = recordStep(snap, view?.title, aid, fields, cursor);
+      // Checks added on this screen are made on it, before this key.
+      const checks = recordingChecks.current;
+      recording.current = [...recording.current, checks?.screen === step.screen && checks.expect.length ? { ...step, expect: checks.expect } : step];
       setRecorded(recording.current);
+      recordChecks(null);
     }
     awaitingNow.current = true;
     setAwaitingSeq(seq);
@@ -553,7 +557,25 @@ export function App() {
   const recordMacro = (on: boolean) => {
     recording.current = on ? [] : null;
     setRecorded(recording.current);
+    recordChecks(null);
+    setPicking(null);
   };
+  const recordingChecks = useRef<RecordedChecks | null>(null);
+  const [recordedChecks, setRecordedChecks] = useState<RecordedChecks | null>(null);
+  const recordChecks = (c: RecordedChecks | null) => {
+    recordingChecks.current = c;
+    setRecordedChecks(c);
+  };
+  // Picking a position on the screen for a macro check: the next click on the screen, or Esc.
+  const [picking, setPicking] = useState<{ done: (at: Target) => void } | null>(null);
+  useEffect(() => {
+    if (!picking) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setPicking(null); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [picking]);
+  // A new screen ends a pick: the value picked would be from another screen.
+  useEffect(() => { setPicking(null); }, [snap]);
 
   // Help (help/help.ts): the Help button presses the 5250 Help key, and the
   // help panel shows in a popover over the screen the user was on, which stays
@@ -998,6 +1020,7 @@ export function App() {
               ? <ModernScreen view={screenView} binding={binding} locked={!keysEnabled} onAction={onAction}
                   history={screenView.lineMode && !designing ? consoleHistory : undefined}
                   onCursor={(row, col) => { clickedCursor.current = { row, col }; }}
+                  pick={picking && !designView ? (at) => { picking.done(at); setPicking(null); } : undefined}
                   design={designView ? { selected: selection?.at ?? null, onSelect: selectOnScreen, onMove: moveItem, onResize: resizeBox } : undefined} />
               : <ClassicScreen snap={screenSnap} binding={binding} />}
           </form>
@@ -1099,10 +1122,14 @@ export function App() {
           tokenRequired={screens.tokenRequired}
           recorded={recorded}
           onRecord={recordMacro}
+          recordedChecks={recordedChecks}
+          onRecordChecks={recordChecks}
+          onPick={mode === 'modern' ? (done) => setPicking({ done }) : null}
+          picking={picking !== null}
           running={macroNote !== null}
           onTest={(macro, values) => startMacro(macro, values, 'here')}
           onSaved={screens.reload}
-          onClose={() => { recordMacro(false); setMacrosOpen(false); }}
+          onClose={() => { recordMacro(false); setPicking(null); setMacrosOpen(false); }}
         />
       )}
 

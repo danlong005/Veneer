@@ -525,6 +525,10 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .app.designing .keybar { right: 360px; margin-right: 0; }
 .canvas.designing [data-at] { cursor: pointer; }
 .canvas.designing [data-at]:hover { outline: 1px dashed var(--accent-2); outline-offset: 2px; border-radius: 4px; }
+/* Picking a position for a macro check (Macros panel). */
+.canvas.picking { cursor: crosshair; }
+.canvas.picking [data-at] { cursor: crosshair; }
+.canvas.picking [data-at]:hover { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 4px; }
 .canvas.designing .selected { outline: 2px solid var(--accent-2) !important; outline-offset: 2px; border-radius: 4px; }
 .canvas.designing .ghost { opacity: 0.35; text-decoration: line-through; }
 .canvas.designing .table.selected { outline-offset: 4px; }
@@ -734,6 +738,20 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .macro-field input, .macro-namer input { flex: 1; min-width: 6em; font-family: var(--mono); font-size: 12.5px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--surface-2); color: var(--text); }
 .macro-namer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: 100%; }
 .macro-step-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.macro-step-checks > summary { cursor: pointer; font-size: 13px; color: var(--text-muted); }
+.macro-step-checks[open] > summary { margin-bottom: 6px; }
+.macro-checks { display: grid; gap: 6px; }
+.macro-check { display: grid; gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-small); }
+.macro-check-line { display: flex; align-items: center; gap: 6px; }
+.macro-check-line input { flex: 1; min-width: 4em; font-family: var(--mono); font-size: 12.5px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--surface-2); color: var(--text); }
+.macro-check-line input.macro-check-at { flex: 0 0 6em; }
+.macro-check-line input.macro-check-label { font-family: inherit; }
+.macro-check-line .ghost { padding: 2px 6px; }
+.macro-check-what { flex: 0 0 6em; font-size: 12.5px; color: var(--text-muted); }
+.macro-check-now { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.macro-check-now.pass { color: #1f8a5b; }
+.macro-check-now.fail { color: var(--danger); }
+.macro-end-screen { flex: 1; min-width: 0; font-size: 13px; }
 .macro-param { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); }
 .macro-param-head { display: flex; align-items: center; gap: 8px; }
 .macro-param-head .ghost { margin-left: auto; padding: 2px 8px; }
