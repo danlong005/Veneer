@@ -174,3 +174,19 @@ test('on a 5250, headings over rows of option fields without "More..." or "Botto
   }));
   assert.equal(v.items.some((i) => i.kind === 'table'), false);
 });
+
+test('an entry field that starts a column or two left of its heading is in that heading\'s column, not dropped', () => {
+  // DDS often puts the heading over the field's data and the field a column left of it.
+  const snap = render((s) => {
+    s.text(1, 33, 'Order Lines', Attr.WHITE).text(5, 2, 'Line  Item      Qty    Ship date', Attr.WHITE);
+    for (let r = 6; r <= 8; r++) s.text(r, 2, String(r - 5).padStart(3)).field(r, 8, 6).field(r, 17, 5).field(r, 24, 8);
+    return s.text(19, 73, 'More...');
+  });
+  const table = transform(snap).items.find((i): i is TableItem => i.kind === 'table')!;
+  assert.deepEqual(table.columns.map((c) => c.header), ['Line', 'Item', 'Qty', 'Ship date']);
+  assert.deepEqual(table.rows.map((r) => r.cells.map((c) => c.field?.id ?? c.text)), [
+    ['1', '6:8', '6:17', '6:24'],
+    ['2', '7:8', '7:17', '7:24'],
+    ['3', '8:8', '8:17', '8:24'],
+  ]);
+});
