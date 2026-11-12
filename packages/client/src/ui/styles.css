@@ -496,6 +496,8 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .paste-preview td.bad { color: var(--danger, #c0392b); outline: 2px solid var(--danger, #c0392b); outline-offset: -2px; }
 .paste-preview .paste-hint { padding: 6px 8px; }
 .paste-hint { font-size: 13px; }
+.paste-more { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.paste-more input { margin-top: 3px; }
 .paste-problem { color: var(--danger, #c0392b) !important; }
 .paste-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

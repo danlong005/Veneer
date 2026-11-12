@@ -4,7 +4,7 @@ import { hostHasAid, isAidName, type AidName, type HostType } from '@veneer/term
 import { imageSourceKind, isWebTemplate, placeholders } from './links.ts';
 import { THEME_FILE } from './themes.ts';
 import { STYLE_TESTS } from './styles.ts';
-import { BARCODE_FORMATS, CORNERS, DATE_FORMATS, DATE_STYLES, IMAGE_FITS, LABEL_STYLES, LINK_KINDS, MASK_SLOTS, MAX_TEXTAREA_FIELDS, RADIO_LAYOUTS, TIME_FORMATS, DENSITIES, FONTS, LOOKS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type Display, type StyleCondition, type KeyAction, type MacroAction, type ScreenEvent, type SiteCustomization, type SiteStyle, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
+import { BARCODE_FORMATS, CORNERS, PASTE_KEYS, DATE_FORMATS, DATE_STYLES, IMAGE_FITS, LABEL_STYLES, LINK_KINDS, MASK_SLOTS, MAX_TEXTAREA_FIELDS, RADIO_LAYOUTS, TIME_FORMATS, DENSITIES, FONTS, LOOKS, ROLES, SCREEN_EVENTS, SITE_EVENTS, STYLE_TARGETS, type Change, type ComponentOptions, type Display, type StyleCondition, type KeyAction, type MacroAction, type ScreenEvent, type SiteCustomization, type SiteStyle, type ScreenDefinition, type TabBand, type Target, type TextMatch, type Widget } from './types.ts';
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 /** The most rows a screen has: 27 on a 5250, 43 on a 3278 model 4. */
@@ -469,6 +469,7 @@ export function validateDefinition(input: unknown): ScreenDefinition {
     }
   }
   if (Object.keys(scripts).length > 0) def.scripts = scripts;
+  if (o.paste !== undefined) def.paste = { next: oneOf(obj(o.paste, 'paste').next, PASTE_KEYS, 'paste.next') };
   return def;
 }
 

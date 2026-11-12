@@ -2,19 +2,32 @@
 // stopped it, before anything is typed. Nothing is sent to the host; the
 // values become edits, as if typed, and Enter is still the user's to press.
 
+import { useState } from 'react';
 import type { PastePlan } from './paste.ts';
 import { problemText } from './paste.ts';
 
 const PREVIEW_ROWS = 50;
 
-export function PasteDialog({ plan, onPaste, onCancel }: { plan: PastePlan; onPaste: () => void; onCancel: () => void }) {
+export function PasteDialog({ plan, total, next, onPaste, onCancel }: {
+  plan: PastePlan;
+  /** Rows pasted in all. */
+  total: number;
+  /** The key that adds a page's lines, when the screen lets a paste go on to the next pages ("Enter"). */
+  next?: string | undefined;
+  /** `more`: go on to the next pages. */
+  onPaste: (more: boolean) => void;
+  onCancel: () => void;
+}) {
   const count = Object.keys(plan.edits).length;
+  const canGoOn = Boolean(next) && plan.kind !== 'fields' && plan.extraRows > 0 && !plan.problem;
+  const [more, setMore] = useState(canGoOn);
+  const goingOn = canGoOn && more;
   const problem = problemText(plan);
   const shown = plan.rows.slice(0, PREVIEW_ROWS);
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="paste-title" onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}>
-      <form className="dialog paste-dialog" onSubmit={(e) => { e.preventDefault(); onPaste(); }}>
-        <h2 id="paste-title">Paste {plan.kind === 'fields' ? `into ${plural(plan.columns.length, 'field')}` : plural(plan.rows.length, 'row')}</h2>
+      <form className="dialog paste-dialog" onSubmit={(e) => { e.preventDefault(); onPaste(goingOn); }}>
+        <h2 id="paste-title">Paste {plan.kind === 'fields' ? `into ${plural(plan.columns.length, 'field')}` : goingOn ? `${plural(total, 'row')}, ${plan.rows.length} on this page` : plural(plan.rows.length, 'row')}</h2>
         <div className="paste-preview">
           <table>
             <thead>
@@ -41,11 +54,17 @@ export function PasteDialog({ plan, onPaste, onCancel }: { plan: PastePlan; onPa
           {plan.rows.length > shown.length && <p className="paste-hint">And {plural(plan.rows.length - shown.length, 'more row')}.</p>}
         </div>
         {problem && <p className="paste-problem" role="alert">It stops here. {problem}{count > 0 ? ' The cells before it are pasted.' : ''}</p>}
-        {plan.extraRows > 0 && <p className="paste-hint">This screen has room for {plural(plan.rows.length, 'row')} from here; the other {plural(plan.extraRows, 'row')} aren't pasted. Press Enter or Page Down, then paste them on the next page.</p>}
+        {canGoOn && (
+          <label className="paste-more">
+            <input type="checkbox" checked={more} onChange={(e) => setMore(e.target.checked)} />
+            <span>Press {next} after this page and paste the other {plural(plan.extraRows, 'row')} on the next pages. The last page is filled for you to check and send.</span>
+          </label>
+        )}
+        {plan.extraRows > 0 && !goingOn && <p className="paste-hint">This screen has room for {plural(plan.rows.length, 'row')} from here; the other {plural(plan.extraRows, 'row')} aren't pasted. Press Enter or Page Down, then paste them on the next page.</p>}
         {plan.extraCols > 0 && <p className="paste-hint">{plural(plan.extraCols, 'column')} at the right {plan.extraCols === 1 ? 'has' : 'have'} no field to go in and {plan.extraCols === 1 ? 'isn\'t' : 'aren\'t'} pasted.</p>}
-        <p className="paste-hint">Blank cells leave their fields as they are. Nothing is sent until you press Enter.</p>
+        <p className="paste-hint">Blank cells leave their fields as they are.{goingOn ? ' Esc stops between pages.' : ' Nothing is sent until you press Enter.'}</p>
         <div className="dialog-actions">
-          <button type="submit" className="primary" autoFocus disabled={count === 0}>Paste {plural(count, 'value')}</button>
+          <button type="submit" className="primary" autoFocus disabled={count === 0}>{goingOn ? `Paste ${plural(total, 'row')}` : `Paste ${plural(count, 'value')}`}</button>
           <button type="button" className="ghost" onClick={onCancel}>Cancel</button>
         </div>
       </form>

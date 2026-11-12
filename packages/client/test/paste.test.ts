@@ -5,11 +5,12 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Widget } from '@veneer/screens';
+import { validateDefinition, type Widget } from '@veneer/screens';
 import type { FieldSnapshot } from '@veneer/terminal';
 import { Attr } from '@veneer/tn5250';
 import { customize, transform } from '@veneer/view';
-import { fieldValue, isRows, parseRows, pasteGrid, planPaste, problemText, type PastePlan } from '../src/paste/paste.ts';
+import { fieldValue, firstLine, isRows, parseRows, pasteGrid, planPaste, planRows, problemText, type PastePlan } from '../src/paste/paste.ts';
+import { PasteRun } from '../src/paste/run.ts';
 import { orderEntry, render, workWithJobs } from './screens.ts';
 
 const { WHITE, BLUE } = Attr;
@@ -135,4 +136,78 @@ test('a customization\'s widgets apply in a list\'s columns', () => {
     id: 'order-lines', changes: [{ op: 'widget', field: '6:25', widget: { type: 'date', format: 'YYYYMMDD' } }],
   } as unknown as Parameters<typeof customize>[1]);
   assert.equal(p.edits['6:25'], '20261201');
+});
+
+// ---- going on to the next pages (run.ts) ----
+
+/** The order lines page with these values typed in its first line (as a page the host gave back). */
+const linesWith = (first: { item?: string; qty?: string } = {}) => render((s) => {
+  s.text(1, 33, 'Order Lines', WHITE).text(3, 2, 'Customer').field(3, 12, 6)
+    .text(5, 2, 'Line  Item      Qty    Ship date', WHITE);
+  for (let r = 6; r <= 10; r++) {
+    s.text(r, 2, String(r - 5).padStart(3))
+      .field(r, 8, 6, { ffw: 0x4020, ...(r === 6 && first.item ? { value: first.item } : {}) })
+      .field(r, 18, 5, { ffw: 0x4700, ...(r === 6 && first.qty ? { value: first.qty } : {}) })
+      .field(r, 25, 8, { ffw: 0x4300 });
+  }
+  return s.text(19, 73, 'More...').text(22, 2, 'F3=Exit   F12=Cancel', BLUE);
+});
+
+const sheet = (n: number) => Array.from({ length: n }, (_, i) => [`I${i + 1}`, String(i + 1)]);
+const ID = 'order-lines';
+
+function begin(data: string[][], at = '8:8') {
+  const snap = orderLines();
+  const first = planRows(transform(snap), at, data) as PastePlan;
+  const run = new PasteRun(first, data, ID, snap.fields.find((f) => f.id === at)!, 'Enter');
+  return { run, step: run.begin() };
+}
+const next = (run: PasteRun, snap = linesWith(), opts: { screen?: string; error?: string } = {}) =>
+  run.onScreen(transform(snap), opts.screen ?? ID, snap.fields, opts.error ?? null);
+
+test('more rows than the page: each full page is sent, the rest goes on the next page from its first line, and the last is left to check', () => {
+  const { run, step } = begin(sheet(12));
+  assert.deepEqual(step, { send: { fields: { '8:8': 'I1', '8:18': '1', '9:8': 'I2', '9:18': '2', '10:8': 'I3', '10:18': '3' } } }, 'from line 3: three rows on the first page');
+  assert.deepEqual(run.progress, { rows: 3, total: 12, pages: 1 });
+  const second = next(run);
+  assert.ok('send' in second);
+  assert.equal(second.send.fields['6:8'], 'I4', 'the next page starts on its first line');
+  assert.equal(second.send.fields['10:8'], 'I8');
+  const last = next(run);
+  assert.deepEqual(last, { done: true, error: null, edits: { '6:8': 'I9', '6:18': '9', '7:8': 'I10', '7:18': '10', '8:8': 'I11', '8:18': '11', '9:8': 'I12', '9:18': '12' } });
+  assert.deepEqual(run.progress, { rows: 12, total: 12, pages: 2 });
+});
+
+test('it stops on a host error, another screen, a page given back, a bad value, or Cancel', () => {
+  let r = begin(sheet(12)).run;
+  assert.deepEqual(next(r, linesWith(), { error: 'Quantity must be more than 0.' }), { done: true, edits: {}, error: 'The host refused the page: Quantity must be more than 0. 9 rows were not pasted.' });
+  r = begin(sheet(12)).run;
+  assert.equal((next(r, linesWith(), { screen: 'menu' }) as { error: string }).error, 'After Enter, the host showed another screen. 9 rows were not pasted.');
+  r = begin(sheet(12), '6:8').run;
+  assert.match((next(r, linesWith({ item: 'I1', qty: '1' })) as { error: string }).error, /^The host didn't take the page\. 7 rows were not pasted\.$/);
+  r = begin(sheet(12)).run;
+  r.cancel();
+  assert.equal((next(r) as { error: string }).error, 'Cancelled. 9 rows were not pasted.');
+  // A value on the second page that a field won't take: the row counted in the whole paste.
+  const data = sheet(12);
+  data[5] = ['TOOLONG1', '6'];
+  r = begin(data).run;
+  const stop = next(r);
+  assert.ok('done' in stop);
+  assert.equal(stop.error, 'Row 6, column 1 (Item): “TOOLONG1” is longer than the field (6 characters). The rows from there on were not pasted.');
+  assert.deepEqual(stop.edits, { '6:8': 'I4', '6:18': '4', '7:8': 'I5', '7:18': '5' });
+});
+
+test('the next page starts on the first line in the paste\'s column, in a list or repeated lines', () => {
+  const lines = transform(orderLines());
+  assert.equal(firstLine(lines, orderLines().fields.find((f) => f.id === '9:18')!), '6:18');
+  const quick = repeated();
+  assert.equal(firstLine(transform(quick), quick.fields.find((f) => f.id === '6:30')!), '4:30');
+});
+
+test('a definition says which key goes on to the next page', () => {
+  const base = { id: 'x', name: 'X', match: { screenIds: ['00000000000000'], text: [] }, changes: [] };
+  assert.deepEqual(validateDefinition({ ...base, paste: { next: 'PageDown' } }).paste, { next: 'PageDown' });
+  assert.throws(() => validateDefinition({ ...base, paste: { next: 'F8' } }), /paste\.next.*must be one of Enter, PageDown/);
+  assert.equal(validateDefinition(base).paste, undefined);
 });

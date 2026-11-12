@@ -228,7 +228,11 @@ export interface PastePlan {
  * preview's rows end there.
  */
 export function planPaste(view: ScreenView, at: string, text: string): PastePlan | { error: string } {
-  const data = parseRows(text);
+  return planRows(view, at, parseRows(text));
+}
+
+/** planPaste for rows already read, such as the rows left for the next page. */
+export function planRows(view: ScreenView, at: string, data: readonly string[][]): PastePlan | { error: string } {
   const cells = data.reduce((n, r) => n + r.length, 0);
   if (cells > MAX_PASTE_CELLS) return { error: `That's ${cells} cells; paste at most ${MAX_PASTE_CELLS} at a time.` };
   const width = Math.max(0, ...data.map((r) => r.length));
@@ -265,4 +269,22 @@ export function problemText(plan: PastePlan): string | undefined {
   const p = plan.problem;
   if (!p) return undefined;
   return `Row ${p.row}, column ${p.col}${p.name && !/^\d+:\d+$/.test(p.name) ? ` (${p.name})` : ''}: ${p.message}`;
+}
+
+/**
+ * Where the rest of a paste goes on the next page: the field in the same
+ * column as `start` on the first line of the list (or of the repeated lines).
+ */
+export function firstLine(view: ScreenView, start: FieldSnapshot): string | undefined {
+  const all = inputs(view);
+  const at = all.find((t) => t.field.id === start.id) ?? all.find((t) => t.field.col === start.col && t.field.row >= start.row);
+  const table = at?.table;
+  const column = all.filter((t) => t.field.col === start.col && t.table === table);
+  if (!table) {
+    // Repeated lines: walk up from where the paste started while the line above has a field in this column.
+    let top = column.find((t) => t.field.row === start.row);
+    while (top && column.some((t) => t.field.row === top!.field.row - 1)) top = column.find((t) => t.field.row === top!.field.row - 1);
+    return top?.field.id;
+  }
+  return column[0]?.field.id;
 }

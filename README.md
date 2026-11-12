@@ -347,9 +347,21 @@ as 1250. Widgets take what a spreadsheet holds:
 The first value a field won't take stops the paste there. The preview marks that cell
 and says which row and column it is ("Row 3, column 2 (Qty): “1.5” has characters the
 field doesn't take"), and the cells before it are still pasted. Blank cells leave their
-fields as they are. Rows and columns that have no field to go into aren't pasted. When
-there are more rows than the page has lines, press Enter or Page Down to add the page,
-then paste the rest on the next one. Try it on the demo's option 19, **Order lines**.
+fields as they are. Rows and columns that have no field to go into aren't pasted.
+
+**More rows than the page has lines.** By default the paste fills the page and stops:
+press Enter or Page Down to add the page, then paste the rest on the next one. A screen
+whose customization allows it (**Pasting rows** on the designer's Page tab, or
+`"paste": { "next": "Enter" }` or `"PageDown"` in its definition) can go on by itself.
+The preview then offers to press that key after each full page and paste the rest from
+the next page's first line, with a progress window and **Cancel** (Esc). It stops, with
+what it filled kept, on a host error, on another screen, on a page the host gives back
+still filled (it found a problem with a line), or on a value a field won't take, and
+says how many rows weren't pasted. The last page is filled but not sent, for you to check
+and press Enter. Only turn this on for screens where that key does nothing but add the
+page's lines.
+
+Try it on the demo's option 19, **Order lines**, which is set to go on with Enter.
 
 ## Type-ahead
 

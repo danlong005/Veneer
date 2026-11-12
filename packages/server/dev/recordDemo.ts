@@ -9,7 +9,7 @@ import { getCodepage, type ScreenSnapshot } from '@veneer/terminal';
 import * as tn3270 from '@veneer/tn3270';
 import * as tn5250 from '@veneer/tn5250';
 import { ScreenStore } from '../src/store.ts';
-import { contacts, customerAddresses, jobs, mainMenu, orderEntry, shippingNotes, spoolFile } from './demoHost.ts';
+import { contacts, customerAddresses, jobs, mainMenu, orderEntry, orderLines, shippingNotes, spoolFile } from './demoHost.ts';
 import { CUSTOMERS as CUSTOMERS_3270, orders as orders3270, update, type Capabilities } from './demoHost3270.ts';
 import { DEFAULT_ORDER, ORDER_VIEWS, billOfMaterials, deliveryOptions, orderStatus, orders, type OrderView } from './demoOrders.ts';
 import { fileURLToPath } from 'node:url';
@@ -39,6 +39,7 @@ const screens: ScreenSnapshot[] = [
   screen5250(contacts(0, undefined, 'cards')),
   screen5250(contacts(0, undefined, 'map')),
   screen5250(shippingNotes()),
+  screen5250(orderLines(0)),
   screen5250(spoolFile(0)),
   ...(Object.keys(ORDER_VIEWS) as OrderView[]).map((view) => screen5250(orders(0, view, undefined, today))),
   screen5250(orderStatus(DEFAULT_ORDER, undefined, today)),
