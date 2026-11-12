@@ -90,6 +90,9 @@ interface TableFrom {
 }
 
 /** A table whose data ends on `markerRow` (or the row above, if the marker is alone on it). */
+/** How far left of its heading an input field can start and still be in its column. */
+const MAX_FIELD_LEAD = 3;
+
 function buildTable(ctx: TransformContext, markerRow: number, from: TableFrom): void {
   const { marker } = from;
   const right = ctx.region.right;
@@ -140,6 +143,19 @@ function buildTable(ctx: TransformContext, markerRow: number, from: TableFrom): 
     const straddles = (col: number) => [...lines.values()].some((l) => l[col - 2] !== ' ' && l[col - 1] !== ' ');
     while (b - 1 > bounds[k - 1]! && straddles(b)) b--;
     bounds[k] = b;
+  }
+  // A cell holds one field. An input field a little left of its heading (DDS
+  // often puts the heading over the field's data, a column or two in) would
+  // share the column before with that column's own field, and be dropped:
+  // the edge moves left to it instead, unless that would cut text shown on a row.
+  for (let k = 1; k < bounds.length; k++) {
+    for (const r of dataRows) {
+      const inLeft = ctx.fieldsOn(r).filter((f) => f.col >= bounds[k - 1]! && f.col < bounds[k]!);
+      const last = inLeft[inLeft.length - 1];
+      if (inLeft.length < 2 || !last || bounds[k]! - last.col > MAX_FIELD_LEAD) continue;
+      const cuts = dataRows.some((d) => ctx.chunks(d).some((c) => c !== marker && c.col < last.col && c.end > last.col));
+      if (!cuts) bounds[k] = last.col;
+    }
   }
   const options = optionsLegend(ctx, top);
   const optionCol = options.length > 0 ? optionColumn(bounds, dataFields) : -1;
