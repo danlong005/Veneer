@@ -24,7 +24,7 @@ import { ComponentEditor, ComponentsSection, componentForFieldChange } from './C
 import { TextAreaPart, WidgetEditor, defaultWidget, showAsChoices } from './Widgets.tsx';
 import { ColumnDisplays, TextDisplay } from './Displays.tsx';
 import { ImageEditor, LabelEditor, LabelsSection } from './Placed.tsx';
-import type { ScreenView } from '@veneer/view';
+import { listOf, type ScreenView } from '@veneer/view';
 import {
   addScreenId, buttonsOf, cardAround, cardsOf, componentAt, componentForField, formatOptions, freeSpot, htmlAt, htmlOf, imageAt, isHidden, labelAt, originalText, parseOptions, removeScreenId, roleOf, setButtons, setPlaced,
   ROLE_LABELS, moveOf, setCard, setComponent, setCss, setHidden, setHtml, setMove, setScript, setRole, setText, setWidget, textAreaOf, textOf, widgetOf, type Selection,
@@ -441,6 +441,28 @@ export function DesignPanel(props: Props) {
                 : '✗ Does not match this screen'}
             </p>
           </Section>
+
+          {(draft.paste || listOf(props.view)) && (
+            <Section title="Pasting rows" note={draft.paste ? `goes on with ${keyHint(draft.paste.next, snap.host)}` : undefined} inUse={Boolean(draft.paste)}>
+              <label className="dp-row">More rows than fit
+                <select
+                  value={draft.paste?.next ?? ''}
+                  onChange={(e) => {
+                    const { paste: _omit, ...rest } = draft;
+                    setDraft(e.target.value ? { ...rest, paste: { next: e.target.value as 'Enter' | 'PageDown' } } : rest);
+                  }}
+                >
+                  <option value="">Fill this page only</option>
+                  <option value="Enter">Press Enter, go on to the next page</option>
+                  <option value="PageDown">Press Page Down, go on to the next page</option>
+                </select>
+              </label>
+              <p className="dp-hint">
+                For rows pasted from a spreadsheet into this list. Going on presses the key for each full page,
+                so choose it only where that key just adds the page's lines and shows an empty page.
+              </p>
+            </Section>
+          )}
 
           <ChangesList draft={draft} setDraft={setDraft} view={props.view} snap={snap} onSelect={props.onSelect} />
 

@@ -1,0 +1,95 @@
+{
+  "id": "demo-order-lines",
+  "name": "Demo order lines",
+  "match": {
+    "screenIds": [
+      "1f3e95623ab918"
+    ],
+    "text": []
+  },
+  "changes": [
+    {
+      "op": "widget",
+      "field": "7:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "8:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "9:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "10:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "11:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "12:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "13:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "14:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "15:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    },
+    {
+      "op": "widget",
+      "field": "16:27",
+      "widget": {
+        "type": "date",
+        "format": "YYYYMMDD"
+      }
+    }
+  ],
+  "paste": {
+    "next": "Enter"
+  }
+}

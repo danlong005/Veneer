@@ -17,7 +17,8 @@ import * as map from '../dev/components/map.js';
 import * as listTable from '../dev/components/list-table.js';
 import * as spool from '../dev/components/spool.js';
 import * as totals from '../dev/components/totals.js';
-import { CONTACTS, CONTACTS_PAGE, CUSTOMERS, DemoHost, NOTE_ROWS, SHIP_VIA, SPOOL_LINES, SPOOL_PAGE, contacts, customerAddresses, jobs, orderEntry, shippingNotes, spoolFile } from '../dev/demoHost.ts';
+import { CONTACTS, CONTACTS_PAGE, CUSTOMERS, DemoHost, NOTE_ROWS, SHIP_VIA, SPOOL_LINES, SPOOL_PAGE, contacts, customerAddresses, jobs, orderEntry, orderLines, shippingNotes, spoolFile } from '../dev/demoHost.ts';
+import { planPaste } from '../../client/src/paste/paste.ts';
 import { stepValue } from '../../client/src/ui/spinner.ts';
 import { fitText, textOf } from '../../client/src/ui/textArea.ts';
 
@@ -333,4 +334,36 @@ test('the demo spool file: a page at a time under the ruler, "Bottom" on the las
   const text = spool.documentOf(Array.from({ length: pages }, (_, p) => screen(spoolFile(p)).lines.slice(region.from! - 1, region.to)));
   assert.deepEqual(text, spool.documentOf([SPOOL_LINES.map((l) => ` ${l}`)]), 'every line of the report, in order');
   assert.ok(SPOOL_LINES.every((l) => l.length <= 78), 'each line fits the screen');
+});
+
+test('on the demo host, rows pasted into the order lines are added as typed lines', async (t) => {
+  // The screen is a list of entry lines: item, quantity and ship date under their headings.
+  const plan = planPaste(transform(screen(orderLines(0))), '7:8', 'ab12\t5\t20261201\ncd34\t-2\t\nef56\t1\t20270115\n');
+  assert.ok(!('error' in plan));
+  assert.deepEqual(plan.columns.map((c) => c?.name), ['Item', 'Qty', 'Ship date']);
+  assert.deepEqual(plan.edits, { '7:8': 'AB12', '7:18': '5', '7:27': '20261201', '8:8': 'CD34', '8:18': '2-', '9:8': 'EF56', '9:18': '1', '9:27': '20270115' });
+
+  const host = new DemoHost();
+  const port = await host.listen();
+  const session = new Session({ host: '127.0.0.1', port, connectTimeoutMs: 5000 });
+  t.after(() => { session.close(); host.server.close(); });
+  await session.connect();
+  await session.waitForInput(5000);
+  const send = async (aid: Parameters<Session['submit']>[0]['aid'], fields?: Record<string, string>) => {
+    session.submit({ aid, ...(fields ? { fields } : {}) });
+    return session.waitForInput(5000);
+  };
+  await send('Enter', { '6:53': 'DEMO' });
+  let snap = await send('Enter', { '20:7': '19' });
+  assert.match(snap.lines[0]!, /Order Lines/);
+  snap = await send('Enter', plan.edits);
+  assert.match(snap.lines[23]!, /3 lines added; 3 on the order\./);
+  assert.equal(snap.fields.find((f) => f.id === '7:8')!.value.trim(), '', 'an empty page for the next lines');
+  assert.match(snap.lines[6]!, /^ {4}4 /, 'numbered from the next line');
+
+  // A line the program refuses: shown again as typed, the cursor on it.
+  snap = await send('Enter', { '7:8': 'GH78', '8:18': '3' });
+  assert.match(snap.lines[23]!, /Line 4 needs a quantity\./);
+  assert.equal(snap.fields.find((f) => f.id === '7:8')!.value.trim(), 'GH78');
+  assert.deepEqual(snap.cursor, { row: 7, col: 8 });
 });

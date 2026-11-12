@@ -254,7 +254,16 @@ export interface ScreenDefinition {
   css?: string;
   /** JavaScript run on screen events (see SCREEN_EVENTS). */
   scripts?: Partial<Record<ScreenEvent, string>>;
+  /**
+   * Rows pasted from a spreadsheet that don't fit on the page: fill it, press
+   * `next` to add it, and paste the rest on the page that follows. Only for
+   * screens where that key does nothing but take the page's lines.
+   */
+  paste?: { next: PasteKey };
 }
+
+export const PASTE_KEYS = ['Enter', 'PageDown'] as const;
+export type PasteKey = (typeof PASTE_KEYS)[number];
 
 /**
  * When a screen's scripts run: `load` when the screen opens (coming from a

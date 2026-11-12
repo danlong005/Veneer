@@ -35,6 +35,9 @@ import { useScreens } from './useScreens.ts';
 import { sysreqField } from './sysreq.ts';
 import { NEW_SESSION, useSession } from './useSession.ts';
 import { SignOnPage } from './SignOnPage.tsx';
+import { PasteDialog } from '../paste/PasteDialog.tsx';
+import { isRows, parseRows, planRows, problemText, type PastePlan } from '../paste/paste.ts';
+import { PasteRun, type PasteProgress, type PasteStep } from '../paste/run.ts';
 
 type Mode = 'modern' | 'classic';
 
@@ -542,6 +545,80 @@ export function App() {
     startMacro(macro, given, 'here');
   };
   // Go to: macros chosen for the menu, asking for any values they need.
+  // Rows pasted from a spreadsheet into an entry field: previewed, then edits (paste.ts).
+  const [pasting, setPasting] = useState<{ plan: PastePlan; data: string[][]; at: string } | null>(null);
+  // Going on to the next pages (run.ts): the run, and its progress once a page is sent.
+  const pasteJob = useRef<{ run: PasteRun; key: AidName } | null>(null);
+  const [pasteProgress, setPasteProgress] = useState<PasteProgress | null>(null);
+  const pasteNow = useRef<{ view: ScreenView | null; ready: boolean }>({ view: null, ready: false });
+  pasteNow.current = { view, ready: canSubmit && !designing && macroNote === null && exportProgress === null && !pasteJob.current };
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const el = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-field]') : null;
+      const text = e.clipboardData?.getData('text/plain') ?? '';
+      if (!el || ownKeys(el) || !isRows(text)) return;
+      e.preventDefault();
+      const { view: v, ready } = pasteNow.current;
+      if (!v || !ready) return setNotice({ id: Date.now(), message: 'Wait for the screen before pasting.' });
+      const data = parseRows(text);
+      const at = el.dataset.field!;
+      const plan = planRows(v, at, data);
+      if ('error' in plan) return setNotice({ id: Date.now(), message: plan.error });
+      if (Object.keys(plan.edits).length === 0 && plan.problem) return setNotice({ id: Date.now(), message: problemText(plan)! });
+      setPasting({ plan, data, at });
+    };
+    window.addEventListener('paste', onPaste, true);
+    return () => window.removeEventListener('paste', onPaste, true);
+  }, []);
+  // A new screen: the fields the paste was for are gone.
+  useEffect(() => setPasting(null), [snap]);
+  // The key that adds a page's lines, on screens whose definition allows going on.
+  const pasteNext = definition?.paste ? (definition.paste.next === 'PageDown' ? pageKeys?.down : 'Enter') : undefined;
+
+  const fillPasted = (values: Record<string, string>, from: ScreenSnapshot) => {
+    setEdits((e) => ({ ...e, ...values }));
+    const ids = Object.keys(values);
+    const lastId = ids[ids.length - 1];
+    if (lastId) focusTarget.current = endOf(from, values, lastId);
+  };
+  const startPaste = () => {
+    if (!pasting || !snap || !pasteNext) return;
+    const field = snap.fields.find((f) => f.id === pasting.at);
+    if (!field) return;
+    const run = new PasteRun(pasting.plan, pasting.data, screenId(snap), field, keyHint(pasteNext, hostType));
+    pasteJob.current = { run, key: pasteNext };
+    setPasting(null);
+    pasteStep(run.begin(), snap, edits);
+  };
+  /** The run's next step on `from`; `typed` are the user's own edits, sent with the first page. */
+  const pasteStep = (step: PasteStep, from: ScreenSnapshot, typed: Record<string, string> = {}) => {
+    const job = pasteJob.current;
+    if (!job) return;
+    if ('send' in step) {
+      const values = { ...typed, ...step.send.fields };
+      const problem = job.key === 'Enter' ? checkFields(from.fields, values) : null;
+      if (problem) {
+        pasteJob.current = null;
+        setPasteProgress(null);
+        fillPasted(values, from);
+        setNotice({ id: Date.now(), message: `${problem.message} The paste stopped before pressing Enter.` });
+        return;
+      }
+      setPasteProgress(job.run.progress);
+      latest.current.sendAid(job.key, values, from.cursor);
+      return;
+    }
+    pasteJob.current = null;
+    setPasteProgress(null);
+    fillPasted(step.edits, from);
+    const { rows, pages } = job.run.progress;
+    setNotice({
+      id: Date.now(),
+      message: step.error ?? `Pasted all ${rows} rows${pages > 0 ? `, ${pages} ${pages === 1 ? 'page' : 'pages'} sent` : ''}. Check this page, then press Enter.`,
+    });
+  };
+  const cancelPaste = () => pasteJob.current?.run.cancel();
+
   const [asking, setAsking] = useState<Macro | null>(null);
   const goTo = (macro: Macro) => (Object.keys(macro.params ?? {}).length > 0 ? setAsking(macro) : startMacro(macro, {}, 'here'));
   // A deep link (?macro=name&param=value) runs in the new session it opened, after sign-on.
@@ -727,6 +804,14 @@ export function App() {
       return;
     }
     // A host error stops a macro, leaving the user on that screen to see it.
+    // A host error while pasting page by page stops it there, for the user to see.
+    if (snap.error && pasteJob.current && view) {
+      awaitingNow.current = false;
+      setAwaitingSeq(null);
+      setEdits({});
+      pasteStep(pasteJob.current.run.onScreen(view, screenId(snap), snap.fields, snap.error), snap);
+      return;
+    }
     if (snap.error && macroJob.current) {
       awaitingNow.current = false;
       setAwaitingSeq(null);
@@ -761,6 +846,12 @@ export function App() {
     setAwaitingSeq(null);
     if (exporting.current && view) {
       jobStep(exporting.current.runner.onScreen(view, screenId(snap)), snap);
+      return;
+    }
+    if (pasteJob.current && view) {
+      // A new page: what was typed on the last one was sent with it.
+      setEdits({});
+      pasteStep(pasteJob.current.run.onScreen(view, screenId(snap), snap.fields, null), snap);
       return;
     }
     if (macroJob.current) {
@@ -843,6 +934,12 @@ export function App() {
         if (e.key === 'Escape') exporting.current.runner.cancel();
         return;
       }
+      // The same while a paste goes on page by page.
+      if (pasteJob.current) {
+        e.preventDefault();
+        if (e.key === 'Escape') pasteJob.current.run.cancel();
+        return;
+      }
       // While help is open: Esc closes it, Page Down shows more; other keys wait.
       if (helping.current) {
         if (e.key === 'Escape') { e.preventDefault(); helpKeys.current.close(); }
@@ -872,7 +969,7 @@ export function App() {
     // Text that arrives without a usable keydown (mobile keyboards, IMEs, paste).
     const onBeforeInput = (e: InputEvent) => {
       if (ownKeys(e.target)) return;
-      if (exporting.current) { e.preventDefault(); return; }
+      if (exporting.current || pasteJob.current) { e.preventDefault(); return; }
       if (!typingAheadNow.current && !awaitingNow.current) return;
       e.preventDefault();
       if (e.inputType !== 'insertText' || !e.data) return;
@@ -1131,6 +1228,30 @@ export function App() {
           onSaved={screens.reload}
           onClose={() => { recordMacro(false); setPicking(null); setMacrosOpen(false); }}
         />
+      )}
+
+      {pasting && (
+        <PasteDialog
+          plan={pasting.plan}
+          total={pasting.data.length}
+          next={pasteNext ? keyHint(pasteNext, hostType) : undefined}
+          onCancel={() => setPasting(null)}
+          onPaste={(more) => {
+            if (more) return startPaste();
+            if (snap) fillPasted(pasting.plan.edits, snap);
+            setPasting(null);
+          }}
+        />
+      )}
+
+      {pasteProgress && (
+        <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="paste-progress-title">
+          <div className="dialog">
+            <h2 id="paste-progress-title">Pasting rows</h2>
+            <p role="status">Page {pasteProgress.pages}: {pasteProgress.rows} of {pasteProgress.total} rows sent…</p>
+            <button type="button" className="ghost" onClick={cancelPaste}>Cancel (Esc)</button>
+          </div>
+        </div>
       )}
 
       {exportProgress && (

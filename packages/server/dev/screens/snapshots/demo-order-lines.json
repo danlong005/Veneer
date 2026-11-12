@@ -1,0 +1,1824 @@
+{
+ "name": "demo-order-lines",
+ "definition": "demo-order-lines",
+ "screen": {
+  "host": "5250",
+  "rows": 24,
+  "cols": 80,
+  "cursor": {
+   "row": 1,
+   "col": 1
+  },
+  "keyboardLocked": false,
+  "messageWaiting": false,
+  "error": null,
+  "messageRow": 24,
+  "lines": [
+   " ORD200                           Order Lines                                   ",
+   "                                                                                ",
+   " Type the order's lines, press Enter or Page Down to add them.                  ",
+   " Order 104580     Lines so far: 0                                               ",
+   "                                                                                ",
+   " Line  Item      Qty      Ship date                                             ",
+   "    1                                                                           ",
+   "    2                                                                           ",
+   "    3                                                                           ",
+   "    4                                                                           ",
+   "    5                                                                           ",
+   "    6                                                                           ",
+   "    7                                                                           ",
+   "    8                                                                           ",
+   "    9                                                                           ",
+   "   10                                                                           ",
+   "                                                                                ",
+   "                                                                        More... ",
+   "                                                                                ",
+   "                                                                                ",
+   "                                                                                ",
+   " F3=Exit   F12=Cancel                                                           ",
+   "                                                                                ",
+   "                                                                                "
+  ],
+  "segments": [
+   [
+    {
+     "col": 1,
+     "text": " ORD200                          ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 34,
+     "text": " Order Lines",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 46,
+     "text": "                                   ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Type the order's lines, press Enter or Page Down to add them.",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 63,
+     "text": "                  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Order 104580     Lines so far: 0                                               ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " Line  Item      Qty      Ship date",
+     "attr": {
+      "color": "white",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 36,
+     "text": "                                             ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    1  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    2  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    3  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    4  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    5  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    6  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    7  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    8  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "    9  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "   10  ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 8,
+     "text": "      ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 14,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 18,
+     "text": "     ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 23,
+     "text": "    ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 27,
+     "text": "        ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": true,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 35,
+     "text": "                                              ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                        More... ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": " F3=Exit   F12=Cancel",
+     "attr": {
+      "color": "blue",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    },
+    {
+     "col": 22,
+     "text": "                                                           ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ],
+   [
+    {
+     "col": 1,
+     "text": "                                                                                ",
+     "attr": {
+      "color": "green",
+      "reverse": false,
+      "underline": false,
+      "blink": false,
+      "columnSeparator": false,
+      "nonDisplay": false
+     }
+    }
+   ]
+  ],
+  "fields": [
+   {
+    "id": "7:8",
+    "row": 7,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "7:18",
+    "row": 7,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "7:27",
+    "row": 7,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "8:8",
+    "row": 8,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "8:18",
+    "row": 8,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "8:27",
+    "row": 8,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "9:8",
+    "row": 9,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "9:18",
+    "row": 9,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "9:27",
+    "row": 9,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "10:8",
+    "row": 10,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "10:18",
+    "row": 10,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "10:27",
+    "row": 10,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "11:8",
+    "row": 11,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "11:18",
+    "row": 11,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "11:27",
+    "row": 11,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "12:8",
+    "row": 12,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "12:18",
+    "row": 12,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "12:27",
+    "row": 12,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "13:8",
+    "row": 13,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "13:18",
+    "row": 13,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "13:27",
+    "row": 13,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "14:8",
+    "row": 14,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "14:18",
+    "row": 14,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "14:27",
+    "row": 14,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "15:8",
+    "row": 15,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "15:18",
+    "row": 15,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "15:27",
+    "row": 15,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "16:8",
+    "row": 16,
+    "col": 8,
+    "length": 6,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": true,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "alpha",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "16:18",
+    "row": 16,
+    "col": 18,
+    "length": 5,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "signedNumeric",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   },
+   {
+    "id": "16:27",
+    "row": 16,
+    "col": 27,
+    "length": 8,
+    "value": "",
+    "bypass": false,
+    "modified": false,
+    "monocase": false,
+    "mandatoryEnter": false,
+    "autoEnter": false,
+    "shift": "numericOnly",
+    "adjust": "none",
+    "attr": {
+     "color": "green",
+     "reverse": false,
+     "underline": true,
+     "blink": false,
+     "columnSeparator": false,
+     "nonDisplay": false
+    }
+   }
+  ]
+ },
+ "recorded": "2026-11-12T16:07:26.346Z"
+}

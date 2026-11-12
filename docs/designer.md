@@ -82,7 +82,8 @@ customizing](#find-the-screens-worth-customizing).
 **The Page tab** is in three groups of sections. A section opens by itself when it has
 something in it, and its heading shows a count (**Buttons · 2**) even when it's closed.
 
-- **Page:** **Customization**, **Recognised by**, **All changes**, **Buttons**
+- **Page:** **Customization**, **Recognised by**, **Pasting rows** (screens with a list),
+  **All changes**, **Buttons**
 - **Layout and behavior:** **Styles**, **Cards**, **Tabs**, **Components**, **Labels and
   images**, **HTML**
 - **Code:** **Page CSS**, **Page JavaScript**
@@ -201,6 +202,18 @@ Click the input field, then choose from **Show as**: **Dropdown**, **Radio butto
 **Checkbox**, **Switch**, **Date picker**, **Time picker**, **Text area**, **Masked
 input** or **Lookup**. Its settings appear below. The [widgets
 guide](widgets.md#field-widgets) covers each one.
+
+### Let a paste fill more than one page
+
+Users can paste rows from a spreadsheet into a list of entry fields (see [Pasting rows from
+a spreadsheet](../README.md#pasting-rows-from-a-spreadsheet)). By default a paste fills the
+page on screen and stops. On the **Page** tab, **Pasting rows** › **More rows than fit**
+can instead press **Enter** or **Page Down** after each full page and go on pasting on the
+next one. Choose it only for a screen where that key just adds the page's lines and shows
+an empty page to type more, such as an order's line entry: Veneer presses it for every
+full page. The last page is filled but not sent, so the user checks it and presses Enter.
+Widgets on the list's fields, such as a date picker on a ship date column, also let a
+paste take dates as `YYYY-MM-DD`.
 
 ### Show text as a badge, number, date or link
 

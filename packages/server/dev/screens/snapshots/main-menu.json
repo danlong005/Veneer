@@ -25,7 +25,7 @@
    "     6. Customer contacts without the cards  16. Delivery options (widgets)     ",
    "     7. Shipping notes (widgets demo)        17. Bill of materials (tree)       ",
    "     8. Problem handling                     18. Contacts by city (pin map)     ",
-   "     9. Display a menu                                                          ",
+   "     9. Display a menu                       19. Order lines (paste rows)       ",
    "    10. Information Assistant options                                           ",
    "                                                                                ",
    "                                                                                ",
@@ -234,7 +234,7 @@
    [
     {
      "col": 1,
-     "text": "     9. Display a menu                                                          ",
+     "text": "     9. Display a menu                       19. Order lines (paste rows)       ",
      "attr": {
       "color": "green",
       "reverse": false,
@@ -473,5 +473,5 @@
    }
   ]
  },
- "recorded": "2026-11-09T10:32:52.006Z"
+ "recorded": "2026-11-12T16:07:26.359Z"
 }

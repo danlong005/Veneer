@@ -484,6 +484,23 @@ button.dp-preview-toggle.on { background: var(--accent); border-color: var(--acc
 button.dp-undo { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; padding: 3px 6px; }
 .dp-undo:disabled { opacity: 0.35; }
 
+/* Pasting rows from a spreadsheet: the preview. */
+.dialog.paste-dialog { width: min(760px, 100%); max-height: min(86vh, 900px); display: flex; flex-direction: column; gap: 10px; }
+.dialog.paste-dialog p { margin: 0; }
+.paste-preview { overflow: auto; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius); }
+.paste-preview table { border-collapse: collapse; font-family: var(--mono, ui-monospace, monospace); font-size: 13px; width: 100%; }
+.paste-preview th, .paste-preview td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: pre; }
+.paste-preview thead th { position: sticky; top: 0; background: var(--surface); font-family: inherit; font-weight: 600; }
+.paste-preview tbody th { color: var(--text-muted); font-weight: normal; width: 1%; }
+.paste-preview td.unchanged { background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--border) 6px 7px); }
+.paste-preview td.bad { color: var(--danger, #c0392b); outline: 2px solid var(--danger, #c0392b); outline-offset: -2px; }
+.paste-preview .paste-hint { padding: 6px 8px; }
+.paste-hint { font-size: 13px; }
+.paste-more { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.paste-more input { margin-top: 3px; }
+.paste-problem { color: var(--danger, #c0392b) !important; }
+.paste-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 /* The screen inventory. */
 .dialog.wide { width: min(980px, 100%); max-height: min(86vh, 900px); display: flex; flex-direction: column; gap: 12px; }
 .inv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
