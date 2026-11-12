@@ -35,6 +35,8 @@ import { useScreens } from './useScreens.ts';
 import { sysreqField } from './sysreq.ts';
 import { NEW_SESSION, useSession } from './useSession.ts';
 import { SignOnPage } from './SignOnPage.tsx';
+import { PasteDialog } from '../paste/PasteDialog.tsx';
+import { isRows, planPaste, problemText, type PastePlan } from '../paste/paste.ts';
 
 type Mode = 'modern' | 'classic';
 
@@ -542,6 +544,29 @@ export function App() {
     startMacro(macro, given, 'here');
   };
   // Go to: macros chosen for the menu, asking for any values they need.
+  // Rows pasted from a spreadsheet into an entry field: previewed, then edits (paste.ts).
+  const [pasting, setPasting] = useState<PastePlan | null>(null);
+  const pasteNow = useRef<{ view: ScreenView | null; ready: boolean }>({ view: null, ready: false });
+  pasteNow.current = { view, ready: canSubmit && !designing && macroNote === null && exportProgress === null };
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const el = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-field]') : null;
+      const text = e.clipboardData?.getData('text/plain') ?? '';
+      if (!el || ownKeys(el) || !isRows(text)) return;
+      e.preventDefault();
+      const { view: v, ready } = pasteNow.current;
+      if (!v || !ready) return setNotice({ id: Date.now(), message: 'Wait for the screen before pasting.' });
+      const plan = planPaste(v, el.dataset.field!, text);
+      if ('error' in plan) return setNotice({ id: Date.now(), message: plan.error });
+      if (Object.keys(plan.edits).length === 0 && plan.problem) return setNotice({ id: Date.now(), message: problemText(plan)! });
+      setPasting(plan);
+    };
+    window.addEventListener('paste', onPaste, true);
+    return () => window.removeEventListener('paste', onPaste, true);
+  }, []);
+  // A new screen: the fields the paste was for are gone.
+  useEffect(() => setPasting(null), [snap]);
+
   const [asking, setAsking] = useState<Macro | null>(null);
   const goTo = (macro: Macro) => (Object.keys(macro.params ?? {}).length > 0 ? setAsking(macro) : startMacro(macro, {}, 'here'));
   // A deep link (?macro=name&param=value) runs in the new session it opened, after sign-on.
@@ -1130,6 +1155,20 @@ export function App() {
           onTest={(macro, values) => startMacro(macro, values, 'here')}
           onSaved={screens.reload}
           onClose={() => { recordMacro(false); setPicking(null); setMacrosOpen(false); }}
+        />
+      )}
+
+      {pasting && (
+        <PasteDialog
+          plan={pasting}
+          onCancel={() => setPasting(null)}
+          onPaste={() => {
+            setEdits((e) => ({ ...e, ...pasting.edits }));
+            const ids = Object.keys(pasting.edits);
+            const lastId = ids[ids.length - 1];
+            if (snap && lastId) focusTarget.current = endOf(snap, { ...edits, ...pasting.edits }, lastId);
+            setPasting(null);
+          }}
         />
       )}
 

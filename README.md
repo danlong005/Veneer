@@ -316,6 +316,41 @@ numbers are numbers (`1,234.50-` becomes -1234.5), and codes with leading zeros 
 `00123` stay text. A progress window shows the pages read; **Cancel** (or Esc) stops and
 returns you to your page. The Excel writer is built in, with no extra dependency.
 
+## Pasting rows from a spreadsheet
+
+Rows copied from Excel, Google Sheets or LibreOffice can be pasted into a screen's entry
+fields. Click in the first field and paste (Ctrl+V):
+
+- **In a list of entry fields** (a subfile's input columns, such as an order's item,
+  quantity and ship date), each cell goes into the field below and to the right of the one
+  before, a row of the sheet per line of the list.
+- **Entry fields repeated down the screen** without headings fill the same way, as long as
+  the lines follow each other.
+- **One row** wider than the fields on that line, pasted on an ordinary entry screen,
+  fills the field you clicked in and the ones after it, in order.
+
+A preview shows what goes where before anything is typed, and **Paste** puts the values in
+the fields as if you had typed them. Nothing is sent to the host until you press Enter, so
+you can still check or change them. A single value pastes as usual.
+
+Each value goes through the field's rules: the characters it takes, upper case for
+monocase fields, and its length. A signed number such as `-3` goes in as Field- would
+type it (`3-`). The decimal point is implied in a numeric field, so 12.50 must be pasted
+as 1250. Widgets take what a spreadsheet holds:
+
+- a dropdown or radio buttons take a choice's value or its label;
+- a checkbox or switch takes its own on and off values, or yes/no, true/false, x and 1/0;
+- a date picker takes the host's format or `YYYY-MM-DD`;
+- a time picker takes the host's format or `HH:MM`;
+- a masked field takes the value with or without its separators.
+
+The first value a field won't take stops the paste there. The preview marks that cell
+and says which row and column it is ("Row 3, column 2 (Qty): “1.5” has characters the
+field doesn't take"), and the cells before it are still pasted. Blank cells leave their
+fields as they are. Rows and columns that have no field to go into aren't pasted. When
+there are more rows than the page has lines, press Enter or Page Down to add the page,
+then paste the rest on the next one. Try it on the demo's option 19, **Order lines**.
+
 ## Type-ahead
 
 As on a 5250, keys typed while the host is busy are not lost. They are queued (the header

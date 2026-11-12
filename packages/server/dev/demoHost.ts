@@ -76,6 +76,7 @@ type State =
   | { screen: 'delivery'; user: string; number: string; from: FromOrders }
   | { screen: 'bom'; user: string; page: number }
   | { screen: 'shipping'; user: string }
+  | { screen: 'orderLines'; user: string; lines: number; typed?: Map<string, string> }
   /** Help, shown from `back` (the screen Help was pressed on) about `topic`. */
   | { screen: 'help'; user: string; back: 'order' | 'menu'; topic: string; page: number };
 
@@ -202,6 +203,10 @@ export class DemoHost {
           state = { screen: 'shipping', user: s.user };
           return show(shippingNotes());
         }
+        if (cmd === '19') {
+          state = { screen: 'orderLines', user: s.user, lines: 0 };
+          return show(orderLines(0));
+        }
         if (aid === 0x34 || cmd === '9') { // F4 or "Display a menu"
           state = { screen: 'menuWindow', user: s.user };
           return show(menuWindow());
@@ -225,6 +230,23 @@ export class DemoHost {
         const summary = `Accepted: ${value('6:22')} ${value('7:22')} qty ${qty} item ${value('9:22')} ` +
           `ship ${value('10:22') || '-'} rush ${value('11:22') || 'N'}`.slice(0, 78);
         return show(orderEntry(summary));
+      }
+      if (s.screen === 'orderLines') {
+        if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
+        // Like a subfile program: each line typed is checked, then added, and the page comes back empty.
+        // A page shown again with a problem keeps what was typed, as the program's subfile would.
+        const all = new Map([...(s.typed ?? []), ...fields]);
+        const typed = ORDER_LINE_ROWS.map((row, k) => ({ k, item: (all.get(`${row}:8`) ?? '').trim(), qty: decodeSigned(all.get(`${row}:18`)), ship: (all.get(`${row}:27`) ?? '').trim() }))
+          .filter((l) => l.item || l.qty !== '0' || l.ship);
+        const bad = typed.find((l) => !l.item || l.qty === '0' || (l.ship !== '' && !/^\d{8}$/.test(l.ship)));
+        if (bad || (aid !== 0xf1 && aid !== 0xf5)) {
+          state = { ...s, typed: all };
+          const why = bad && (!bad.item ? 'needs an item' : bad.qty === '0' ? 'needs a quantity' : 'has a ship date that isn\'t YYYYMMDD');
+          return show(orderLines(s.lines, bad ? `Line ${s.lines + bad.k + 1} ${why}.` : undefined, all, bad ? ORDER_LINE_ROWS[bad.k] : undefined));
+        }
+        const lines = s.lines + typed.length;
+        state = { screen: 'orderLines', user: s.user, lines };
+        return show(orderLines(lines, typed.length ? `${typed.length} line${typed.length === 1 ? '' : 's'} added; ${lines} on the order.` : undefined));
       }
       if (s.screen === 'shipping') {
         if (aid === 0x3c || aid === 0x33) { state = { screen: 'menu', user: s.user }; return show(mainMenu(s.user)); }
@@ -592,6 +614,34 @@ export function shippingSummary(fields: Map<string, string>): string {
     `weight ${value('8:22') || 'unchanged'}, ${changed} comment line${changed === 1 ? '' : 's'} changed`;
 }
 
+/** The rows of the order lines screen's entry lines. */
+const ORDER_LINE_ROWS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+
+/**
+ * Order lines: a page of empty entry lines (item, quantity, ship date) that
+ * Enter or Page Down adds to the order, as a subfile entry program does, for
+ * pasting rows from a spreadsheet.
+ */
+export function orderLines(lines: number, message?: string, fields?: Map<string, string>, errorRow?: number): number[] {
+  const s = new HostStream().clear().write()
+    .text(1, 2, 'ORD200')
+    .text(1, centered('Order Lines'), 'Order Lines', WHITE)
+    .text(3, 2, 'Type the order\'s lines, press Enter or Page Down to add them.', BLUE)
+    .text(4, 2, `Order 104580     Lines so far: ${lines}`)
+    .text(6, 2, 'Line  Item      Qty      Ship date', WHITE);
+  ORDER_LINE_ROWS.forEach((row, k) => {
+    const keep = (col: number) => ({ value: fields?.get(`${row}:${col}`) ?? '' });
+    s.text(row, 2, String(lines + k + 1).padStart(4))
+      .field(row, 8, 6, { ffw: 0x4020, ...keep(8) })
+      .field(row, 18, 5, { ffw: 0x4700, ...keep(18) })
+      .field(row, 27, 8, { ffw: 0x4300, ...keep(27) });
+  });
+  s.text(18, 73, 'More...')
+    .text(22, 2, 'F3=Exit   F12=Cancel', BLUE);
+  if (message) s.text(24, 2, message);
+  return s.cursor(errorRow ?? ORDER_LINE_ROWS[0]!, 8).readMdt().build();
+}
+
 export function mainMenu(user: string, message?: string): number[] {
   return new HostStream().clear().write()
     .text(1, 2, 'MAIN')
@@ -616,6 +666,7 @@ export function mainMenu(user: string, message?: string): number[] {
     .text(10, 46, '16. Delivery options (widgets)')
     .text(11, 46, '17. Bill of materials (tree)')
     .text(12, 46, '18. Contacts by city (pin map)')
+    .text(13, 46, '19. Order lines (paste rows)')
     .text(17, 5, '90. Sign off')
     .text(19, 2, 'Selection or command')
     .text(20, 2, '===>')
