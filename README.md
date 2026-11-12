@@ -72,6 +72,7 @@ npm run demo -- --3270  # the same with a fake mainframe (3270); see "Mainframe 
 npm run dev           # session server against your IBM i, restarts on change
 npm run dev:client    # Vite dev server on :5173 with hot reload; proxies /ws to :8080
 npm run check:screens # check screen definitions and macros against recorded screens (see "Checking definitions in CI")
+npm run test:macros   # run the macros with checks against the host as tests (see "Testing macros in CI")
 npm run demo:record   # record the demo's screens for the check, after changing a demo screen
 npm run api:token     # a new macro API client token (see "Running macros from other systems")
 npm run package       # release/veneer-<version>.tar.gz and .zip for deployment, plus -src.tar.gz and -src.zip (the source)
@@ -512,8 +513,93 @@ what the test expects ("Order 999999 not found.").
   ```
 
   A `step` says which step's screen a check was made on; end checks have none.
-- **In CI,** `npm run check:screens` checks the screen in `end` against the recorded
-  screens, as it does each step's (see [Checking definitions in CI](#checking-definitions-in-ci)).
+- **In CI,** `veneer test` runs every macro with checks against the IBM i and reports
+  each run, as text, GitHub annotations or a JUnit file (see [Testing macros in
+  CI](#testing-macros-in-ci)). `npm run check:screens` checks the screen in `end`
+  against the recorded screens, as it does each step's (see [Checking definitions in
+  CI](#checking-definitions-in-ci)).
+
+### Testing macros in CI
+
+`veneer test` runs macros as tests of the application: it signs on to the IBM i, runs
+each macro that has checks (`expect` or `end`), and reports which passed. Run it after
+a change to a program reaches a test system.
+
+**The values each run uses** are in `tests/<macro>.json` in the screens folder, one case
+per run:
+
+```json
+{
+  "macro": "order-delivered",
+  "cases": [
+    { "name": "delivered order", "values": { "order": "104572" } },
+    { "name": "order with tracking", "values": { "order": "104573" } }
+  ]
+}
+```
+
+A macro with checks and no tests file runs once with no values, or is skipped if it needs
+some ("It needs values (order): give them in tests/order-delivered.json"). With `--macro
+name` (repeatable), only those macros run, including ones without checks: those pass if
+they run to the end. `veneer check` also checks tests files: that the macro exists and
+takes the values given.
+
+**Settings.** It connects as the server does, with the same settings (`VENEER_HOST`,
+`VENEER_PORT`, `VENEER_TLS`, `VENEER_CCSID`, `VENEER_DEVNAME_PREFIX`…), from the
+environment or a `--config` file. It always signs on automatically, so it needs
+`VENEER_QPWDLVL` and an IBM i that allows it (`QRMTSIGN` set to `*VERIFY` or `*SAMEPRF`),
+and it is for IBM i (5250) hosts only. It signs on as `VENEER_TEST_USER`, with the
+password in `VENEER_TEST_PASSWORD`. Use a profile for testing, with no more authority
+than the tests need, on a test system: the macros really type into the application. If
+the profile is refused (a wrong password), the remaining tests don't run, so it isn't
+disabled.
+
+```sh
+npm run test:macros                                     # from the repository: ./screens or VENEER_SCREENS_DIR, and .env
+npm run test:macros -- path/to/screens --junit report.xml
+node packages/server/dist/testMacros.js /path/to/screens --config /path/to/veneer.env   # from an installed release
+```
+
+It runs the tests one at a time and prints each as it finishes:
+
+```text
+✓ order-delivered › delivered order (1.204s, 3 checks)
+✗ order-delivered › unknown order (0.981s, 3 checks)
+    At the end: Status equals “DLV”, but it is “SHP”. 1 other check failed too.
+    ✗ Status equals “DLV”, but it is “SHP”.
+    ✗ The message doesn't contain “not found”, but it is “Order 999999 not found.”.
+- order-entry (skipped)
+    It needs values (order): give them in tests/order-entry.json.
+3 tests: 1 passed, 1 failed, 1 skipped.
+```
+
+The exit code is 0 when every test passed or was skipped, 1 when one failed or couldn't
+run (the connection failed, a tests file is wrong), and 2 when the command or its settings
+are wrong. `--format github` adds GitHub Actions annotations on the tests file, and is the
+default in GitHub Actions; `--format json` is for other tools. `--junit report.xml` also
+writes a JUnit report, which Jenkins, GitLab, Azure DevOps and most CI servers show: a
+suite per macro, a test per case, each check in its output, and for a failure the screen
+it stopped on. That screen's text is in the report, so use test data.
+
+An example GitHub Actions job, on a runner that can reach the test IBM i (a self-hosted
+runner on your network, with a Veneer release unpacked in `/opt/veneer`):
+
+```yaml
+  test:
+    runs-on: self-hosted
+    env:
+      VENEER_HOME: /opt/veneer
+      VENEER_HOST: testibmi.example.com
+      VENEER_QPWDLVL: 2
+      VENEER_TEST_USER: VENEERTEST
+      VENEER_TEST_PASSWORD: ${{ secrets.VENEER_TEST_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: node "$VENEER_HOME/packages/server/dist/testMacros.js" screens --junit veneer-tests.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: veneer-tests, path: veneer-tests.xml }
+```
 
 ### Security
 
