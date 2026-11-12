@@ -5,9 +5,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
-  RECORDINGS_DIR, checkScreens, validateDefinition, validateMacro, validateRecording,
+  DefinitionError, RECORDINGS_DIR, checkScreens, validateDefinition, validateMacro, validateRecording,
   type CheckFinding, type Macro, type Recording, type ScreenDefinition,
 } from '@veneer/screens';
+import { readTestFiles, testValues } from './macroTests.ts';
 
 /** Files in the screens folder that are not definitions. */
 const NOT_DEFINITIONS = new Set(['global.style.json']);
@@ -51,6 +52,18 @@ export async function checkFolder(dir: string): Promise<FolderCheck> {
   for (const name of await jsonFiles(path.join(dir, RECORDINGS_DIR))) {
     const r = await read(`${RECORDINGS_DIR}/${name}`, validateRecording, (x) => x.name);
     if (r) recordings.push(r);
+  }
+  // tests/<macro>.json for `veneer test`: a macro that exists, and values it takes.
+  for (const f of await readTestFiles(dir)) {
+    if (!f.tests) { problems.push({ level: 'error', file: f.file, message: f.error! }); continue; }
+    const macro = macros.find((m) => m.name === f.tests!.macro);
+    if (!macro) { problems.push({ level: 'error', file: f.file, message: `There is no macro "${f.tests.macro}" (macros/${f.tests.macro}.json).` }); continue; }
+    for (const c of f.tests.cases) {
+      try { testValues(macro, c); } catch (err) {
+        if (!(err instanceof DefinitionError)) throw err;
+        problems.push({ level: 'error', file: f.file, message: `Case “${c.name}”: ${err.message}` });
+      }
+    }
   }
   const findings = [...problems, ...checkScreens({ definitions, macros, recordings })];
   findings.sort((a, b) => (a.level === b.level ? 0 : a.level === 'error' ? -1 : 1));
