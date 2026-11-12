@@ -1,6 +1,6 @@
 {
   "name": "@veneer/view",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "How Veneer reads a screen: the transform rules that find titles, lists, fields and keys, customizations applied to them, and reading a list across its pages",
   "license": "MIT",
   "type": "module",
@@ -17,7 +17,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@veneer/screens": "^0.3.1",
-    "@veneer/terminal": "^0.3.1"
+    "@veneer/screens": "^0.4.0",
+    "@veneer/terminal": "^0.4.0"
   }
 }
