@@ -24,6 +24,8 @@ import { ComponentEditor, ComponentsSection, componentForFieldChange } from './C
 import { TextAreaPart, WidgetEditor, defaultWidget, showAsChoices } from './Widgets.tsx';
 import { ColumnDisplays, TextDisplay } from './Displays.tsx';
 import { ImageEditor, LabelEditor, LabelsSection } from './Placed.tsx';
+import { Palette, type PlaceStart } from './Palette.tsx';
+import { itemPhrase, type PaletteItem } from './drop.ts';
 import { listOf, type ScreenView } from '@veneer/view';
 import {
   addScreenId, buttonsOf, cardAround, cardsOf, componentAt, componentForField, formatOptions, freeSpot, htmlAt, htmlOf, imageAt, isHidden, labelAt, originalText, parseOptions, removeScreenId, roleOf, setButtons, setPlaced,
@@ -135,13 +137,23 @@ interface Props {
   /** The text area whose fields a click on the screen adds or takes out (its first field), if any. */
   joining: string | null;
   onJoining: (first: string | null) => void;
+  /** The list column a palette drop just changed, for the Selected tab to show. */
+  dropColumn: string | null;
+  /** The palette item being placed, if any, and why the last drop didn't take. */
+  placing: PaletteItem | null;
+  /** Whether the item is being dragged (rather than picked, to place with a click or the keys). */
+  placingByDrag: boolean;
+  placeNote: string | null;
+  onPlaceStart: (item: PaletteItem, how: PlaceStart) => void;
+  onPlaceCancel: () => void;
 }
 
-type Tab = 'site' | 'themes' | 'page' | 'selected';
+type Tab = 'site' | 'themes' | 'page' | 'palette' | 'selected';
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'site', label: 'Site-wide' },
   { id: 'themes', label: 'Themes' },
   { id: 'page', label: 'Page' },
+  { id: 'palette', label: 'Palette' },
   { id: 'selected', label: 'Selected' },
 ];
 
@@ -263,6 +275,9 @@ export function DesignPanel(props: Props) {
   // Clicking something on the screen shows it in the Selected tab.
   const [tab, setTab] = useState<Tab>('page');
   useEffect(() => { if (props.clickedAt) setTab('selected'); }, [props.clickedAt]);
+  // Placing from the palette stops when another tab is shown.
+  const { onPlaceCancel } = props;
+  useEffect(() => { if (tab !== 'palette') onPlaceCancel(); }, [tab, onPlaceCancel]);
 
   // Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y) undo and redo page changes. In a text
   // box they are left to the browser, which undoes the typing there.
@@ -332,7 +347,18 @@ export function DesignPanel(props: Props) {
         ))}
       </div>
 
-      <div className="dp-body" id="dp-tabpanel" role="tabpanel" aria-labelledby={`dp-tab-${tab}`}>
+      <div className="dp-body" id="dp-tabpanel" role="tabpanel" tabIndex={-1} aria-labelledby={`dp-tab-${tab}`}>
+        {tab === 'palette' && (
+          <Palette components={props.components} placing={props.placing} onStart={props.onPlaceStart} onCancel={props.onPlaceCancel}>
+            {props.placing && (
+              <div className="dp-placing" role="status">
+                <span>Placing {itemPhrase(props.placing)}: {props.placingByDrag ? 'let go where it goes.' : 'click where it goes, or use the arrow keys and Enter.'}</span>
+                <button type="button" className="ghost" onClick={props.onPlaceCancel}>Cancel</button>
+              </div>
+            )}
+            {props.placeNote && <p className="dp-warn" role="status">{props.placeNote}</p>}
+          </Palette>
+        )}
         {tab === 'themes' && (
           <ThemesTab api={themes} saved={props.theme} canSave={canSave} setStatus={setStatus} onSaved={props.onSaved} onDirty={setThemesDirty} />
         )}
@@ -562,7 +588,7 @@ export function DesignPanel(props: Props) {
           <section>
             <h3>Selected</h3>
             {selection && selection.kind !== 'empty' && <p className="dp-hint">Changes here are part of this page's customization.</p>}
-            {selection ? <SelectionEditor draft={draft} setDraft={setDraft} selection={selection} name={nameOf(props.view, snap, selection.at, { shown: true })} cols={snap.cols} rows={snap.rows} onSelect={props.onSelect} components={props.components}
+            {selection ? <SelectionEditor dropColumn={props.dropColumn} draft={draft} setDraft={setDraft} selection={selection} name={nameOf(props.view, snap, selection.at, { shown: true })} cols={snap.cols} rows={snap.rows} onSelect={props.onSelect} components={props.components}
               theme={props.theme} themes={themes}
               snap={snap} joining={selection.kind === 'field' && props.joining === selection.field.id} onJoining={(on) => props.onJoining(on && selection.kind === 'field' ? selection.field.id : null)} /> : (
               <p className="dp-hint">Click any text, field or table on the screen, or an empty spot to add HTML.</p>
@@ -633,7 +659,9 @@ export function DesignPanel(props: Props) {
   );
 }
 
-function SelectionEditor({ draft, setDraft, selection, name, cols, rows, onSelect, components, snap, joining, onJoining, theme, themes }: {
+function SelectionEditor({ draft, setDraft, selection, name, cols, rows, onSelect, components, snap, joining, onJoining, theme, themes, dropColumn }: {
+  /** The list column to show first. */
+  dropColumn: string | null;
   draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; selection: Selection; cols: number; rows: number; onSelect: (at: Target) => void;
   snap: ScreenSnapshot;
   /** The theme in use, whose images an image can show, and the API to list them. */
@@ -770,7 +798,7 @@ function SelectionEditor({ draft, setDraft, selection, name, cols, rows, onSelec
         </label>
       )}
       {item.kind === 'text' && !selection.header && <TextDisplay draft={draft} setDraft={setDraft} at={at} text={snapText(snap, item)} snap={snap} />}
-      {item.kind === 'table' && <ColumnDisplays draft={draft} setDraft={setDraft} table={item} snap={snap} />}
+      {item.kind === 'table' && <ColumnDisplays key={dropColumn ?? ''} draft={draft} setDraft={setDraft} table={item} snap={snap} column={dropColumn ?? undefined} />}
     </>
   );
 }

@@ -52,13 +52,14 @@ already customized, so you can open the designer on them to see how they're buil
 ![The design panel beside the screen](designer-panel.png)
 
 Along the top: **Undo** and **Redo** (also Ctrl+Z and Ctrl+Shift+Z), **Preview**,
-**Screens** and **Done**. Below them are four tabs:
+**Screens** and **Done**. Below them are five tabs:
 
 | Tab | What it changes | Saved with |
 | --- | --- | --- |
 | **Site-wide** | CSS and JavaScript for every page | **Save site** |
 | **Themes** | The look of every page: colors, fonts, logo | **Save theme**, then **Use for everyone** |
 | **Page** | This screen's customization: its name, title, how it's recognised, buttons, styles, cards, tabs, components, labels, HTML, CSS and JavaScript | **Save** |
+| **Palette** | Nothing by itself: drag widgets, output text, labels, images and components from it onto the screen | **Save** (each drop is part of the page's customization) |
 | **Selected** | Whatever you last clicked on the screen | **Save** (it's part of the page's customization) |
 
 A dot on a tab means it has unsaved changes.
@@ -67,6 +68,34 @@ A dot on a tab means it has unsaved changes.
 screen. The panel switches to **Selected** and shows what you clicked, with its position
 (row and column) and its settings. Click the items in the page header bar (such as the
 program name and system name) to change those too.
+
+**Placing things from the palette.** The **Palette** tab lists what you can put on the
+screen: field widgets, output text, labels and images, and the installed components. Drag
+one onto the screen. As you drag, the cells it would cover show in green with what the drop
+will do (*Make "Customer" a dropdown*), or in red with why it can't go there (*A date
+picker goes on an input field*). Let go to place it. The panel then switches to **Selected**
+with the new item's settings, ready to finish, such as a dropdown's choices or a
+component's **Options (JSON)**.
+
+![Dragging a status badge from the Palette tab onto a list's Status column](designer-palette.png)
+
+| Item | Goes on | Makes |
+| --- | --- | --- |
+| A field widget | An input field (a spinner only on one that takes numbers) | The field shown as that widget |
+| Output text | Some text, or a list column with a heading | That text, or every cell in the column, shown that way |
+| A label or image | An empty spot | A label or image there |
+| A component | An empty spot | The component there, 40 columns by 4 rows to start with |
+| | An input field | The component drawing the field, as **Show as: Component** |
+| | A list | The component over the list, the list's size. It asks whether to hide the list, its options legend and its More.../Bottom marker |
+
+Dropping on something that already has a widget, display or component asks before
+replacing it. A drop where the item can't go does nothing, and the **Palette** tab says
+why. Each drop is one step for **Undo** and one line in **All changes**.
+
+Instead of dragging, you can click an item and then click where it goes. With the keyboard,
+press Enter on an item, then move with the arrow keys, or Tab and Shift+Tab to jump between
+the places it fits, and press Enter to place it. Screen readers announce the row, column
+and what a drop there would do. Esc, or **Cancel**, stops placing.
 
 **Moving things.** Drag any selected item, or use the arrow keys. A list moves as a whole.
 Moving only changes the layout. The host still gets its fields where it put them, and Tab
@@ -200,7 +229,8 @@ it does:
 
 Click the input field, then choose from **Show as**: **Dropdown**, **Radio buttons**,
 **Checkbox**, **Switch**, **Date picker**, **Time picker**, **Text area**, **Masked
-input** or **Lookup**. Its settings appear below. The [widgets
+input** or **Lookup**. Its settings appear below. Or drag the widget from the **Palette**
+tab onto the field. The [widgets
 guide](widgets.md#field-widgets) covers each one.
 
 ### Let a paste fill more than one page
@@ -219,7 +249,8 @@ paste take dates as `YYYY-MM-DD`.
 
 Click the text, then choose from **Show as**: **Status badge**, **Number**, **Date**, **Yes
 or no**, **Link**, **Progress bar** or **Barcode or QR code**. For a list, click the list,
-pick the **Column**, then **Show its cells as**. See [Output text](widgets.md#output-text).
+pick the **Column**, then **Show its cells as**. Or drag it from the **Palette** tab onto
+the text or the column. See [Output text](widgets.md#output-text).
 
 ### Highlight rows or values
 
@@ -232,15 +263,17 @@ this screen, such as *Matches 2 of 8 rows on this screen*.
 ### Add a label, picture or HTML
 
 Click an empty spot on the screen. **Selected** offers **Add label here**, **Add image
-here** and **Add HTML here**. You can also use **Add label** and **Add image** in the
+here** and **Add HTML here**. You can also drag **Label** or **Image** from the **Palette**
+tab onto an empty spot, or use **Add label** and **Add image** in the
 **Labels and images** section, or **Add HTML** in **HTML**, on the **Page** tab. Labels
 can have a help note shown from an ⓘ. See [Labels and images](widgets.md#labels-and-images)
 and [Custom HTML, CSS and JavaScript](../README.md#custom-html-css-and-javascript).
 
 ### Place a chart, board, calendar or other component
 
-On the **Page** tab, in **Components**, pick one and click **Add component**. Drag it
-into place, and type its **Options (JSON)** in **Selected**. The [components
+Drag it from the **Palette** tab onto an empty spot, an input field or a list. Or, on the
+**Page** tab, in **Components**, pick one, click **Add component** and drag it into place.
+Then size it, and type its **Options (JSON)** in **Selected**. The [components
 guide](components.md#placing-a-component) describes each one and its options.
 
 ### Add CSS or JavaScript
@@ -272,7 +305,8 @@ text: select some text that only one of them has and click **Also require "…"*
 
 ### Undo, revert or delete
 
-- **Undo** and **Redo** step through your changes on the **Page** and **Selected** tabs.
+- **Undo** and **Redo** step through your changes on the **Page**, **Palette** and
+  **Selected** tabs.
   In a text box, Ctrl+Z undoes the typing there instead.
 - **Revert** goes back to the saved customization.
 - **Delete** removes the customization file, after asking. The screen goes back to the

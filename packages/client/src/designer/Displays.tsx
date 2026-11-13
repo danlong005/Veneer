@@ -37,12 +37,14 @@ export function TextDisplay({ draft, setDraft, at, text, snap }: {
 }
 
 /** For a list: how each column's cells show. Cells with input fields keep their field. */
-export function ColumnDisplays({ draft, setDraft, table, snap }: {
+export function ColumnDisplays({ draft, setDraft, table, snap, column: first }: {
   draft: ScreenDefinition; setDraft: (d: ScreenDefinition) => void; table: TableItem; snap: ScreenSnapshot;
+  /** The column to show first (by heading), such as one just dropped on. */
+  column?: string | undefined;
 }) {
   // Columns with a heading and some output text: input fields keep their own widgets.
   const columns = table.columns.filter((c, k) => c.header.trim() !== '' && table.rows.some((r) => r.cells[k] && !r.cells[k]!.field));
-  const [picked, setPicked] = useState(columns[0]?.header.trim() ?? '');
+  const [picked, setPicked] = useState(first ?? columns[0]?.header.trim() ?? '');
   if (columns.length === 0) return <p className="dp-hint">This list has no columns of text with headings to show differently.</p>;
   const column = columns.find((c) => c.header.trim() === picked) ?? columns[0]!;
   const heading = column.header.trim();

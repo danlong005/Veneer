@@ -15,7 +15,9 @@ import { DesignPanel } from '../designer/DesignPanel.tsx';
 import { MacrosPanel } from '../macros/MacrosPanel.tsx';
 import { linkedMacro, macroFieldCheck, recordStep, type RecordedChecks } from '../macros/edit.ts';
 import { record, redo, startHistory, undo, type History } from '../designer/history.ts';
-import { cardsOf, componentAt, htmlAt, imageAt, labelAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHtml, setMove, setPlaced, toggleTextAreaField } from '../designer/edit.ts';
+import { cardsOf, componentAt, htmlAt, imageAt, labelAt, moveOf, newDefinition, resolveSelection, setCard, setComponent, setHidden, setHtml, setMove, setPlaced, toggleTextAreaField } from '../designer/edit.ts';
+import { firstSpot, itemName, itemPhrase, planDrop, spots, type PaletteItem } from '../designer/drop.ts';
+import type { PlaceStart } from '../designer/Palette.tsx';
 import { customize } from '@veneer/view';
 import { EMPTY_CONSOLE, nextConsole } from '@veneer/view';
 import { screenMessage, transform } from '@veneer/view';
@@ -101,17 +103,34 @@ export function App() {
   const [history, setHistory] = useState<History<ScreenDefinition | null>>(() => startHistory(null));
   const draft = history.present;
   const setDraft = useCallback((def: ScreenDefinition) => setHistory((h) => record(h, def, Date.now())), []);
+  /** A change that is a step of its own for Undo, not joined to edits just before or after it (a drop from the palette). */
+  const setDraftStep = (def: ScreenDefinition) => setHistory((h) => ({ ...record({ ...h, editedAt: 0 }, def, Date.now()), editedAt: 0 }));
   const resetDraft = (def: ScreenDefinition | null) => setHistory(startHistory(def));
   const [draftExisting, setDraftExisting] = useState(false);
   const [selectedAt, setSelectedAt] = useState<Target | null>(null);
   // The text area (its first field) whose lines a click on a field adds or takes out.
   const [joining, setJoining] = useState<string | null>(null);
   const designing = draft !== null;
+  // Placing an item from the designer's palette: what, how it began, and a key that changes for each.
+  const [placing, setPlacing] = useState<{ item: PaletteItem; start: PlaceStart; key: number } | null>(null);
+  const placeKey = useRef(0);
+  // Why the last drop didn't take, shown in the Palette tab.
+  const [placeNote, setPlaceNote] = useState<string | null>(null);
+  // The list column a drop just changed, for the Selected tab to open on.
+  const [dropColumn, setDropColumn] = useState<string | null>(null);
+  const cancelPlacing = useCallback(() => { setPlacing(null); setPlaceNote(null); }, []);
   // Preview: the screen as users see it, without design ghosts or outlines,
   // and look-only so a click cannot send anything to the host.
   const [previewing, setPreviewing] = useState(false);
   useEffect(() => { if (!designing) setPreviewing(false); }, [designing]);
   const designView = designing && !previewing;
+  useEffect(() => { if (!designView) setPlacing(null); }, [designView]);
+  // Everything shows the copy cursor while an item is dragged from the palette.
+  const dragging = placing?.start.via === 'drag';
+  useEffect(() => {
+    document.body.classList.toggle('placing', dragging);
+    return () => document.body.classList.remove('placing');
+  }, [dragging]);
   const designingNow = useRef(false);
   designingNow.current = designing;
 
@@ -141,6 +160,7 @@ export function App() {
         return;
       }
     }
+    setDropColumn(null);
     setSelectedAt(at);
   };
 
@@ -1000,6 +1020,47 @@ export function App() {
   // While help is open, the screen the user pressed Help on stays drawn.
   const screenView = help?.view ?? view;
   const screenSnap = help?.snap ?? snap;
+
+  // The designer's palette: start placing an item, and drop it.
+  const startPlacing = (item: PaletteItem, start: PlaceStart) => {
+    setPlaceNote(null);
+    setPlacing({ item, start, key: ++placeKey.current });
+  };
+  const placeAt = (at: Target, keys: boolean) => {
+    if (!placing || !draft || !screenView || !screenSnap) return;
+    const plan = planDrop(screenView, screenSnap, draft, placing.item, at);
+    // A drop where it can't go does nothing but say why; a click or key can try again elsewhere.
+    if (!plan.ok) {
+      setPlaceNote(`${itemName(placing.item)} not placed: ${plan.message}`);
+      if (placing.start.via === 'drag') setPlacing(null);
+      return;
+    }
+    if (plan.replaces && !window.confirm(`Replace ${plan.replaces} with ${itemPhrase(placing.item)}?`)) {
+      if (placing.start.via === 'drag') setPlacing(null);
+      return;
+    }
+    let def = plan.def;
+    if (plan.hide?.length && window.confirm('Also hide the list, its options legend and its More... marker, so only the component shows?\n\nCancel keeps them showing under it.')) {
+      def = plan.hide.reduce((d, t) => setHidden(d, t, true), def);
+    }
+    setDraftStep(def);
+    setPlacing(null);
+    setPlaceNote(null);
+    setDropColumn(plan.column ?? null);
+    setSelectedAt({ ...plan.select });
+    // With the keyboard, go on to the new item's settings.
+    if (keys) requestAnimationFrame(() => document.getElementById('dp-tabpanel')?.focus());
+  };
+  const placingOnScreen = placing && draft && screenView && screenSnap ? {
+    key: placing.key,
+    start: placing.start,
+    plan: (at: Target) => planDrop(screenView, screenSnap, draft, placing.item, at),
+    first: () => firstSpot(screenView, screenSnap, draft, placing.item),
+    spots: () => spots(screenView, screenSnap, draft, placing.item),
+    onPlace: placeAt,
+    onPick: () => setPlacing({ ...placing, start: { via: 'pick', keys: false } }),
+    onCancel: () => setPlacing(null),
+  } : null;
   // Keys and buttons wait while help shows (the host is showing help, not this screen).
   const keysEnabled = canSubmit && !help;
 
@@ -1118,7 +1179,7 @@ export function App() {
                   history={screenView.lineMode && !designing ? consoleHistory : undefined}
                   onCursor={(row, col) => { clickedCursor.current = { row, col }; }}
                   pick={picking && !designView ? (at) => { picking.done(at); setPicking(null); } : undefined}
-                  design={designView ? { selected: selection?.at ?? null, onSelect: selectOnScreen, onMove: moveItem, onResize: resizeBox } : undefined} />
+                  design={designView ? { selected: selection?.at ?? null, onSelect: selectOnScreen, onMove: moveItem, onResize: resizeBox, placing: placingOnScreen } : undefined} />
               : <ClassicScreen snap={screenSnap} binding={binding} />}
           </form>
         ) : signingOn && session.signOn ? (
@@ -1188,8 +1249,14 @@ export function App() {
           theme={screens.theme}
           components={screens.components}
           macros={screens.macros}
-          onSelect={setSelectedAt}
+          onSelect={(at) => { setDropColumn(null); setSelectedAt(at); }}
           clickedAt={selectedAt}
+          dropColumn={dropColumn}
+          placing={placing?.item ?? null}
+          placingByDrag={dragging}
+          placeNote={placeNote}
+          onPlaceStart={startPlacing}
+          onPlaceCancel={cancelPlacing}
           joining={joining}
           onJoining={setJoining}
           tokenRequired={screens.tokenRequired}

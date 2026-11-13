@@ -767,7 +767,8 @@ curl -H 'Authorization: Bearer demo-api-token' -X POST http://127.0.0.1:8080/api
 
 Auto-transform handles every screen. For the screens people use most, a **screen
 definition** goes further. **[The designer guide](docs/designer.md)** shows how to open the
-designer and make each kind of change, step by step; this section describes the files. Each definition is one JSON file in `screens/` (or
+designer and make each kind of change, step by step, including dragging widgets and
+components onto the screen from its **Palette** tab; this section describes the files. Each definition is one JSON file in `screens/` (or
 `VENEER_SCREENS_DIR`), so customizations are reviewed and versioned in git like code.
 
 ```json
@@ -948,7 +949,8 @@ definition and when a screen last matched it since the server started (see
 
 ### Field widgets
 
-In the designer, select an input field and pick **Show as**. In a definition, a `widget`
+In the designer, select an input field and pick **Show as**, or drag the widget from the
+**Palette** tab onto the field. In a definition, a `widget`
 change names the field by its id (`"row:col"`). [docs/widgets.md](docs/widgets.md) is the
 full guide to every widget: how to add it, each setting, and what users see and do.
 

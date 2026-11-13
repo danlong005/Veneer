@@ -81,15 +81,23 @@ file viewer; option 4: cards; option 3: maps).
 **In the designer** (see [the designer guide](designer.md)):
 
 1. Open the screen in Veneer and click **Design**.
-2. In the **Page** tab's **Components** section, pick the component and click **Add
-   component**. (A component that takes a field's place, such as the barcode scanner: select
-   the field and choose **Show as: Component**.)
+2. Open the **Palette** tab and drag the component onto the screen:
+   - onto an **empty spot**, for a box 40 columns by 4 rows with its top-left where you let go;
+   - onto an **input field**, for a component that takes a field's place, such as the barcode
+     scanner (the same as selecting the field and choosing **Show as: Component**);
+   - onto a **list**, for a box the list's size. It asks whether to hide the list, its
+     option legend ("2=Change 4=Delete…") and its More.../Bottom marker, so only the
+     component shows.
+
+   The **Selected** tab opens on the new component. (Or use the **Page** tab's
+   **Components** section: pick the component and click **Add component**.)
 3. Drag the box where it goes and drag its corner to size it, or set **Row**, **Column**,
    **Width** and **Height** in the **Selected** tab.
 4. Type its **Options (JSON)**, such as `{ "column": "Status" }`. The box redraws as you type;
    a mistake in an option shows in the box.
-5. To have a component take a list's place, select the list and click **Hide**, and hide its
-   option legend ("2=Change 4=Delete…") and its More.../Bottom marker the same way.
+5. To have a component take a list's place without dropping it on the list, select the
+   list and click **Hide**, and hide its option legend and its More.../Bottom marker the
+   same way.
 6. **Preview**, then **Save**.
 
 **In a definition file**, a component is a `component` change:

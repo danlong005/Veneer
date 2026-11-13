@@ -121,6 +121,11 @@ export function setComponent(def: ScreenDefinition, at: Target, next: Omit<Compo
   return { ...def, changes: exists || !next ? changes : [...changes, { op: 'component', ...next }] };
 }
 
+/** A new component in place of an input field, the field's size to start with. */
+export function componentForFieldChange(name: string, field: { id: string; row: number; col: number; length: number }): Omit<Component, 'op'> {
+  return { name, at: { row: field.row, col: field.col }, width: Math.max(field.length, 2), height: 1, field: field.id };
+}
+
 /** The component drawing a field instead of its input, if any. */
 export function componentForField(def: ScreenDefinition, field: string): Component | undefined {
   return def.changes.find((c): c is Component => c.op === 'component' && c.field === field);

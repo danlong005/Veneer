@@ -91,3 +91,16 @@ export function viewRow(layout: Layout, row: number, active: number): number | u
   }
   return t.after.from + row - t.after.row;
 }
+
+/**
+ * The layout row a screen row is drawn on (the inverse of viewRow), or
+ * undefined when it is on a tab that isn't showing.
+ */
+export function layoutRow(layout: Layout, row: number, active: number): number | undefined {
+  const t = layout.tabs;
+  if (!t || row < t.bands[0]!.from) return row;
+  const band = t.bands[active]!;
+  if (row >= band.from && row <= band.to) return t.row + 1 + row - band.from;
+  if (row > t.bands[t.bands.length - 1]!.to) return t.after.row + row - t.after.from;
+  return undefined;
+}

@@ -6,6 +6,7 @@ import type { ComponentOptions, ScreenDefinition, Target } from '@veneer/screens
 import type { ScreenSnapshot } from '@veneer/terminal';
 import { useEffect, useState } from 'react';
 import { componentAt, componentsOf, freeSpot, setComponent } from './edit.ts';
+export { componentForFieldChange } from './edit.ts';
 import { CodeBox } from './CodeBox.tsx';
 import { Section } from './Section.tsx';
 
@@ -58,10 +59,6 @@ export function ComponentsSection({ draft, setDraft, snap, installed, onSelect }
   );
 }
 
-/** A new component in place of an input field, the field's size to start with. */
-export function componentForFieldChange(name: string, field: { id: string; row: number; col: number; length: number }): Omit<Component, 'op'> {
-  return { name, at: { row: field.row, col: field.col }, width: Math.max(field.length, 2), height: 1, field: field.id };
-}
 
 /** Options as the designer edits them: JSON text, saved only when it is a valid object. */
 function parseOptions(text: string): { options?: ComponentOptions; error?: string } {

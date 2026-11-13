@@ -13,7 +13,7 @@ import { DisplayValue } from './DisplayValue.tsx';
 import { copyingInField, selectedScreenText } from './copyText.ts';
 import { FieldInput, type FieldBinding } from './fieldInput.tsx';
 import { cellInputWidth } from './fieldRules.ts';
-import { drawnHeight, layoutOf, tabAtCursor, viewRow, type Group } from './layout.ts';
+import { drawnHeight, layoutOf, layoutRow, tabAtCursor, viewRow, type Group, type Layout } from './layout.ts';
 
 interface Props {
   view: ScreenView;
@@ -34,12 +34,42 @@ interface Props {
     onMove: (at: Target, by: { rows: number; cols: number }) => void;
     /** Resize custom HTML or a component (at its position), or a card (at its top-left), in cells. */
     onResize: (at: Target, size: { width: number; height: number }, kind: BoxKind) => void;
+    /** Placing an item from the designer's palette, if one is being placed. */
+    placing?: Placing | null | undefined;
   } | undefined;
   /**
    * Picking a position for a macro check: the next click names the item's
    * position (or the cell clicked) instead of acting on it.
    */
   pick?: ((at: Target) => void) | undefined;
+}
+
+/** The cells a drop would cover. */
+interface Cells {
+  row: number;
+  col: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Placing an item from the designer's palette: dragged from it, or picked and
+ * then placed with a click or the keyboard (arrow keys, Tab, Enter; Esc cancels).
+ */
+export interface Placing {
+  /** Changes for each new item placed, so keyboard placing starts over. */
+  key: number;
+  start: { via: 'drag'; x: number; y: number } | { via: 'pick'; keys: boolean };
+  /** What dropping at a cell would do, and the cells to show for it. */
+  plan: (at: Target) => { ok: boolean; message: string; box?: Cells | undefined };
+  /** Where keyboard placing starts. */
+  first: () => Target;
+  /** The places it can go, in reading order, for Tab. */
+  spots: () => Target[];
+  onPlace: (at: Target, keys: boolean) => void;
+  /** A press on the palette that didn't drag: keep the item, to place with a click. */
+  onPick: () => void;
+  onCancel: () => void;
 }
 
 /** What a resize handle resizes. */
@@ -114,6 +144,16 @@ export function ModernScreen(props: Props) {
   const pick = selectInDesign(props.pick ? { onSelect: props.pick } : undefined, top, bottom - top + 1, view.cols, (row) => viewRow(layout, row, active));
   const drag = useDrag(design, bottom - top + 1, view.cols);
   useNudge(design);
+  const placing = design?.placing ?? null;
+  /** The screen cell under a point on the canvas, if it is over one. */
+  const cellAt = (x: number, y: number): Target | null => {
+    const box = drag.ref.current?.getBoundingClientRect();
+    if (!box || x < box.left || x >= box.right || y < box.top || y >= box.bottom) return null;
+    const row = viewRow(layout, top + Math.floor(((y - box.top) / box.height) * (bottom - top + 1)), active);
+    const col = 1 + Math.floor(((x - box.left) / box.width) * view.cols);
+    return row !== undefined && row >= 1 && row <= view.snapshot.rows && col >= 1 && col <= view.cols ? { row, col } : null;
+  };
+  const cursor = usePlacing(placing, cellAt, view.snapshot.rows, view.cols);
   useReveal(drag.ref, (index) => setPicked({ snap: view.snapshot, index }));
   useCopy(drag.ref, view.cols, bottom - top + 1);
   const group = (g: Group) => <GroupView {...props} group={g} origin={origin} />;
@@ -127,6 +167,13 @@ export function ModernScreen(props: Props) {
       onClickCapture={design ? (e) => {
         // The tab strip switches tabs while designing too.
         if ((e.target as HTMLElement).closest('.tab-strip')) return;
+        if (placing) {
+          e.preventDefault();
+          e.stopPropagation();
+          const cell = cellAt(e.clientX, e.clientY);
+          if (cell) placing.onPlace(cell, false);
+          return;
+        }
         if (!drag.swallowClick()) return select(e);
         e.preventDefault();
         e.stopPropagation();
@@ -183,9 +230,125 @@ export function ModernScreen(props: Props) {
           )}
         </>
       )}
+      {placing && <PlaceGhost placing={placing} cursor={cursor} layout={layout} active={active} top={top} bottom={bottom} />}
     </div>
     </>
   );
+}
+
+/** Where a palette item would go: the cells, green where it can go and red where it can't, and why. */
+function PlaceGhost({ placing, cursor, layout, active, top, bottom }: {
+  placing: Placing; cursor: Target | null; layout: Layout; active: number; top: number; bottom: number;
+}) {
+  const plan = cursor ? placing.plan(cursor) : null;
+  const box = plan && cursor ? plan.box ?? { ...cursor, width: 1, height: 1 } : null;
+  const row = box ? layoutRow(layout, box.row, active) : undefined;
+  const origin = { row: top, col: 1 };
+  const below = row !== undefined && box ? row + box.height <= bottom : true;
+  return (
+    <>
+      {box && row !== undefined && plan && (
+        <>
+          <div
+            className={`drop-ghost ${plan.ok ? 'ok' : 'no'}`}
+            aria-hidden="true"
+            style={{ ...at(row, box.col, origin, box.width), height: `calc(${box.height} * var(--rh))` }}
+          />
+          <div
+            className={`drop-hint ${plan.ok ? 'ok' : 'no'}`}
+            aria-hidden="true"
+            style={{
+              ...at(below ? row + box.height : row - 1, Math.max(1, box.col), origin),
+              ...(box.col > 40 ? { left: 'auto', right: `calc((var(--cols) - ${box.col + box.width - 1}) * var(--cw))` } : {}),
+            }}
+          >{plan.message}</div>
+        </>
+      )}
+      <div className="paste-sr" role="status" aria-live="polite">
+        {cursor && plan ? `Row ${cursor.row}, column ${cursor.col}. ${plan.message}` : ''}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Placing a palette item: follows the pointer over the canvas (a drag drops
+ * where it is let go), or with the keyboard, a cursor moved by the arrow keys
+ * and Tab, dropped with Enter. Esc cancels. Returns the cell under the pointer
+ * or cursor.
+ */
+function usePlacing(placing: Placing | null, cellAt: (x: number, y: number) => Target | null, rows: number, cols: number): Target | null {
+  const [cursor, setCursor] = useState<Target | null>(null);
+  const latest = useRef({ placing, cellAt, cursor });
+  latest.current = { placing, cellAt, cursor };
+  const key = placing?.key;
+  useEffect(() => {
+    const p = latest.current.placing;
+    setCursor(p?.start.via === 'pick' && p.start.keys ? p.first() : null);
+  }, [key]);
+  const active = placing !== null;
+  useEffect(() => {
+    if (!active) return;
+    const sameCell = (a: Target | null, b: Target | null) => a === b || (a !== null && b !== null && a.row === b.row && a.col === b.col);
+    const move = (e: globalThis.PointerEvent) => {
+      const { placing: p, cellAt: cell } = latest.current;
+      const c = cell(e.clientX, e.clientY);
+      // Picking with the keys keeps its cursor when the pointer is off the screen.
+      if (c === null && p?.start.via === 'pick') return;
+      setCursor((prev) => (sameCell(prev, c) ? prev : c));
+    };
+    const up = (e: globalThis.PointerEvent) => {
+      const { placing: p, cellAt: cell } = latest.current;
+      if (!p || p.start.via !== 'drag') return;
+      if (Math.hypot(e.clientX - p.start.x, e.clientY - p.start.y) < 4) {
+        p.onPick();
+        return;
+      }
+      const c = cell(e.clientX, e.clientY);
+      if (c) p.onPlace(c, false);
+      else p.onCancel();
+    };
+    const keys = (e: KeyboardEvent) => {
+      const { placing: p, cursor: now } = latest.current;
+      if (!p || e.altKey || e.ctrlKey || e.metaKey) return;
+      const handled = () => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      };
+      if (e.key === 'Escape') {
+        handled();
+        p.onCancel();
+        return;
+      }
+      if (p.start.via !== 'pick' || document.querySelector('.overlay')) return;
+      const cur = now ?? p.first();
+      const by = ({ ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] } as Record<string, [number, number]>)[e.key];
+      if (by) {
+        handled();
+        setCursor({ row: Math.min(rows, Math.max(1, cur.row + by[0])), col: Math.min(cols, Math.max(1, cur.col + by[1])) });
+      } else if (e.key === 'Tab') {
+        handled();
+        const order = (t: Target) => t.row * 1000 + t.col;
+        const list = p.spots();
+        const next = e.shiftKey
+          ? list.findLast((t) => order(t) < order(cur)) ?? list[list.length - 1]
+          : list.find((t) => order(t) > order(cur)) ?? list[0];
+        if (next) setCursor(next);
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        handled();
+        p.onPlace(cur, true);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('keydown', keys, true);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('keydown', keys, true);
+    };
+  }, [active, rows, cols]);
+  return cursor;
 }
 
 /**
@@ -567,7 +730,7 @@ function useDrag(design: Props['design'], rows: number, cols: number) {
     },
     down: (e: PointerEvent<HTMLDivElement>) => {
       const canvas = ref.current;
-      if (!design || !canvas || e.button !== 0) return;
+      if (!design || !canvas || e.button !== 0 || design.placing) return;
       const target = e.target as HTMLElement;
       const handle = target.closest<HTMLElement>('[data-resize]');
       const kind: BoxKind = handle?.dataset.kind === 'card' || handle?.dataset.kind === 'component' || handle?.dataset.kind === 'image' ? handle.dataset.kind : 'html';
@@ -638,7 +801,7 @@ function useNudge(design: Props['design']) {
     const onKey = (e: KeyboardEvent) => {
       const d = latest.current;
       const by = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
-      if (!d?.selected || !by || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (!d?.selected || !by || d.placing || e.altKey || e.ctrlKey || e.metaKey) return;
       if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]') || document.querySelector('.overlay')) return;
       e.preventDefault();
       d.onMove(d.selected, { rows: by[0]!, cols: by[1]! });

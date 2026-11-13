@@ -554,6 +554,30 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .canvas.designing .custom-html * { pointer-events: none; }
 .canvas.designing [data-at] { touch-action: none; }
 .canvas.designing .dragging { opacity: 0.85; z-index: 5; outline: 2px dashed var(--accent-2) !important; cursor: grabbing; }
+/* Placing an item from the Palette tab: the cells it would go on, and what it would do there. */
+.canvas .drop-ghost { position: absolute; z-index: 7; pointer-events: none; border-radius: 4px; }
+.canvas .drop-ghost.ok { outline: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.canvas .drop-ghost.no { outline: 2px dashed var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.canvas .drop-hint {
+  position: absolute; z-index: 8; pointer-events: none; margin-top: 4px; max-width: 46ch; width: max-content;
+  padding: 3px 8px; border-radius: var(--radius); font: 12px/1.4 var(--font, system-ui, sans-serif);
+  background: var(--surface); color: var(--text); border: 1px solid var(--accent); box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+}
+.canvas .drop-hint.no { border-color: var(--danger); color: var(--danger); }
+body.placing, body.placing * { cursor: copy !important; user-select: none; }
+.dp-palette h4 { margin: 0 0 2px; font-size: 13px; }
+.dp-palette ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.dp-palette-item {
+  padding: 5px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  cursor: grab; touch-action: none; font: inherit; font-size: 13px;
+}
+.dp-palette-item:hover { border-color: var(--accent); }
+.dp-palette-item.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.dp-palette-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dp-placing {
+  display: flex; align-items: center; gap: 8px; justify-content: space-between;
+  padding: 6px 6px 6px 10px; border-radius: var(--radius); background: var(--accent-soft); color: var(--text);
+}
 /* The corner handle on the selected HTML box. */
 .canvas .resize-handle {
   width: 12px; height: 12px; margin: -7px 0 0 -7px; z-index: 6; cursor: nwse-resize; touch-action: none;
@@ -569,14 +593,14 @@ button.dp-undo { display: inline-flex; align-items: center; justify-content: cen
 .dp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 12px 14px 16px; border-bottom: 1px solid var(--border); }
 .dp-head h2 { margin: 0; font-size: 16px; }
 .dp-tabs {
-  display: flex; align-items: flex-end; gap: 2px; padding: 8px 10px 0;
+  display: flex; align-items: flex-end; gap: 1px; padding: 8px 8px 0;
   background: var(--bg); border-bottom: 1px solid var(--border);
 }
 /* Browser-style tabs: the active one is a raised card joined to the panel below. */
 .dp-tabs button {
-  position: relative; flex: 1; min-width: 0; margin-bottom: -1px; padding: 8px 10px;
+  position: relative; flex: 1 1 auto; min-width: 0; margin-bottom: -1px; padding: 8px 5px;
   border: 1px solid transparent; border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0;
-  background: none; cursor: pointer; font: inherit; font-weight: 600; color: var(--text-muted);
+  background: none; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .dp-tabs button:hover:not(.active) { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }

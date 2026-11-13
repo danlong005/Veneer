@@ -48,10 +48,16 @@ for turning it on):
 
 1. Open the screen in Veneer and click **Design**. If the screen has no customization
    yet, the panel starts a new one for it.
-2. Click what you want to change: an input field, some text, a list, or an empty spot.
-   The **Selected** tab shows its settings.
-3. Pick a widget from **Show as** (for a list: pick the **Column**, then **Show its cells
-   as**), or add a label or image. The screen shows the result as you change settings.
+2. Open the **Palette** tab and drag the widget onto the screen: a field widget onto an
+   input field, output text onto some text or a list column, a label or image onto an
+   empty spot. While you drag, the screen shows where it would go, or why it can't.
+   The **Selected** tab then opens on its settings.
+
+   Or click what you want to change (an input field, some text, a list, or an empty spot)
+   and pick a widget from **Show as** in the **Selected** tab (for a list: pick the
+   **Column**, then **Show its cells as**), or add a label or image there.
+3. Finish its settings, such as a dropdown's choices. The screen shows the result as you
+   change them.
 4. Click **Preview** to see the page as users will, and try the widget there.
 5. Click **Save**. Everyone's page picks up the change at once.
 

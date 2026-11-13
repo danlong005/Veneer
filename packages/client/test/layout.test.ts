@@ -4,7 +4,7 @@ import type { Change, ScreenDefinition, TabBand } from '@veneer/screens';
 import { customize } from '@veneer/view';
 import { transform, type Item, type TextItem } from '@veneer/view';
 import { cardAround, cardsOf, resolveSelection, moveTabEdge, removeTab, setCard, setTabs, splitTabs, tabsOf } from '../src/designer/edit.ts';
-import { layoutOf, tabAtCursor, viewRow } from '../src/ui/layout.ts';
+import { layoutOf, layoutRow, tabAtCursor, viewRow } from '../src/ui/layout.ts';
 import { orderEntry, promptWindow } from './screens.ts';
 
 const def = (changes: Change[]): ScreenDefinition => ({ id: 'x', name: 'X', match: { text: [] }, changes });
@@ -55,6 +55,20 @@ test('layout rows map back to screen rows for the tab showing', () => {
   assert.equal(viewRow(layout, 5, 2), 6);
   assert.equal(viewRow(layout, 6, 2), 7, 'below the tabs');
   assert.equal(viewRow(layoutOf(transform(orderEntry())), 5, 0), 5, 'no tabs');
+});
+
+test('screen rows map to the layout rows they are drawn on, the inverse of viewRow', () => {
+  const layout = layoutOf(customize(transform(orderEntry()), def([{ op: 'tabs', tabs: bands }])));
+  for (const active of [0, 1, 2]) {
+    for (let row = 1; row <= 7; row++) {
+      const drawn = layoutRow(layout, row, active);
+      if (drawn !== undefined) assert.equal(viewRow(layout, drawn, active), row, `row ${row}, tab ${active}`);
+    }
+  }
+  assert.equal(layoutRow(layout, 6, 0), undefined, 'on a tab not showing');
+  assert.equal(layoutRow(layout, 6, 2), 5);
+  assert.equal(layoutRow(layout, 7, 0), 6, 'below the tabs');
+  assert.equal(layoutRow(layoutOf(transform(orderEntry())), 5, 0), 5, 'no tabs');
 });
 
 test('cards go with the rows they start on; a pop-up window keeps the host rows', () => {
