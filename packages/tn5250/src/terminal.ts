@@ -282,6 +282,9 @@ export class Terminal {
       }
     }
     s.keyboardLocked = true;
+    // The cursor goes to the field in error (the IC in this command or the
+    // write before it), as ERRMSG does on a 5250.
+    if (this.insertCursor !== null) s.cursor = this.insertCursor;
     return i;
   }
 

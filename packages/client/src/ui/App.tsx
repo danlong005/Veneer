@@ -846,6 +846,9 @@ export function App() {
       awaitingNow.current = false;
       setAwaitingSeq(null);
       setEdits({});
+      // Focus goes where the host put the cursor, the field in error, which
+      // may be on another tab than the one the user was on.
+      focusTarget.current = caretAtCursor(snap);
       return;
     }
     if (snap.keyboardLocked) return;

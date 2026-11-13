@@ -122,6 +122,14 @@ test('write error code locks the keyboard until reset restores the line', () => 
   assert.equal(snap.keyboardLocked, false);
 });
 
+test('write error code puts the cursor at its insert cursor', () => {
+  const t = signOn();
+  t.host([0x04, 0x21, 0x13, 5, 26, 0x22, ...e('Type a ship date'), 0x20]);
+  const snap = snapshot(t.terminal.screen, cp);
+  assert.equal(snap.error, 'Type a ship date');
+  assert.deepEqual(snap.cursor, { row: 5, col: 26 });
+});
+
 test('answers the 5250 query', () => {
   const t = makeTerminal();
   t.host([0x04, 0xf3, 0x00, 0x05, 0xd9, 0x70, 0x00], 0x00);
