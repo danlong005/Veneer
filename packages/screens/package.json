@@ -1,6 +1,6 @@
 {
   "name": "@veneer/screens",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Screen identification and customization definitions for Veneer",
   "license": "MIT",
   "type": "module",
@@ -18,9 +18,9 @@
     "test": "node --conditions=veneer-source --test test/*.test.ts"
   },
   "dependencies": {
-    "@veneer/terminal": "^0.4.0"
+    "@veneer/terminal": "^0.5.0"
   },
   "devDependencies": {
-    "@veneer/tn5250": "^0.4.0"
+    "@veneer/tn5250": "^0.5.0"
   }
 }

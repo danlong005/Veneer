@@ -937,7 +937,7 @@ jobs:
         with: { node-version: 22 }
       - name: Download Veneer
         run: |
-          VERSION=0.4.0
+          VERSION=0.5.0
           curl -fsSL "https://github.com/danlong005/Veneer/releases/download/v$VERSION/veneer-$VERSION.tar.gz" | tar -xz
           mv "veneer-$VERSION" "$RUNNER_TEMP/veneer"
       - run: node "$RUNNER_TEMP/veneer/packages/server/dist/check.js" screens

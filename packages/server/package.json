@@ -1,6 +1,6 @@
 {
   "name": "@veneer/server",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Veneer session server: bridges browser WebSockets to TN5250 sessions",
   "license": "MIT",
   "type": "module",
@@ -22,11 +22,11 @@
     "demo:record": "node --conditions=veneer-source dev/recordDemo.ts"
   },
   "dependencies": {
-    "@veneer/screens": "^0.4.0",
-    "@veneer/terminal": "^0.4.0",
-    "@veneer/tn3270": "^0.4.0",
-    "@veneer/tn5250": "^0.4.0",
-    "@veneer/view": "^0.4.0",
+    "@veneer/screens": "^0.5.0",
+    "@veneer/terminal": "^0.5.0",
+    "@veneer/tn3270": "^0.5.0",
+    "@veneer/tn5250": "^0.5.0",
+    "@veneer/view": "^0.5.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
